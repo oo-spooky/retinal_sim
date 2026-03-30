@@ -5,7 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Session workflow
 
 Check `PROGRESS.md` for current implementation status before starting work.
+Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before touching any phase.
 Update `PROGRESS.md` after completing any phase.
+Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
+**Before confirming a session is ready to close: commit all changes.**
 
 ## Commands
 
@@ -46,9 +49,10 @@ RGB image
 - `retina/opsin.py` — **fully implemented**: Govardovskii et al. (2000) A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max values for human/dog/cat
 - `retina/transduction.py` — **implemented**: `naka_rushton()` function
 - `species/config.py` — **fully implemented**: `SpeciesConfig.load()` for human/dog/cat; YAML files at `data/species/`
+- `scene/geometry.py` — **fully implemented**: `SceneGeometry.compute()`, angular subtense, retinal scaling, accommodation/defocus, patch clipping
 - Everything else — stubs raising `NotImplementedError`, signatures match the architecture doc
 
-**Implementation order** (from architecture §12): nomogram ✓ → species YAML loader ✓ → scene geometry → mosaic generator → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
+**Implementation order** (from architecture §12): nomogram ✓ → species YAML loader ✓ → scene geometry ✓ → mosaic generator → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
 
 ## Key design decisions
 

@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-30 (Phase 2 complete)_
+_Last updated: 2026-03-30 (Phase 3 complete)_
 
 ---
 
@@ -18,7 +18,7 @@ _Last updated: 2026-03-30 (Phase 2 complete)_
 |-------|------------------------------------|--------------|------------------------------|-------|
 | 1     | Govardovskii nomogram              | **COMPLETE** | 51/51 pass (`test_retina.py`)| A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max for human/dog/cat |
 | 2     | Species config loader (YAML)       | **COMPLETE** | 58/58 pass (`test_species.py`)| `species/config.py::SpeciesConfig.load()`, three species YAMLs, density function closures |
-| 3     | Scene geometry module              | stub         | —                            | Angular subtense + retinal scaling tests pending |
+| 3     | Scene geometry module              | **COMPLETE** | 24/24 pass (`test_scene.py`) | Angular subtense, retinal scaling, accommodation, patch clipping |
 | 4     | Mosaic generator (jittered grid)   | stub         | —                            | `retina/mosaic.py` — raises `NotImplementedError` |
 | 5     | Simplified optical PSF (Gaussian)  | stub         | —                            | `optical/psf.py::gaussian_psf` — raises `NotImplementedError` |
 | 6     | Smits spectral upsampler           | stub         | —                            | `spectral/upsampler.py` — raises `NotImplementedError` |
@@ -69,14 +69,24 @@ Covered by tests:
 
 ---
 
-## Phase 3 — Scene Geometry
+## Phase 3 — Scene Geometry ✓ COMPLETE
 
-**Status:** Stub
-**Validation criteria (§11e):**
-- Angular subtense: 1m object at 57.3m → 1° (within 0.01%)
-- Retinal scaling across species: proportional to focal lengths (human 22.3mm > cat 18.5mm > dog 17.0mm)
-- Accommodation/defocus injection: correct residual per species
-- Distance-dependent receptor sampling: count scales as ~1/d²
+**Validated:** 2026-03-30
+**Test command:** `pytest tests/test_scene.py -v`
+**Result:** 24 passed in 0.07s
+
+Covered by tests:
+- `TestAngularSubtense` — exact arctan formula, collimated = 0°, small-angle limit, aspect ratio inference
+- `TestRetinalScaling` — human > cat > dog ordering, exact focal-length ratio, mm_per_pixel consistency
+- `TestAccommodation` — collimated = 0D, 1m = 1D, human within range, dog beyond range, non-negative
+- `TestPatchClipping` — small scene not clipped, large scene clipped, fraction ∈ [0,1]
+- `TestValidation` — §11e criteria: 1m@57.3m → 1° (< 0.01%), retinal ordering, area ∝ 1/d²
+- `TestInputValidation` — negative width raises, zero distance raises
+
+**Key implementation notes:**
+- Accommodation hard-cutoff in `_MAX_ACCOMMODATION` dict (human=10D, dog=2.5D, cat=3.0D)
+- Species name attached to OpticalParams as `op._species_name` (no YAML change needed)
+- Collimated (inf distance): angular and retinal extents are exactly 0
 
 ---
 
