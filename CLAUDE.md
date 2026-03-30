@@ -45,9 +45,10 @@ RGB image
 **What's implemented vs stubbed:**
 - `retina/opsin.py` — **fully implemented**: Govardovskii et al. (2000) A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max values for human/dog/cat
 - `retina/transduction.py` — **implemented**: `naka_rushton()` function
+- `species/config.py` — **fully implemented**: `SpeciesConfig.load()` for human/dog/cat; YAML files at `data/species/`
 - Everything else — stubs raising `NotImplementedError`, signatures match the architecture doc
 
-**Implementation order** (from architecture §12): nomogram (done) → species YAML loader → scene geometry → mosaic generator → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
+**Implementation order** (from architecture §12): nomogram ✓ → species YAML loader ✓ → scene geometry → mosaic generator → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
 
 ## Key design decisions
 
