@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retinal-sim"
+version = "0.1.0"
+description = "Physically-parameterized, species-configurable retinal simulation pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "opencv-python",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+fast = ["numba"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
