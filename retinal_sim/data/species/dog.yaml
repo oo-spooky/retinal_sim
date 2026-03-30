@@ -1,0 +1,34 @@
+name: dog
+
+optical:
+  pupil_shape: circular
+  pupil_diameter_mm: 4.0          # photopic default
+  axial_length_mm: 21.0
+  focal_length_mm: 17.0
+  corneal_radius_mm: 8.5
+  lca_diopters: 1.5
+  zernike_coeffs: {}
+
+retinal:
+  cone_types: [S_cone, L_cone]    # dichromat — no M-cone
+  cone_peak_wavelengths:
+    S_cone: 429.0
+    L_cone: 555.0
+  rod_peak_wavelength: 506.0
+
+  # Density model (Mowat 2008)
+  peak_cone_density_mm2: 12000
+  peak_rod_density_mm2: 400000
+  cone_density_scale_mm: 1.5
+  rod_density_scale_mm: 4.0
+  rod_free_zone_radius_mm: 0.0    # no rod-free zone
+
+  # Cone type ratios (~3:97 S:L)
+  cone_ratio:
+    S_cone: 0.03
+    L_cone: 0.97
+
+  naka_rushton_params:
+    S_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
+    L_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
+    rod:    {n: 1.0, sigma: 0.1, R_max: 1.0}

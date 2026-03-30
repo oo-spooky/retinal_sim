@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-30_
+_Last updated: 2026-03-30 (Phase 2 complete)_
 
 ---
 
@@ -17,7 +17,7 @@ _Last updated: 2026-03-30_
 | Phase | Component                          | Status       | Tests                        | Notes |
 |-------|------------------------------------|--------------|------------------------------|-------|
 | 1     | Govardovskii nomogram              | **COMPLETE** | 51/51 pass (`test_retina.py`)| A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max for human/dog/cat |
-| 2     | Species config loader (YAML)       | stub         | —                            | `species/config.py::SpeciesConfig` — raises `NotImplementedError` |
+| 2     | Species config loader (YAML)       | **COMPLETE** | 58/58 pass (`test_species.py`)| `species/config.py::SpeciesConfig.load()`, three species YAMLs, density function closures |
 | 3     | Scene geometry module              | stub         | —                            | Angular subtense + retinal scaling tests pending |
 | 4     | Mosaic generator (jittered grid)   | stub         | —                            | `retina/mosaic.py` — raises `NotImplementedError` |
 | 5     | Simplified optical PSF (Gaussian)  | stub         | —                            | `optical/psf.py::gaussian_psf` — raises `NotImplementedError` |
@@ -49,11 +49,23 @@ Visual validation: `python examples/plot_nomogram.py`
 
 ---
 
-## Phase 2 — Species Config Loader
+## Phase 2 — Species Config Loader ✓ COMPLETE
 
-**Status:** Stub — `species/config.py::SpeciesConfig` raises `NotImplementedError`
-**Validation:** None yet
-**Next step:** Implement YAML loader for `data/species/{human,dog,cat}.yaml`
+**Validated:** 2026-03-30
+**Test command:** `pytest tests/test_species.py -v`
+**Result:** 58 passed in 0.20s
+
+Covered by tests:
+- `TestLoading` — all three species load; unknown species raises ValueError
+- `TestOpticalParams` — focal length, axial length, pupil shape match architecture doc; positive values
+- `TestRetinalStructure` — cone types match LAMBDA_MAX; peak wavelengths match; ratios sum to 1.0; naka-rushton keys present for all receptor types
+- `TestDensityFunctions` — callables return dicts/floats; cone density decreases with eccentricity; human rod-free zone at fovea; dog/cat have rods at center
+
+**Files added:**
+- `retinal_sim/data/species/human.yaml`
+- `retinal_sim/data/species/dog.yaml`
+- `retinal_sim/data/species/cat.yaml`
+- `retinal_sim/species/config.py` (implemented)
 
 ---
 

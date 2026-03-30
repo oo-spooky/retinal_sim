@@ -1,0 +1,38 @@
+name: human
+
+optical:
+  pupil_shape: circular
+  pupil_diameter_mm: 3.0          # photopic default
+  axial_length_mm: 24.0
+  focal_length_mm: 22.3
+  corneal_radius_mm: 7.8
+  lca_diopters: 2.0
+  zernike_coeffs: {}
+
+retinal:
+  cone_types: [S_cone, M_cone, L_cone]
+  cone_peak_wavelengths:
+    S_cone: 420.0
+    M_cone: 530.0
+    L_cone: 560.0
+  rod_peak_wavelength: 498.0
+
+  # Density model: Gaussian falloff from area centralis (Curcio 1990)
+  peak_cone_density_mm2: 200000
+  peak_rod_density_mm2: 176000
+  cone_density_scale_mm: 0.75     # Gaussian sigma for cone density falloff
+  rod_density_scale_mm: 3.0       # rods peak parafoveally; simplified Gaussian
+  rod_free_zone_radius_mm: 0.175  # 0.35mm diameter rod-free foveal pit
+
+  # Cone type ratios at area centralis (S:M:L ~ 1:16:32)
+  cone_ratio:
+    S_cone: 0.020
+    M_cone: 0.326
+    L_cone: 0.654
+
+  # Naka-Rushton {n, sigma, R_max} per receptor type
+  naka_rushton_params:
+    S_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
+    M_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
+    L_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
+    rod:    {n: 1.0, sigma: 0.1, R_max: 1.0}
