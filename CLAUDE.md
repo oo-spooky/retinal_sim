@@ -6,9 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Check `PROGRESS.md` for current implementation status before starting work.
 Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before touching any phase.
+Check `CODEREVIEW.md` for open review findings and address any open items before starting new phase work.
 Update `PROGRESS.md` after completing any phase.
 Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
 **Before confirming a session is ready to close: commit all changes.**
+
+## Code review sessions (Opus)
+
+When running as Opus in a review session: audit the codebase against `retinal_sim_architecture.md`, run all tests, and write findings to `CODEREVIEW.md` using this format per item:
+
+- **File:** path/to/file.py
+- **Function:** function_name
+- **Issue:** what's wrong
+- **Fix:** what the fix should be
+
+Move resolved items to the Resolved section rather than deleting them.
 
 ## Commands
 
@@ -50,9 +62,10 @@ RGB image
 - `retina/transduction.py` — **implemented**: `naka_rushton()` function
 - `species/config.py` — **fully implemented**: `SpeciesConfig.load()` for human/dog/cat; YAML files at `data/species/`
 - `scene/geometry.py` — **fully implemented**: `SceneGeometry.compute()`, angular subtense, retinal scaling, accommodation/defocus, patch clipping
+- `retina/mosaic.py` — **fully implemented**: `MosaicGenerator`, Bernoulli jittered-grid, all three species, rod-free zone, Nyquist validated
 - Everything else — stubs raising `NotImplementedError`, signatures match the architecture doc
 
-**Implementation order** (from architecture §12): nomogram ✓ → species YAML loader ✓ → scene geometry ✓ → mosaic generator → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
+**Implementation order** (from architecture §12): nomogram ✓ → species YAML loader ✓ → scene geometry ✓ → mosaic generator ✓ → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
 
 ## Key design decisions
 

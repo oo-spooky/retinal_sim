@@ -28,6 +28,12 @@ Defocus residual = max(0, accommodation_demand - species_max_accommodation).
 No accommodation lag/lead curve — deferred. Max accommodation stored in
 `SceneGeometry._MAX_ACCOMMODATION` dict, not in `SpeciesConfig`/YAML (it's a per-age param).
 
+### Mosaic cell size must use max total density across the patch, not just center
+`MosaicGenerator._peak_total_density()` scans a radial profile from ecc≈0 to patch edge.
+The problem: for human, parafoveal cone+rod total (~365K/mm²) exceeds foveal cone density alone
+(200K/mm²), so if cells are sized for the fovea the Bernoulli prob > 1.0 in the parafovea and
+receptors are silently under-placed. Fix: size cells for the max total density found anywhere.
+
 ### PoC patch size is 2° — clipping logic matters
 `scene_covers_patch_fraction` is the *fraction of the 2° patch* the scene subtends.
 `clipped = True` when scene angular subtense > 2°. Both fields are informational;
@@ -45,3 +51,6 @@ no actual pixel cropping happens inside `SceneGeometry.compute()`.
 
 ### Phase 3 (scene geometry) — run after implementation
 `pytest tests/test_scene.py -v`
+
+### Phase 4 (mosaic generator) — 32 tests, ~9 s
+`pytest tests/test_mosaic.py -v`

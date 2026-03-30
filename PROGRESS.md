@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-30 (Phase 3 complete)_
+_Last updated: 2026-03-30 (Phase 4 complete)_
 
 ---
 
@@ -19,7 +19,7 @@ _Last updated: 2026-03-30 (Phase 3 complete)_
 | 1     | Govardovskii nomogram              | **COMPLETE** | 51/51 pass (`test_retina.py`)| A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max for human/dog/cat |
 | 2     | Species config loader (YAML)       | **COMPLETE** | 58/58 pass (`test_species.py`)| `species/config.py::SpeciesConfig.load()`, three species YAMLs, density function closures |
 | 3     | Scene geometry module              | **COMPLETE** | 24/24 pass (`test_scene.py`) | Angular subtense, retinal scaling, accommodation, patch clipping |
-| 4     | Mosaic generator (jittered grid)   | stub         | —                            | `retina/mosaic.py` — raises `NotImplementedError` |
+| 4     | Mosaic generator (jittered grid)   | **COMPLETE** | 32/32 pass (`test_mosaic.py`)| Bernoulli jittered grid; all three species; rod-free zone; Nyquist validated |
 | 5     | Simplified optical PSF (Gaussian)  | stub         | —                            | `optical/psf.py::gaussian_psf` — raises `NotImplementedError` |
 | 6     | Smits spectral upsampler           | stub         | —                            | `spectral/upsampler.py` — raises `NotImplementedError` |
 | 7     | Spectral integration + Naka-Rushton| partial      | —                            | `naka_rushton()` implemented; spectral integration stub |
@@ -90,13 +90,25 @@ Covered by tests:
 
 ---
 
-## Phase 4 — Mosaic Generator
+## Phase 4 — Mosaic Generator ✓ COMPLETE
 
-**Status:** Stub — `retina/mosaic.py` raises `NotImplementedError`
-**Validation criteria (§11c):**
-- Receptor count within 25% of published histological counts per 1mm²
-- Cone/rod ratio within 15%
-- Nyquist frequency: human ~60 cpd, dog ~12 cpd, cat ~8–10 cpd
+**Validated:** 2026-03-30
+**Test command:** `pytest tests/test_mosaic.py -v`
+**Result:** 32 passed in 8.99s
+
+Covered by tests:
+- `TestMosaicBasic` — returns PhotoreceptorMosaic; shape consistency; all 3 species; positions within patch; apertures positive
+- `TestReproducibility` — same seed → identical mosaic; different seeds → different mosaic
+- `TestDensity` — receptor count within 25% of density-model integral (§11c); cone fraction within 15%; human > dog cone count
+- `TestNyquist` — human 30–200 cpd, dog 3–50 cpd; human > dog (§11c)
+- `TestSensitivity` — all sensitivities peak-normalised; S/M/L distinct peaks; no negatives
+- `TestTypes` — human trichromat; dog/cat dichromat; human rod-free zone; dog rods at center; only known types
+
+**Key implementation notes:**
+- Cell size from MAX total density radially scanned across patch (not just center) — prevents Bernoulli prob capping where rods and cones overlap
+- `_build_sensitivity_curves()` uses `govardovskii_a1` directly on `RetinalParams.cone_peak_wavelengths` — no species-name lookup needed
+- `cone_ratio_fn` is called once at ecc=0 then sampled vectorially for all cones (PoC simplification; ratio is eccentricity-independent)
+- np.vectorize on density callables for vectorised grid computation (acceptable < 15s total for all 3 species)
 
 ---
 
