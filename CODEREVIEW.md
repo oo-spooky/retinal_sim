@@ -2,10 +2,59 @@
 
 Code review findings for `retinal_sim`. Open items should be addressed before starting new phase work. Resolved items are moved here rather than deleted for traceability.
 
-**Review date:** 2026-03-30
-**Reviewer:** Opus (code review session)
-**Scope:** Phases 1–4 audited against `retinal_sim_architecture.md`
-**Test results:** 165 passed, 3 skipped (stubs) in 9.12s
+---
+
+## Context for next Opus review session
+
+**Prepared by:** Sonnet (2026-03-31, end of Phase 7 session)
+
+The last Opus review covered Phases 1–4. Since then, Phases 5, 6, and 7 have been implemented and all tests pass. This section gives Opus the orientation needed to review those three phases efficiently.
+
+### What to review this session
+
+- **Phase 5** — `retinal_sim/optical/psf.py`, `retinal_sim/optical/stage.py`
+- **Phase 6** — `retinal_sim/spectral/upsampler.py`
+- **Phase 7** — `retinal_sim/retina/stage.py` (the newly written `RetinalStage`; `retina/transduction.py` was already implemented but worth a quick pass)
+
+Run `pytest` — expected: **259 passed, 1 skipped** in ~35 s.
+
+### Key architectural decisions made since last review
+
+**Phase 5 (Gaussian PSF / OpticalStage):**
+- PSF kernels are stored as float64 (not float32) to satisfy the §11b energy conservation criterion `|sum - 1.0| < 1e-6`. float32 accumulates ~5e-5 rounding error over a 31×31 kernel.
+- `PSFGenerator` takes `pixel_scale_mm_per_px` in its constructor (baked in). `OpticalStage.apply()` constructs a fresh `PSFGenerator` per call with the actual scene pixel scale; `OpticalStage.compute_psf()` uses a 1 µm/px default for standalone PSF inspection.
+- Gaussian sigma = quadrature sum of diffraction component and defocus component (thin-lens approximation). `diffraction_psf` remains a `NotImplementedError` stub (post-PoC).
+- `convolve(..., mode="reflect")` chosen over "constant" to avoid edge darkening.
+- Media transmission applied per-band before convolution (not after), so the blurred result correctly represents attenuated irradiance.
+
+**Phase 6 (Smits spectral upsampler):**
+- Abandoned Smits (1999) hardcoded table — the MAGENTA and YELLOW values recalled from memory were wrong (RMSE > 0.18). Instead: each basis spectrum is computed at init via `scipy.optimize.lsq_linear` as the min-norm [0,1]-bounded reflectance satisfying the D65 XYZ colorimetric constraint.
+- Roundtrip integration must use the D65 illuminant (not equal-energy). Per-channel white normalisation fails for saturated colours.
+- The BLUE basis has non-zero values above 530 nm (~0.02–0.04); MAGENTA exploits the CIE x̄ secondary lobe at ~450 nm. Tests reflect this with a relaxed threshold (0.05, not 0.01).
+
+**Phase 7 (RetinalStage / spectral integration):**
+- `RetinalStage` wraps `MosaicGenerator` (Phase 4) and adds `compute_response()`.
+- Bilinear interpolation maps receptor mm positions to the (H, W, N_λ) irradiance grid. Aperture Gaussian weighting (§3c) is deferred — at PoC pixel scales (~5 µm/px) and PSF widths (>20 µm), a 2–10 µm receptor aperture contributes negligible additional blur.
+- Spectral integration: `np.einsum("nl,nl->n", sensitivities, sampled) * dlam`. Sensitivities come directly from `PhotoreceptorMosaic.sensitivities` (pre-built in Phase 4 via Govardovskii nomogram, no media filtering needed here because `OpticalStage.apply()` already bakes media transmission into the irradiance).
+- `_align_sensitivities()` handles wavelength grid mismatches (e.g., coarser irradiance grid) by linear interpolation per receptor. The common path (both grids are the canonical 380–720 nm 5 nm grid) is a no-op.
+- Naka-Rushton applied per unique receptor type. Parameters from `RetinalParams.naka_rushton_params` (YAML), falling back to `NAKA_RUSHTON_DEFAULTS`. Rod σ=0.1 (vs cone σ=0.5) means rods saturate at lower irradiance — verified in tests.
+- Pixel scale priority: scene.mm_per_pixel → irradiance.metadata["pixel_scale_mm"] → patch-extent fallback.
+
+### Specific things worth scrutinising
+
+1. **`RetinalStage._align_sensitivities`** — per-receptor `np.interp` loop is O(N_receptors). For a human 2° patch with ~40K receptors, this is fine, but flag if it becomes a bottleneck at larger patches.
+2. **Wavelength grid fragmentation** — `MosaicGenerator`, `SpectralUpsampler`, and `RetinalStage` all independently hardcode 380–720 nm at 5 nm. CR-5 from the last review noted this risk. A canonical constant shared across all three would be cleaner.
+3. **`OpticalStage.apply()` rebuilds PSFGenerator on every call** — this is intentional (the pixel scale comes from the scene), but if the same stage is called in a loop with identical scenes it wastes recomputation. Not a bug, worth noting.
+4. **No media transmission in `RetinalStage`** — the irradiance already has transmission applied by `OpticalStage`. If someone calls `RetinalStage.compute_response()` with a raw `SpectralImage` (skipping `OpticalStage`), there is no guard. This is acceptable for PoC but worth a docstring warning.
+5. **`MosaicActivation.mosaic` typed as `object`** — it should be `PhotoreceptorMosaic`. The dataclass in `retina/stage.py` is not importing `PhotoreceptorMosaic` for the type annotation (to avoid circular imports, or just oversight). Check and tighten if clean.
+
+---
+
+## Previous review (2026-03-30)
+
+**Reviewer:** Opus
+**Scope:** Phases 1–4
+**Test results:** 165 passed, 3 skipped in 9.12s
 
 ---
 
