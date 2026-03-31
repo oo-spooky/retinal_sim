@@ -41,6 +41,27 @@ no actual pixel cropping happens inside `SceneGeometry.compute()`.
 
 ---
 
+## Phase 5 gotchas
+
+### PSF kernels are float64, not float32
+The §11b energy criterion is |sum - 1.0| < 1e-6. Storing kernels as float32 (7 decimal digits
+of precision) and summing 961 elements (31×31) accumulates ~5e-5 rounding error — exceeds the
+threshold. `gaussian_psf` returns float64. The `RetinalIrradiance.data` is still float32 (image
+data); only the kernel itself is float64.
+
+### PSFGenerator pixel scale is a constructor arg, not a method arg
+`PSFGenerator(optical_params, pixel_scale_mm_per_px=0.001)` — the scale bakes into the object.
+`OpticalStage.apply()` constructs a *new* PSFGenerator with the actual scene pixel scale each
+time it is called. `OpticalStage.compute_psf()` uses the default scale (1 µm/px); this is
+intentional for standalone PSF inspection without a full scene.
+
+### Defocus formula (thin-lens, PoC)
+Circle-of-confusion radius: r_coc = focal_length_mm × defocus_D × pupil_diameter_mm / 2000
+Gaussian sigma for defocus: sigma_defocus = r_coc / sqrt(2)
+For human (f=22.3mm, D_p=3mm, δ=1D): r_coc ≈ 33 µm, sigma ≈ 24 µm.
+
+---
+
 ## Test patterns
 
 ### Phase 1 (nomogram) — 51 tests, ~0.08 s
@@ -54,3 +75,6 @@ no actual pixel cropping happens inside `SceneGeometry.compute()`.
 
 ### Phase 4 (mosaic generator) — 32 tests, ~9 s
 `pytest tests/test_mosaic.py -v`
+
+### Phase 5 (Gaussian PSF) — 28 tests, ~0.4 s
+`pytest tests/test_optical.py -v`
