@@ -83,6 +83,29 @@ The `test_pure_blue_zero_at_long_wavelengths` threshold is 0.05, not 0.01.
 ### Phase 6 test patterns — 32 tests, ~0.7 s
 `pytest tests/test_spectral.py -v`
 
+---
+
+## Phase 7 gotchas
+
+### pixel_scale_mm key, not mm_per_pixel, in RetinalIrradiance.metadata
+`OpticalStage.apply()` stores the pixel scale as `metadata["pixel_scale_mm"]` (a scalar float).
+`SceneDescription.mm_per_pixel` is a `Tuple[float, float]` (x, y).  `RetinalStage.compute_response`
+handles both: `np.asarray(scene.mm_per_pixel).flat[0]` for the scene tuple, direct float cast for
+the irradiance metadata scalar.
+
+### Aperture Gaussian weighting is deferred (PoC)
+The architecture §3c says to weight sampled irradiance by a per-receptor Gaussian of σ = aperture/2.
+At PoC pixel scales (5–10 µm/px) and PSF widths (>20 µm), the aperture (2–10 µm) contributes < 10%
+of total blur, so bilinear interpolation is an adequate approximation.
+
+### _align_sensitivities handles wavelength grid mismatches
+If `retinal_irradiance.wavelengths` doesn't match the stage's canonical 380–720 nm 5 nm grid,
+`_align_sensitivities()` uses `np.interp` row-by-row.  The common path (grids match) returns the
+array as-is.
+
+### Phase 7 test patterns — 34 tests, ~20 s
+`pytest tests/test_retinal_stage.py -v`
+
 ## Test patterns
 
 ### Phase 1 (nomogram) — 51 tests, ~0.08 s

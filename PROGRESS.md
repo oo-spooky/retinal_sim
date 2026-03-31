@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-30 (Phase 6 complete)_
+_Last updated: 2026-03-31 (Phase 7 complete)_
 
 ---
 
@@ -22,7 +22,7 @@ _Last updated: 2026-03-30 (Phase 6 complete)_
 | 4     | Mosaic generator (jittered grid)   | **COMPLETE** | 32/32 pass (`test_mosaic.py`)| Bernoulli jittered grid; all three species; rod-free zone; Nyquist validated |
 | 5     | Simplified optical PSF (Gaussian)  | **COMPLETE** | 28/28 pass (`test_optical.py`)| `PSFGenerator.gaussian_psf`, `OpticalStage.apply`; §11b energy conserved |
 | 6     | Smits spectral upsampler           | **COMPLETE** | 32/32 pass (`test_spectral.py`) | D65-optimised basis via `lsq_linear`; roundtrip RMSE < 0.0002 |
-| 7     | Spectral integration + Naka-Rushton| partial      | —                            | `naka_rushton()` implemented; spectral integration stub |
+| 7     | Spectral integration + Naka-Rushton| **COMPLETE** | 34/34 pass (`test_retinal_stage.py`) | `RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type |
 | 8     | Voronoi visualization              | stub         | —                            | `output/` — raises `NotImplementedError` |
 | 9     | Snellen acuity validation          | not started  | —                            | Requires phases 2–7 |
 | 10    | Dichromat confusion validation     | not started  | —                            | Requires phases 2–7 |
@@ -156,11 +156,33 @@ Covered by tests:
 
 ---
 
-## Phase 7 — Spectral Integration + Naka-Rushton
+## Phase 7 — Spectral Integration + Naka-Rushton ✓ COMPLETE
 
-**Status:** Partial — `retina/transduction.py::naka_rushton()` implemented; spectral integration is a stub
-**Validation criteria (§11c):**
-- Nyquist sampling test (combined with phase 4)
+**Validated:** 2026-03-31
+**Test command:** `pytest tests/test_retinal_stage.py -v`
+**Result:** 34 passed in 19.89s
+
+Covered by tests:
+- `TestRetinalStageInit` — all three species init without error
+- `TestGenerateMosaic` — returns PhotoreceptorMosaic; reproducible; different seeds differ
+- `TestComputeResponseOutput` — MosaicActivation type; shape (N,); mosaic reference; metadata keys
+- `TestResponseBounds` — responses in [0,1]; float32; no NaN/inf
+- `TestZeroInput` — zero irradiance → zero response; zero metadata values
+- `TestMonotonicity` — brighter input → higher mean response; moderate input doesn't saturate
+- `TestSpectralSelectivity` — red stimulus → L_cone > S_cone; blue → S_cone > L_cone; dog dichromat
+- `TestRodVsCone` — rods (sigma=0.1) saturate faster than cones (sigma=0.5)
+- `TestPixelScaleFallbacks` — scene.mm_per_pixel; irradiance metadata; patch-extent fallback
+- `TestWavelengthMismatch` — 10 nm coarse grid interpolated correctly
+- `TestAllSpecies` — human/dog/cat pipeline + zero-input for all three
+
+**Key implementation notes (retina/stage.py):**
+- `_WAVELENGTHS = np.arange(380, 721, 5)` — canonical grid, shared with SpectralUpsampler
+- Bilinear interpolation of (H, W, N_λ) irradiance to receptor mm positions (fully vectorised)
+- Pixel-to-mm mapping: centre pixel (W/2, H/2) ↔ patch_center_mm; uses `pixel_scale_mm` from irradiance metadata or scene
+- Spectral integration via `np.einsum("nl,nl->n", sens, sampled) * dlam`
+- `_align_sensitivities()` interpolates mosaic sensitivity curves onto irradiance wavelength grid when grids differ
+- Aperture Gaussian weighting deferred (PoC: PSF dominates aperture blur at current pixel scales)
+- Naka-Rushton applied per receptor type using species YAML params (falls back to `NAKA_RUSHTON_DEFAULTS`)
 
 ---
 
