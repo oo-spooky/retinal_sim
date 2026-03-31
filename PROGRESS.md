@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-30 (Phase 4 complete)_
+_Last updated: 2026-03-30 (Phase 5 complete)_
 
 ---
 
@@ -20,7 +20,7 @@ _Last updated: 2026-03-30 (Phase 4 complete)_
 | 2     | Species config loader (YAML)       | **COMPLETE** | 58/58 pass (`test_species.py`)| `species/config.py::SpeciesConfig.load()`, three species YAMLs, density function closures |
 | 3     | Scene geometry module              | **COMPLETE** | 24/24 pass (`test_scene.py`) | Angular subtense, retinal scaling, accommodation, patch clipping |
 | 4     | Mosaic generator (jittered grid)   | **COMPLETE** | 32/32 pass (`test_mosaic.py`)| Bernoulli jittered grid; all three species; rod-free zone; Nyquist validated |
-| 5     | Simplified optical PSF (Gaussian)  | stub         | —                            | `optical/psf.py::gaussian_psf` — raises `NotImplementedError` |
+| 5     | Simplified optical PSF (Gaussian)  | **COMPLETE** | 28/28 pass (`test_optical.py`)| `PSFGenerator.gaussian_psf`, `OpticalStage.apply`; §11b energy conserved |
 | 6     | Smits spectral upsampler           | stub         | —                            | `spectral/upsampler.py` — raises `NotImplementedError` |
 | 7     | Spectral integration + Naka-Rushton| partial      | —                            | `naka_rushton()` implemented; spectral integration stub |
 | 8     | Voronoi visualization              | stub         | —                            | `output/` — raises `NotImplementedError` |
@@ -112,11 +112,26 @@ Covered by tests:
 
 ---
 
-## Phase 5 — Gaussian PSF
+## Phase 5 — Gaussian PSF ✓ COMPLETE
 
-**Status:** Stub — `optical/psf.py::gaussian_psf` raises `NotImplementedError`
-**Validation criteria (§11b):**
-- PSF energy conservation: |sum(PSF) - 1.0| < 1e-6 per wavelength band
+**Validated:** 2026-03-30
+**Test command:** `pytest tests/test_optical.py -v`
+**Result:** 28 passed in 0.44s
+
+Covered by tests:
+- `TestPSFGeneratorShape` — (N_λ, K, K) shape, non-negative values, single/custom kernel sizes
+- `TestPSFEnergyConservation` — §11b: |sum - 1.0| < 1e-6 per band for human, dog, defocus, single λ, fine pixel scale
+- `TestPSFPhysics` — peak at centre, wavelength dependence (longer λ → wider), defocus widens PSF, symmetry
+- `TestPSFPixelScale` — coarser pixel scale → fewer pixels per sigma
+- `TestOpticalStageInit` — instantiation, compute_psf shape and energy
+- `TestOpticalStageApply` — RetinalIrradiance output, shape/wavelength preservation, scene integration, defocus effect, media transmission
+
+**Key implementation notes:**
+- sigma = quadrature sum of diffraction component (1.22 * λ * f#) and defocus component (f * δD * D_p / 2000)
+- Kernels stored as float64 for exact normalisation (meets 1e-6 criterion)
+- `PSFGenerator` takes `pixel_scale_mm_per_px`; `OpticalStage.apply` infers this from `scene.mm_per_pixel` when available
+- `convolve(..., mode="reflect")` avoids edge darkening
+- `diffraction_psf` remains a stub (post-PoC)
 
 ---
 
