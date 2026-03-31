@@ -313,7 +313,7 @@ Generates a 2D irregular sampling array of photoreceptors with species-appropria
 *AC = area centralis. Data from Curcio 1990, Mowat 2008, Steinberg 1973.*
 
 **Processing:**
-1. Define the retinal patch to simulate (center, angular extent in degrees, mapped to mm via `mm = tan(deg) × axial_length`).
+1. Define the retinal patch to simulate (center, angular extent in degrees, mapped to mm via `mm = tan(deg) × focal_length_mm`). Note: focal length governs retinal image magnification (not axial length); the code and scene geometry stage use `focal_length_mm` consistently.
 2. Compute local density for each receptor type at a grid of sample points using the density functions from literature (analytical fits or interpolated lookup tables).
 3. Generate receptor positions via Poisson disk sampling with spatially varying radius derived from local density. Assign types based on local type ratios.
 4. Store as a `PhotoreceptorMosaic` object.
@@ -659,7 +659,7 @@ Validation is not optional — it's how we know the simulation is producing phys
 
 **Test: Cone density → sampling limit (Nyquist)**
 - For each species, compute the Nyquist sampling frequency from the local cone spacing at the area centralis.
-- Nyquist frequency = 1 / (2 × mean_cone_spacing_mm) in cycles/mm, convert to cycles/degree via: `cpd = (cycles/mm) × (mm_per_degree)` where `mm_per_degree = axial_length × tan(1°)`.
+- Nyquist frequency = 1 / (2 × mean_cone_spacing_mm) in cycles/mm, convert to cycles/degree via: `cpd = (cycles/mm) × (mm_per_degree)` where `mm_per_degree = focal_length_mm × tan(1°)`. (Focal length, not axial length, determines retinal image magnification; mosaic.py and geometry.py both use `focal_length_mm`.)
 - Compare against known values:
   - Human fovea: ~60 cpd
   - Dog area centralis: ~12 cpd

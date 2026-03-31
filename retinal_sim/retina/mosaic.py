@@ -47,6 +47,11 @@ def _cone_aperture_um(ecc_mm: np.ndarray) -> np.ndarray:
     """Inner segment diameter (μm) as a simple linear function of eccentricity.
 
     Foveal cones: ~2 μm.  Peripheral cones grow to ~10 μm at ~2 mm ecc.
+    NOTE: This is a human-centric approximation.  Dog/cat inner segment
+    diameters differ; for later phases, move aperture parameters into species
+    YAML and parameterise per species.  Rod aperture (_ROD_APERTURE_UM) is
+    also a constant — in reality rods grow from ~1 μm foveal to ~3 μm
+    peripheral, but rod aperture is not used in PoC spectral integration.
     """
     return np.clip(2.0 + 4.0 * np.asarray(ecc_mm, dtype=float), 2.0, 10.0)
 
@@ -97,6 +102,9 @@ class MosaicGenerator:
         self._op = optical_params
 
         if wavelengths is None:
+            # TODO (Phase 7): define this range in one canonical location and
+            # import it here and in SpectralUpsampler.  Diverging defaults will
+            # cause silent shape mismatches during spectral integration.
             wavelengths = np.arange(380, 721, 5, dtype=np.float32)
         self._wavelengths = np.asarray(wavelengths, dtype=np.float32)
 
@@ -129,6 +137,8 @@ class MosaicGenerator:
         # 1. Regular grid — cell size from peak density at area centralis
         # ------------------------------------------------------------------
         peak_density = self._peak_total_density()
+        # 1.1 safety margin: ensures cell_area × peak_density < 1.0 everywhere,
+        # so Bernoulli acceptance probability is never capped at or above 1.0.
         cell_size = 1.0 / np.sqrt(max(peak_density, 1.0) * 1.1)
 
         x0 = self._cx - self._patch_half_mm

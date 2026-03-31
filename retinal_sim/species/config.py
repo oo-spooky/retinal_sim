@@ -15,8 +15,8 @@ _VALID_SPECIES = {"human", "dog", "cat"}
 class SpeciesConfig:
     """Consolidated optical + retinal parameters for one species."""
     name: str
-    optical: object   # OpticalParams
-    retinal: object   # RetinalParams
+    optical: "OpticalParams"
+    retinal: "RetinalParams"
 
     @classmethod
     def load(cls, species_name: str) -> "SpeciesConfig":
@@ -40,7 +40,7 @@ class SpeciesConfig:
             raw = yaml.safe_load(fh)
         return cls(
             name=species_name,
-            optical=_build_optical(raw["optical"]),
+            optical=_build_optical(raw["optical"], species_name),
             retinal=_build_retinal(raw["retinal"]),
         )
 
@@ -49,9 +49,9 @@ class SpeciesConfig:
 # Internal builders
 # ---------------------------------------------------------------------------
 
-def _build_optical(d: dict) -> object:
+def _build_optical(d: dict, species_name: str) -> object:
     from retinal_sim.optical.stage import OpticalParams
-    return OpticalParams(
+    params = OpticalParams(
         pupil_shape=str(d["pupil_shape"]),
         pupil_diameter_mm=float(d["pupil_diameter_mm"]),
         axial_length_mm=float(d["axial_length_mm"]),
@@ -60,6 +60,8 @@ def _build_optical(d: dict) -> object:
         lca_diopters=float(d["lca_diopters"]),
         zernike_coeffs=dict(d.get("zernike_coeffs") or {}),
     )
+    params._species_name = species_name  # used by SceneGeometry for per-species accommodation limits
+    return params
 
 
 def _build_retinal(d: dict) -> object:
@@ -91,7 +93,14 @@ def _build_retinal(d: dict) -> object:
 
 
 def _make_cone_density_fn(peak_density: float, sigma_mm: float, cone_ratio: dict):
-    """Gaussian falloff from area centralis; returns per-type densities."""
+    """Gaussian falloff from area centralis; returns per-type densities.
+
+    NOTE: The `angle` parameter is accepted for API compatibility but ignored.
+    Visual streak modeling (anisotropic density along horizontal meridian)
+    is a PoC simplification deferred to a later phase.  Cat has a strong
+    horizontal visual streak; dog has a weak one.
+    TODO (Phase 5+): add angle-dependent Gaussian elongation from species YAML.
+    """
     def cone_density_fn(ecc_mm: float, angle: float = 0.0) -> dict:
         total = peak_density * np.exp(-((ecc_mm / sigma_mm) ** 2))
         return {t: total * r for t, r in cone_ratio.items()}

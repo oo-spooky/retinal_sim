@@ -8,7 +8,7 @@ NAKA_RUSHTON_DEFAULTS = {
     "S_cone": {"R_max": 1.0, "n": 0.7, "sigma": 0.5},
     "M_cone": {"R_max": 1.0, "n": 0.7, "sigma": 0.5},
     "L_cone": {"R_max": 1.0, "n": 0.7, "sigma": 0.5},
-    "rod":    {"R_max": 1.0, "n": 1.0, "sigma": 0.05},  # rods saturate earlier
+    "rod":    {"R_max": 1.0, "n": 1.0, "sigma": 0.1},  # rods saturate earlier; matches YAML species files
 }
 
 
