@@ -6,7 +6,9 @@
       "Bash(where python3:*)",
       "Bash(where py:*)",
       "Read(//c/Users/steve/AppData/Local/Programs/**)",
-      "Bash(python3 -m pytest --tb=short -v)"
+      "Bash(python3 -m pytest --tb=short -v)",
+      "Bash(C:/Users/steve/python312/Scripts/pytest.exe tests/test_optical.py -v 2>&1)",
+      "Bash(C:/Users/steve/python312/Scripts/pytest.exe -v 2>&1)"
     ]
   }
 }
