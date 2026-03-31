@@ -62,6 +62,27 @@ For human (f=22.3mm, D_p=3mm, δ=1D): r_coc ≈ 33 µm, sigma ≈ 24 µm.
 
 ---
 
+## Phase 6 gotchas
+
+### Smits (1999) 11-knot table values from memory were wrong for MAGENTA and YELLOW
+The hand-recalled table had MAGENTA with zeros at 610–700nm and YELLOW with zeros at 520–580nm,
+giving catastrophic roundtrip failures (RMSE > 0.18). Rather than chase the exact paper values,
+the basis spectra are computed numerically at init via `scipy.optimize.lsq_linear`.
+
+### D65 integration is required — equal-energy + per-channel normalisation does not work
+The sRGB colorspace is D65-adapted. Roundtrip integration must use the D65 SPD as illuminant:
+`k = 1 / (D65 @ CIE_Y * dlam)`, then `X = k * dlam * (spectrum * D65) @ CIE_X`, etc.
+Per-channel white normalisation tricks fail for saturated colours (RMSE > 0.09).
+
+### Smits MAGENTA exploits CIE x̄ secondary lobe at ~450 nm
+The magenta basis spectrum has non-zero weight at ~440–460 nm (blue end) AND ~600–700 nm (red end),
+exploiting the CIE x̄ secondary blue lobe. Simple box-filter integration cannot reconstruct this.
+The numerically-optimised BLUE basis also has small but non-zero values above 530 nm (~0.02–0.04).
+The `test_pure_blue_zero_at_long_wavelengths` threshold is 0.05, not 0.01.
+
+### Phase 6 test patterns — 32 tests, ~0.7 s
+`pytest tests/test_spectral.py -v`
+
 ## Test patterns
 
 ### Phase 1 (nomogram) — 51 tests, ~0.08 s
@@ -78,3 +99,6 @@ For human (f=22.3mm, D_p=3mm, δ=1D): r_coc ≈ 33 µm, sigma ≈ 24 µm.
 
 ### Phase 5 (Gaussian PSF) — 28 tests, ~0.4 s
 `pytest tests/test_optical.py -v`
+
+### Phase 6 (Smits upsampler) — 32 tests, ~0.7 s
+`pytest tests/test_spectral.py -v`

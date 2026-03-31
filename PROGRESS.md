@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-30 (Phase 5 complete)_
+_Last updated: 2026-03-30 (Phase 6 complete)_
 
 ---
 
@@ -21,7 +21,7 @@ _Last updated: 2026-03-30 (Phase 5 complete)_
 | 3     | Scene geometry module              | **COMPLETE** | 24/24 pass (`test_scene.py`) | Angular subtense, retinal scaling, accommodation, patch clipping |
 | 4     | Mosaic generator (jittered grid)   | **COMPLETE** | 32/32 pass (`test_mosaic.py`)| Bernoulli jittered grid; all three species; rod-free zone; Nyquist validated |
 | 5     | Simplified optical PSF (Gaussian)  | **COMPLETE** | 28/28 pass (`test_optical.py`)| `PSFGenerator.gaussian_psf`, `OpticalStage.apply`; §11b energy conserved |
-| 6     | Smits spectral upsampler           | stub         | —                            | `spectral/upsampler.py` — raises `NotImplementedError` |
+| 6     | Smits spectral upsampler           | **COMPLETE** | 32/32 pass (`test_spectral.py`) | D65-optimised basis via `lsq_linear`; roundtrip RMSE < 0.0002 |
 | 7     | Spectral integration + Naka-Rushton| partial      | —                            | `naka_rushton()` implemented; spectral integration stub |
 | 8     | Voronoi visualization              | stub         | —                            | `output/` — raises `NotImplementedError` |
 | 9     | Snellen acuity validation          | not started  | —                            | Requires phases 2–7 |
@@ -135,11 +135,24 @@ Covered by tests:
 
 ---
 
-## Phase 6 — Smits Spectral Upsampler
+## Phase 6 — Smits Spectral Upsampler ✓ COMPLETE
 
-**Status:** Stub — `spectral/upsampler.py` raises `NotImplementedError`
-**Validation criteria (§11a):**
-- RGB roundtrip RMSE < 0.02 on [0,1] scale
+**Validated:** 2026-03-30
+**Test command:** `pytest tests/test_spectral.py -v`
+**Result:** 32 passed in 0.72s
+
+Covered by tests:
+- `TestSpectralUpsamplerInit` — default init, wavelength grid, custom range, unknown method raises
+- `TestSpectralUpsamplerShape` — output type/shape, dtypes, wavelength consistency, wrong channels raises
+- `TestSpectralUpsamplerUint8` — uint8/float32 equivalence, black=zero, gray ramp
+- `TestSpectralUpsamplerValues` — black, white, non-negative, bounded, gray scaling
+- `TestSpectralUpsamplerPhysics` — spectral shape plausibility for R/G/B primaries
+- `TestRoundtrip` — §11a: RMSE 0.0002 << 0.02 threshold; 13 test colors including all primaries, secondaries, grays
+
+**Key implementation notes:**
+- Abandoned Smits (1999) 11-knot table; instead computes D65-optimised basis via `scipy.optimize.lsq_linear`
+- Each basis spectrum is min-norm reflectance in [0,1] satisfying D65 XYZ colorimetric constraint
+- Roundtrip integration uses D65 illuminant (not equal-energy); requires matching integration in test helper
 
 ---
 
