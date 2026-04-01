@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import lsq_linear
 
+from retinal_sim.constants import WAVELENGTHS as _CANONICAL_WAVELENGTHS
+
 
 @dataclass
 class SpectralImage:
@@ -110,12 +112,17 @@ class SpectralUpsampler:
                 f"method={method!r} not implemented; only 'smits' is available for the PoC"
             )
         self.method = method
-        self.wavelengths: np.ndarray = np.arange(
-            wavelength_range[0],
-            wavelength_range[1] + wavelength_step,
-            wavelength_step,
-            dtype=np.float64,
-        )
+        # Use the canonical grid from constants.py when default parameters are
+        # used; otherwise build from the supplied range to support custom grids.
+        if wavelength_range == (380, 720) and wavelength_step == 5:
+            self.wavelengths: np.ndarray = _CANONICAL_WAVELENGTHS.copy()
+        else:
+            self.wavelengths = np.arange(
+                wavelength_range[0],
+                wavelength_range[1] + wavelength_step,
+                wavelength_step,
+                dtype=np.float64,
+            )
         self._basis: dict[str, np.ndarray] = self._compute_basis()
 
     # ------------------------------------------------------------------
@@ -138,6 +145,16 @@ class SpectralUpsampler:
         else:
             rgb = img.astype(np.float64)
         rgb = np.clip(rgb, 0.0, 1.0)
+
+        # sRGB → linear: IEC 61966-2-1 piecewise transfer function.
+        # The _SRGB_TO_XYZ matrix and the Smits decomposition operate in
+        # linear light; feeding gamma-compressed values produces physically
+        # incorrect spectral shapes.
+        rgb = np.where(
+            rgb <= 0.04045,
+            rgb / 12.92,
+            ((rgb + 0.055) / 1.055) ** 2.4,
+        )
 
         if rgb.ndim != 3 or rgb.shape[2] != 3:
             raise ValueError(f"Expected (H, W, 3) array, got shape {rgb.shape}")

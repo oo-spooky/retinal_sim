@@ -22,11 +22,9 @@ _A1_BETA_LAMBDA_COEFF = 0.29   # λ_β = 0.29 × λ_max + 189  (nm)
 _A1_BETA_LAMBDA_OFFSET = 189.0
 _A1_BETA_WIDTH_COEFF = 0.20    # Gaussian σ = 0.20 × λ_β
 
-# A2 chromophore constants (Equation 3, Govardovskii et al. 2000)
-_A2_ALPHA = dict(A=69.7, a=0.880, B=28.0, b=0.922, C=-14.9, c=1.104, D=0.674)
-# A2 uses same alpha template but a different λ_max–to–A2-λ_max mapping:
-#   λ_max(A2) ≈ λ_max(A1) + shift, where shift is derived from Table 3.
-# For the template itself, the same functional form is used.
+# A2 chromophore α-band constants (Table 2, Govardovskii et al. 2000).
+# Note: A, B, C differ from A1; a, b, c, D are close but not identical.
+_A2_ALPHA = dict(A=62.7, a=0.880, B=22.7, b=0.924, C=-14.0, c=1.104, D=0.674)
 _A2_BETA_AMPLITUDE = 0.29
 _A2_BETA_LAMBDA_COEFF = 0.25
 _A2_BETA_LAMBDA_OFFSET = 222.0

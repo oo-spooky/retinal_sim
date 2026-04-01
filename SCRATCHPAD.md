@@ -55,6 +55,11 @@ data); only the kernel itself is float64.
 time it is called. `OpticalStage.compute_psf()` uses the default scale (1 µm/px); this is
 intentional for standalone PSF inspection without a full scene.
 
+### Diffraction sigma (corrected — CR-9)
+Gaussian-fit-to-Airy-disk: sigma_diff = 0.42 × λ × f#
+Do NOT use 1.22 × λ × f# — that is the Airy *first-zero radius* (Rayleigh criterion),
+not the FWHM.  Using it as σ overestimates the PSF width by ~19%.
+
 ### Defocus formula (thin-lens, PoC)
 Circle-of-confusion radius: r_coc = focal_length_mm × defocus_D × pupil_diameter_mm / 2000
 Gaussian sigma for defocus: sigma_defocus = r_coc / sqrt(2)

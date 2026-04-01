@@ -1,6 +1,8 @@
 """PSF computation: diffraction-limited + Zernike aberrations."""
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 
@@ -39,10 +41,12 @@ class PSFGenerator:
 
         Sigma is the quadrature sum of two physical components:
 
-        1. Diffraction-limited component — Gaussian approximation of the Airy disk:
-               FWHM_diff = 1.22 * λ * f#
-               sigma_diff = FWHM_diff / (2 * sqrt(2 * ln 2))
+        1. Diffraction-limited component — Gaussian fitted to the Airy disk:
+               sigma_diff = 0.42 * λ * f#
            where f# = focal_length_mm / pupil_diameter_mm.
+           Note: 1.22 × λ × f# is the *first-zero radius* of the Airy pattern
+           (Rayleigh criterion), not the FWHM.  The Gaussian that best fits the
+           Airy intensity profile has σ ≈ 0.42 × λ × f# (Goodman 2005).
 
         2. Defocus blur — geometric circle of confusion (thin-lens approximation):
                r_coc = focal_length_mm * defocus_D * pupil_diameter_mm / 2000
@@ -67,6 +71,16 @@ class PSFGenerator:
         d_p_mm = self._params.pupil_diameter_mm
         f_number = f_mm / d_p_mm
 
+        if getattr(self._params, "pupil_shape", "circular") == "slit":
+            warnings.warn(
+                "gaussian_psf: slit pupil geometry is not modelled — using an "
+                "isotropic circular Gaussian PSF.  The cat's vertically elongated "
+                "slit pupil produces an anisotropic PSF (wider horizontally than "
+                "vertically) that is not captured here.  This is a known PoC "
+                "limitation; implement an elliptical Gaussian for post-PoC accuracy.",
+                stacklevel=2,
+            )
+
         # Coordinate grid centred on kernel centre (in pixels).
         center = k // 2
         y, x = np.mgrid[-center : k - center, -center : k - center].astype(float)
@@ -77,9 +91,9 @@ class PSFGenerator:
         for i, lam_nm in enumerate(wavelengths):
             lam_mm = lam_nm * 1e-6  # nm → mm
 
-            # Diffraction-limited sigma (Gaussian approximation of Airy disk).
-            fwhm_diff_mm = 1.22 * lam_mm * f_number
-            sigma_diff_mm = fwhm_diff_mm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+            # Gaussian-fit-to-Airy-disk sigma: σ ≈ 0.42 × λ × f#.
+            # (1.22 × λ × f# is the Airy *first-zero radius*, ~19% wider.)
+            sigma_diff_mm = 0.42 * lam_mm * f_number
 
             # Defocus blur circle radius: r = f * δD * D_p / 2000 (thin-lens, diopters).
             r_coc_mm = f_mm * float(defocus_diopters) * d_p_mm / 2000.0

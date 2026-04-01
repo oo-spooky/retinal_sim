@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from retinal_sim.constants import WAVELENGTHS as _CANONICAL_WAVELENGTHS
 from retinal_sim.retina.mosaic import MosaicGenerator, PhotoreceptorMosaic
 from retinal_sim.retina.transduction import NAKA_RUSHTON_DEFAULTS, naka_rushton
 
@@ -27,7 +28,7 @@ class RetinalParams:
 @dataclass
 class MosaicActivation:
     """Per-receptor responses from a single simulation run."""
-    mosaic: object
+    mosaic: PhotoreceptorMosaic
     responses: np.ndarray   # (N_receptors,) float32, [0, 1]
     metadata: dict = field(default_factory=dict)
 
@@ -40,8 +41,9 @@ class RetinalStage:
         optical_params: Optical parameters (for coordinate scaling).
     """
 
-    # Canonical wavelength grid — must match SpectralUpsampler default range.
-    _WAVELENGTHS = np.arange(380, 721, 5, dtype=np.float32)
+    # Canonical wavelength grid — imported from constants.py to stay in sync
+    # with SpectralUpsampler and MosaicGenerator.
+    _WAVELENGTHS = _CANONICAL_WAVELENGTHS.astype(np.float32)
 
     def __init__(self, params: RetinalParams, optical_params: object) -> None:
         self._rp = params
@@ -128,16 +130,20 @@ class RetinalStage:
         # ------------------------------------------------------------------
         # 3. Bilinear interpolation (fully vectorised)
         # ------------------------------------------------------------------
-        col_f = np.clip(col_f, 0.0, W - 1)
-        row_f = np.clip(row_f, 0.0, H - 1)
+        # Receptors whose mm positions fall outside the image boundary receive
+        # zero irradiance (architecture §0: "surrounding receptors receive no
+        # stimulation").  Clip only for the in-bounds interpolation look-up.
+        oob = (col_f < 0.0) | (col_f > W - 1) | (row_f < 0.0) | (row_f > H - 1)
+        col_f_c = np.clip(col_f, 0.0, W - 1)
+        row_f_c = np.clip(row_f, 0.0, H - 1)
 
-        r0 = np.floor(row_f).astype(np.intp)
-        c0 = np.floor(col_f).astype(np.intp)
+        r0 = np.floor(row_f_c).astype(np.intp)
+        c0 = np.floor(col_f_c).astype(np.intp)
         r1 = np.minimum(r0 + 1, H - 1)
         c1 = np.minimum(c0 + 1, W - 1)
 
-        dr = (row_f - r0.astype(float))[:, np.newaxis]  # (N, 1)
-        dc = (col_f - c0.astype(float))[:, np.newaxis]  # (N, 1)
+        dr = (row_f_c - r0.astype(float))[:, np.newaxis]  # (N, 1)
+        dc = (col_f_c - c0.astype(float))[:, np.newaxis]  # (N, 1)
 
         # Sampled irradiance at each receptor position: (N, N_λ)
         sampled = (
@@ -146,6 +152,8 @@ class RetinalStage:
             + irr_data[r1, c0] * (1.0 - dc) * dr
             + irr_data[r1, c1] * dc * dr
         )
+        # Zero out receptors that fall outside the image footprint.
+        sampled[oob] = 0.0
 
         # ------------------------------------------------------------------
         # 4. Spectral integration:  excitation_i = Σ_λ S_i(λ)·E_i(λ)·Δλ

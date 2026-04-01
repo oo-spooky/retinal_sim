@@ -127,7 +127,7 @@ Covered by tests:
 - `TestOpticalStageApply` — RetinalIrradiance output, shape/wavelength preservation, scene integration, defocus effect, media transmission
 
 **Key implementation notes:**
-- sigma = quadrature sum of diffraction component (1.22 * λ * f#) and defocus component (f * δD * D_p / 2000)
+- sigma = quadrature sum of diffraction component (0.42 * λ * f#, Gaussian fit to Airy disk) and defocus component (f * δD * D_p / 2000)
 - Kernels stored as float64 for exact normalisation (meets 1e-6 criterion)
 - `PSFGenerator` takes `pixel_scale_mm_per_px`; `OpticalStage.apply` infers this from `scene.mm_per_pixel` when available
 - `convolve(..., mode="reflect")` avoids edge darkening

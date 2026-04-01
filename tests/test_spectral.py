@@ -110,15 +110,22 @@ def _spectrum_to_linear_srgb(spectrum: np.ndarray, wavelengths: np.ndarray) -> n
     return np.clip(rgb, 0.0, 1.0)
 
 
+def _srgb_to_linear(srgb: np.ndarray) -> np.ndarray:
+    """Apply IEC 61966-2-1 sRGB → linear transfer function."""
+    srgb = np.asarray(srgb, dtype=np.float64)
+    return np.where(srgb <= 0.04045, srgb / 12.92, ((srgb + 0.055) / 1.055) ** 2.4)
+
+
 def _batch_roundtrip(rgb_colors: np.ndarray, upsampler: SpectralUpsampler) -> np.ndarray:
-    """Return reconstructed RGB for each row in rgb_colors via CIE roundtrip.
+    """Return reconstructed linear sRGB for each gamma-compressed sRGB row.
 
     Args:
-        rgb_colors: (N, 3) array of test colors in [0, 1].
+        rgb_colors: (N, 3) array of gamma-compressed sRGB values in [0, 1].
         upsampler: configured SpectralUpsampler.
 
     Returns:
-        (N, 3) reconstructed linear sRGB values.
+        (N, 3) reconstructed *linear* sRGB array (output of D65 CMF integration).
+        Compare against ``_srgb_to_linear(rgb_colors)`` for the roundtrip check.
     """
     img = rgb_colors.reshape(1, -1, 3).astype(np.float32)
     si = upsampler.upsample(img)
@@ -260,7 +267,10 @@ class TestSpectralUpsamplerValues:
         gray = np.full((1, 1, 3), 0.5, dtype=np.float32)
         r_white = self.up.upsample(white).data[0, 0, :]
         r_gray = self.up.upsample(gray).data[0, 0, :]
-        np.testing.assert_allclose(r_gray, 0.5 * r_white, atol=1e-5)
+        # sRGB 0.5 linearises to ≈ 0.2140 (IEC 61966-2-1), so the spectrum
+        # should scale by that linear factor, not by 0.5.
+        expected_scale = float(_srgb_to_linear(np.array([0.5]))[0])
+        np.testing.assert_allclose(r_gray, expected_scale * r_white, atol=1e-5)
 
 
 class TestSpectralUpsamplerPhysics:
@@ -309,11 +319,19 @@ class TestSpectralUpsamplerPhysics:
         assert spec[self._wl_idx(530):].max() < 0.05
 
     def test_linearity_in_neutral_direction(self):
-        """Scaling a neutral (r=g=b) input scales the spectrum linearly."""
+        """Neutral (r=g=b) spectra scale linearly in *linear* sRGB space.
+
+        After gamma-to-linear conversion the Smits decomposition is linear,
+        so doubling the linear input value doubles the output spectrum.
+        The ratio must be expressed in linear light, not in gamma-compressed
+        sRGB values.
+        """
         v1, v2 = 0.3, 0.6
+        lin1 = float(_srgb_to_linear(np.array([v1]))[0])
+        lin2 = float(_srgb_to_linear(np.array([v2]))[0])
         s1 = self._upsample_color(v1, v1, v1)
         s2 = self._upsample_color(v2, v2, v2)
-        np.testing.assert_allclose(s2, (v2 / v1) * s1, atol=1e-5)
+        np.testing.assert_allclose(s2, (lin2 / lin1) * s1, atol=1e-5)
 
 
 class TestRoundtrip:
@@ -375,7 +393,10 @@ class TestRoundtrip:
             [0.2, 0.4, 0.8],   # blue-purple
         ])
         recon = _batch_roundtrip(test_colors, self.up)
-        rmse = np.sqrt(np.mean((test_colors - recon) ** 2))
+        # upsample() linearises sRGB internally, so the reconstructed values
+        # are linear sRGB; compare against linearised test colours.
+        expected = _srgb_to_linear(test_colors)
+        rmse = np.sqrt(np.mean((expected - recon) ** 2))
         assert rmse < 0.02, f"Roundtrip RMSE {rmse:.4f} exceeds 0.02 threshold (§11a)"
 
     def test_roundtrip_gray_ramp(self):
@@ -383,5 +404,6 @@ class TestRoundtrip:
         gray_vals = np.linspace(0.0, 1.0, 11)
         colors = np.stack([gray_vals, gray_vals, gray_vals], axis=1)
         recon = _batch_roundtrip(colors, self.up)
-        rmse = np.sqrt(np.mean((colors - recon) ** 2))
+        expected = _srgb_to_linear(colors)
+        rmse = np.sqrt(np.mean((expected - recon) ** 2))
         assert rmse < 0.02, f"Gray ramp RMSE {rmse:.4f} exceeds threshold"

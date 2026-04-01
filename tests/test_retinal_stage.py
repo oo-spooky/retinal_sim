@@ -287,7 +287,9 @@ class TestRodVsCone:
         self, human_stage: RetinalStage, human_mosaic: PhotoreceptorMosaic
     ) -> None:
         # At medium-high irradiance rods should be more saturated than cones.
-        irr = _make_irradiance(0.05)
+        # The human 2° patch extends ±0.39 mm; use 200×200 at 5 µm/px (±0.50 mm)
+        # so peripheral rods are not zeroed by the out-of-bounds mask (CR-16).
+        irr = _make_irradiance(0.05, H=200, W=200)
         result = human_stage.compute_response(human_mosaic, irr)
         rod_mask = human_mosaic.types == "rod"
         cone_mask = np.char.endswith(human_mosaic.types, "_cone")

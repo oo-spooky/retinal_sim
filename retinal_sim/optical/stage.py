@@ -89,6 +89,14 @@ class OpticalStage:
         if self._params.media_transmission is not None:
             transmission = self._params.media_transmission(wavelengths).astype(np.float32)
 
+        # NOTE (CR-11): Pupil-area throughput scaling is not yet applied.
+        # Architecture §2a requires scaling irradiance by pupil area (π·(D_p/2)²)
+        # relative to a reference area so that cross-species comparisons reflect
+        # the true light-gathering difference (e.g. dog 4 mm pupil gathers ~1.78×
+        # more light than human 3 mm pupil).  This must be added before Phase 12
+        # (species comparison); the Naka-Rushton nonlinearity means the missing
+        # scalar is not equivalent to a post-hoc correction.
+
         # Convolve each wavelength band with its PSF kernel.
         result = np.empty_like(data)
         for i in range(len(wavelengths)):

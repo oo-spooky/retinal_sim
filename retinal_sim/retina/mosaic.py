@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from retinal_sim.constants import WAVELENGTHS as _CANONICAL_WAVELENGTHS
+
 
 @dataclass
 class Photoreceptor:
@@ -62,6 +64,17 @@ def _build_sensitivity_curves(retinal_params: object, wavelengths: np.ndarray) -
     Uses the Govardovskii A1 nomogram for each receptor type.  Avoids
     requiring a species-name look-up by reading λ_max values straight from
     *retinal_params*.
+
+    **Important (CR-15):** The Govardovskii nomogram returns *in-vitro*
+    absorption spectra.  Architecture §3b calls for applying lens/media
+    pre-filtering (``OpticalParams.media_transmission``) to convert these to
+    in-vivo sensitivities.  This conversion is deferred to a later phase; for
+    the PoC, ``OpticalStage`` applies media transmission to the irradiance
+    before it reaches the retinal stage, which is mathematically equivalent
+    *only* when ``OpticalStage`` precedes ``RetinalStage`` in the pipeline.
+    Calling ``RetinalStage.compute_response()`` directly on raw hyperspectral
+    data (without a preceding ``OpticalStage``) will over-estimate S-cone and
+    rod sensitivity at short wavelengths.
     """
     from retinal_sim.retina.opsin import govardovskii_a1
 
@@ -102,10 +115,7 @@ class MosaicGenerator:
         self._op = optical_params
 
         if wavelengths is None:
-            # TODO (Phase 7): define this range in one canonical location and
-            # import it here and in SpectralUpsampler.  Diverging defaults will
-            # cause silent shape mismatches during spectral integration.
-            wavelengths = np.arange(380, 721, 5, dtype=np.float32)
+            wavelengths = _CANONICAL_WAVELENGTHS.astype(np.float32)
         self._wavelengths = np.asarray(wavelengths, dtype=np.float32)
 
         # Patch half-extent in mm (square patch)
