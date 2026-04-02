@@ -32,22 +32,9 @@ Move resolved items to the Resolved section rather than deleting them.
 ## Commands
 
 ```bash
-# Install (editable, with test deps)
-pip install -e ".[dev]"
-# If that fails with "BackendUnavailable: Cannot import setuptools.build_meta":
-#   pip install setuptools wheel && pip install --no-build-isolation -e ".[dev]"
-
-# Run all tests
-pytest
-
-# Run Phase 1 tests only
-pytest tests/test_retina.py -v
-
-# Run a single test
-pytest tests/test_retina.py::TestPeakWavelength::test_a1_peak_location -v
-
-# Visual validation plot (requires matplotlib)
-python examples/plot_nomogram.py
+pip install -e ".[dev]"          # install (editable + test deps)
+pytest                           # run all tests
+pytest tests/test_retina.py -v   # single test file
 ```
 
 ## Architecture
@@ -64,15 +51,7 @@ RGB image
 
 `pipeline.py::RetinalSimulator` orchestrates these stages. `species/config.py::SpeciesConfig` loads all species-specific parameters (optical + retinal) from `data/species/{human,dog,cat}.yaml` and is the single place to change per-species constants.
 
-**What's implemented vs stubbed:**
-- `retina/opsin.py` — **fully implemented**: Govardovskii et al. (2000) A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max values for human/dog/cat
-- `retina/transduction.py` — **implemented**: `naka_rushton()` function
-- `species/config.py` — **fully implemented**: `SpeciesConfig.load()` for human/dog/cat; YAML files at `data/species/`
-- `scene/geometry.py` — **fully implemented**: `SceneGeometry.compute()`, angular subtense, retinal scaling, accommodation/defocus, patch clipping
-- `retina/mosaic.py` — **fully implemented**: `MosaicGenerator`, Bernoulli jittered-grid, all three species, rod-free zone, Nyquist validated
-- Everything else — stubs raising `NotImplementedError`, signatures match the architecture doc
-
-**Implementation order** (from architecture §12): nomogram ✓ → species YAML loader ✓ → scene geometry ✓ → mosaic generator ✓ → Gaussian PSF → Smits spectral upsampler → spectral integration → Voronoi viz → Snellen validation → dichromat confusion → species comparison pipeline.
+**Implementation status:** Phases 1–9 complete (see PROGRESS.md). Next: Phase 10 (dichromat confusion).
 
 ## Key design decisions
 

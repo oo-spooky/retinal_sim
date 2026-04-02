@@ -8,7 +8,18 @@
       "Read(//c/Users/steve/AppData/Local/Programs/**)",
       "Bash(python3 -m pytest --tb=short -v)",
       "Bash(C:/Users/steve/python312/Scripts/pytest.exe tests/test_optical.py -v 2>&1)",
-      "Bash(C:/Users/steve/python312/Scripts/pytest.exe -v 2>&1)"
+      "Bash(C:/Users/steve/python312/Scripts/pytest.exe -v 2>&1)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python -m pytest --tb=short -q)",
+      "Bash(python -m pytest tests/test_snellen.py -v --tb=short)",
+      "Bash(python:*)",
+      "Bash(where python:*)",
+      "Bash(ls /c/Python*)",
+      "Bash(python3:*)",
+      "Bash(py:*)",
+      "Bash(C:/Users/steve/python312/python.exe:*)",
+      "Bash(PYTHONPATH=. py -3.14 scripts/status_report.py)"
     ]
   }
 }

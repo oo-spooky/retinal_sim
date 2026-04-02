@@ -149,20 +149,4 @@ a tighter cat prediction is needed.
 
 ## Test patterns
 
-### Phase 1 (nomogram) — 51 tests, ~0.08 s
-`pytest tests/test_retina.py -v`
-
-### Phase 2 (species config) — 58 tests, ~0.20 s
-`pytest tests/test_species.py -v`
-
-### Phase 3 (scene geometry) — run after implementation
-`pytest tests/test_scene.py -v`
-
-### Phase 4 (mosaic generator) — 32 tests, ~9 s
-`pytest tests/test_mosaic.py -v`
-
-### Phase 5 (Gaussian PSF) — 28 tests, ~0.4 s
-`pytest tests/test_optical.py -v`
-
-### Phase 6 (Smits upsampler) — 32 tests, ~0.7 s
-`pytest tests/test_spectral.py -v`
+Run all: `pytest` (~45s). Per-phase test files are named `test_{phase}.py` — see PROGRESS.md table.
