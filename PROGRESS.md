@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-03-31 (Phase 7 complete)_
+_Last updated: 2026-04-01 (Phase 8 complete)_
 
 ---
 
@@ -23,7 +23,7 @@ _Last updated: 2026-03-31 (Phase 7 complete)_
 | 5     | Simplified optical PSF (Gaussian)  | **COMPLETE** | 28/28 pass (`test_optical.py`)| `PSFGenerator.gaussian_psf`, `OpticalStage.apply`; §11b energy conserved |
 | 6     | Smits spectral upsampler           | **COMPLETE** | 32/32 pass (`test_spectral.py`) | D65-optimised basis via `lsq_linear`; roundtrip RMSE < 0.0002 |
 | 7     | Spectral integration + Naka-Rushton| **COMPLETE** | 34/34 pass (`test_retinal_stage.py`) | `RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type |
-| 8     | Voronoi visualization              | stub         | —                            | `output/` — raises `NotImplementedError` |
+| 8     | Voronoi visualization              | **COMPLETE** | 28/28 pass (`test_output.py`)| `render_voronoi`, `render_reconstructed`, `render_comparison`, `render_mosaic_map` |
 | 9     | Snellen acuity validation          | not started  | —                            | Requires phases 2–7 |
 | 10    | Dichromat confusion validation     | not started  | —                            | Requires phases 2–7 |
 | 11    | Distance-dependent resolution test | not started  | —                            | Requires phases 2–7 |
@@ -186,7 +186,28 @@ Covered by tests:
 
 ---
 
-## Phases 8–13 — Blocked on phases 2–7
+## Phase 8 — Voronoi Visualization ✓ COMPLETE
+
+**Validated:** 2026-04-01
+**Test command:** `pytest tests/test_output.py -v`
+**Result:** 28 passed in 3.44s
+
+Covered by tests:
+- `TestRenderVoronoi` — shape/dtype/range; zero/full response; rod→gray, L→red, M→green, S→blue; single receptor fills image; mm_range kwarg; brightness scales with response
+- `TestRenderReconstructed` — shape/dtype/range; zero/full response; spatial locality (left receptor → left half brighter); mm_range kwarg
+- `TestRenderComparison` — returns matplotlib Figure; 1/2/3 species
+- `TestRenderMosaicMap` — returns Figure; all receptor types; custom output size
+
+**Files added:**
+- `retinal_sim/output/voronoi.py` — KD-tree nearest-receptor tessellation, type→hue×response→brightness
+- `retinal_sim/output/reconstruction.py` — `griddata` nearest-neighbour inverse mapping
+- `retinal_sim/output/comparison.py` — `render_comparison` (multi-species panel) + `render_mosaic_map` (scatter plot)
+- `retinal_sim/output/__init__.py` — exports all four functions
+- `tests/test_output.py` — 28 tests
+
+---
+
+## Phases 9–13 — Not yet started
 
 See phase status summary above.
 
