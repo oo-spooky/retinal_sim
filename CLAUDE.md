@@ -13,7 +13,10 @@ Update `SCRATCHPAD.md` whenever you discover something that would waste time if 
 ```bash
 python scripts/status_report.py
 ```
-**Before confirming a session is ready to close: commit all changes.**
+**Before confirming a session is ready to close: commit all changes, then push to the remote.**
+```bash
+git push
+```
 
 ## Code review sessions (Opus)
 
