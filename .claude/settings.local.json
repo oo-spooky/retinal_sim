@@ -19,7 +19,12 @@
       "Bash(python3:*)",
       "Bash(py:*)",
       "Bash(C:/Users/steve/python312/python.exe:*)",
-      "Bash(PYTHONPATH=. py -3.14 scripts/status_report.py)"
+      "Bash(PYTHONPATH=. py -3.14 scripts/status_report.py)",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(git push:*)",
+      "Bash(codex --version)",
+      "Bash(npm --version)",
+      "Bash(codex --help)"
     ]
   }
 }

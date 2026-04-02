@@ -183,6 +183,15 @@ to 10+ for rigorous quantitative comparison.
 ### Phase 10 test patterns — 36 tests, ~17 s
 `pytest tests/test_dichromat.py -v`
 
+## Codex CLI usage notes
+
+- `codex exec "<prompt>"` runs non-interactively; use `--help` to check sandbox/permission flags before first use on a new task type.
+- `codex review` operates on the current working tree diff by default.
+- For Phase 11+ handoffs, include the architecture §11 validation matrix in the prompt so Codex has the acceptance criteria.
+- Codex output lands as a diff; inspect before accepting — it won't know project-specific gotchas (e.g., stimulus_scale, pixel_scale_mm key naming) unless they are in the prompt.
+
+---
+
 ## Test patterns
 
 Run all: `pytest` (~60s). Per-phase test files are named `test_{phase}.py` — see PROGRESS.md table.

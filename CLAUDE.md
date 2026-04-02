@@ -18,6 +18,24 @@ python scripts/status_report.py
 git push
 ```
 
+## Codex CLI workflow
+
+`codex` CLI (v0.118.0) is installed and available. Use it in two ways:
+
+**1. Background phase implementation** — hand off Phase 11+ implementation tasks to Codex as a non-interactive background worker while staying in context for architecture decisions:
+```bash
+codex exec "<task prompt>"
+```
+
+**2. Parallel code review** — after an Opus CODEREVIEW.md audit, run a Codex review pass on a diff for a second opinion:
+```bash
+codex review
+```
+
+Claude handles architecture decisions and orchestration; Codex handles implementation detail and review.
+
+---
+
 ## Code review sessions (Opus)
 
 When running as Opus in a review session: audit the codebase against `retinal_sim_architecture.md`, run all tests, and write findings to `CODEREVIEW.md` using this format per item:
@@ -51,7 +69,7 @@ RGB image
 
 `pipeline.py::RetinalSimulator` orchestrates these stages. `species/config.py::SpeciesConfig` loads all species-specific parameters (optical + retinal) from `data/species/{human,dog,cat}.yaml` and is the single place to change per-species constants.
 
-**Implementation status:** Phases 1–9 complete (see PROGRESS.md). Next: Phase 10 (dichromat confusion).
+**Implementation status:** Phases 1–10 complete (see PROGRESS.md). Next: Phase 11 (distance-dependent resolution).
 
 ## Key design decisions
 
