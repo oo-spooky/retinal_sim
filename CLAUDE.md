@@ -9,6 +9,10 @@ Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before 
 Check `CODEREVIEW.md` for open review findings and address any open items before starting new phase work.
 Update `PROGRESS.md` after completing any phase.
 Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
+**Before closing a session, run all tests and generate a status report at reports/status_latest.html. Include: phase completion status, test results summary, any validation figures generated this session, and open CODEREVIEW.md items. Keep it simple — one page, no frameworks.**
+```bash
+python scripts/status_report.py
+```
 **Before confirming a session is ready to close: commit all changes.**
 
 ## Code review sessions (Opus)
