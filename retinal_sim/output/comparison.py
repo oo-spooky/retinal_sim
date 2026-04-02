@@ -72,7 +72,7 @@ def render_mosaic_map(
 
     figw = output_size[1] / 100.0
     figh = output_size[0] / 100.0
-    fig, ax = plt.subplots(figsize=(figw, figh))
+    fig, ax = plt.subplots(figsize=(figw, figh), dpi=100)
 
     for t in unique_types:
         mask = np.array([str(tp) == t for tp in types])

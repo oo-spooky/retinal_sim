@@ -10,8 +10,8 @@ For each candidate letter angular size *A* (arcminutes):
         SpectralUpsampler → OpticalStage → RetinalStage
     using a photoreceptor mosaic sized to the same 2.5A arcmin patch.
 3.  Restrict to the dominant (most numerous) cone type.
-4.  Compute normalised mean absolute difference between the two response
-    vectors: ``D = mean|r1 - r2| / (mean(r1 + r2) + eps)``.
+4.  Compute Pearson-correlation distance between the two response
+    vectors: ``D = 1 - corr(r1, r2)`` where corr is Pearson correlation.
 5.  Average D over ``n_seeds`` independent mosaic realisations.
 
 Predicted acuity = smallest *A* where averaged D > ``threshold`` (default 0.05).
@@ -182,7 +182,7 @@ class AcuityValidator:
         # Pearson-correlation distance: D = 1 - corr(r1, r2).
         r1_c = r1 - r1.mean()
         r2_c = r2 - r2.mean()
-        denom = float(np.sqrt(np.dot(r1_c, r1_c) * np.dot(r2_c, r2_c))) + 1e-12
+        denom = float(np.sqrt(np.dot(r1_c, r1_c) * np.dot(r2_c, r2_c) + 1e-12))
         corr = float(np.dot(r1_c, r2_c)) / denom
         return float(1.0 - corr)
 

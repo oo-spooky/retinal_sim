@@ -21,6 +21,10 @@ ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = ROOT / "reports"
 REPORTS_DIR.mkdir(exist_ok=True)
 
+# Ensure the repo root is importable without requiring pip install
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 
 # ---------------------------------------------------------------------------
 # 1. Run pytest
@@ -192,21 +196,35 @@ def make_voronoi_figure():
     )
     act = MosaicActivation(mosaic=mosaic, responses=responses)
 
-    fig, axes = plt.subplots(1, 2, figsize=(9, 4.2))
+    fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.2))
 
-    img = render_voronoi(act, output_size=(360, 360))
-    axes[0].imshow(img, origin="lower", interpolation="nearest")
-    axes[0].set_title("Voronoi activation\n(colour = type, brightness = response)", fontsize=9)
+    # Panel 0: synthetic Gaussian input rendered on a regular grid
+    grid_res = 360
+    xs = np.linspace(-0.45, 0.45, grid_res)
+    ys = np.linspace(-0.45, 0.45, grid_res)
+    gx, gy = np.meshgrid(xs, ys)
+    gauss_grid = np.exp(-(gx ** 2 + gy ** 2) / (2 * 0.12 ** 2))
+    im0 = axes[0].imshow(gauss_grid, origin="lower", cmap="gray", vmin=0, vmax=1,
+                         interpolation="bilinear",
+                         extent=[-0.45, 0.45, -0.45, 0.45])
+    axes[0].set_title("Synthetic input\n(Gaussian, σ = 0.12 a.u.)", fontsize=9)
     axes[0].axis("off")
+    plt.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
 
-    # Reconstructed grid
+    # Panel 1: Voronoi activation
+    img = render_voronoi(act, output_size=(360, 360))
+    axes[1].imshow(img, origin="lower", interpolation="nearest")
+    axes[1].set_title("Voronoi activation\n(colour = type, brightness = response)", fontsize=9)
+    axes[1].axis("off")
+
+    # Panel 2: Reconstructed grid
     from retinal_sim.output.reconstruction import render_reconstructed
     recon = render_reconstructed(act, (360, 360))
-    im = axes[1].imshow(recon, origin="lower", cmap="gray", vmin=0, vmax=1,
-                        interpolation="nearest")
-    axes[1].set_title("Reconstructed luminance grid\n(nearest-neighbour inverse mapping)", fontsize=9)
-    axes[1].axis("off")
-    plt.colorbar(im, ax=axes[1], fraction=0.046, pad=0.04)
+    im2 = axes[2].imshow(recon, origin="lower", cmap="gray", vmin=0, vmax=1,
+                         interpolation="nearest")
+    axes[2].set_title("Reconstructed luminance grid\n(nearest-neighbour inverse mapping)", fontsize=9)
+    axes[2].axis("off")
+    plt.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
 
     fig.suptitle("Phase 8 — Voronoi Visualisation (synthetic Gaussian stimulus)", fontsize=11)
     plt.tight_layout()

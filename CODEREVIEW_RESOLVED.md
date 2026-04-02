@@ -76,6 +76,21 @@ The following were audited and found correct against the architecture doc:
 ### CR-17: Wavelength grid triplicated ✓
 - **Fix:** Created `constants.py` with canonical `WAVELENGTHS`.
 
+### CR-18: Acuity discriminability docstring describes wrong metric ✓
+- **Fix:** Updated module docstring to describe `D = 1 - corr(r1, r2)` (Pearson-correlation distance).
+
+### CR-19: `render_mosaic_map` implicit DPI assumption ✓
+- **Fix:** Added `dpi=100` to `plt.subplots()` call in `render_mosaic_map()`.
+
+### CR-20: pyproject.toml missing package discovery — editable install broken ✓
+- **Fix:** Added `[tool.setuptools.packages.find]` with `include = ["retinal_sim*"]`.
+
+### CR-21: `RetinalIrradiance` not exported from `optical/__init__.py` ✓
+- **Fix:** Added `RetinalIrradiance` to imports and `__all__` in `optical/__init__.py`.
+
+### CR-22: Epsilon placement in correlation denominator ✓
+- **Fix:** Moved `1e-12` inside `np.sqrt(... + 1e-12)` to guard against `sqrt(0)`.
+
 ---
 
 ## Review History

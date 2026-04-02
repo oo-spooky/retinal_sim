@@ -19,5 +19,8 @@ dependencies = [
 dev = ["pytest", "pytest-cov"]
 fast = ["numba"]
 
+[tool.setuptools.packages.find]
+include = ["retinal_sim*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
