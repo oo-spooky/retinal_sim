@@ -147,6 +147,42 @@ a tighter cat prediction is needed.
 ### Phase 9 test patterns — 42 tests, ~25 s
 `pytest tests/test_snellen.py -v`
 
+## Phase 10 gotchas
+
+### Unit-reflectance inputs saturate Naka-Rushton — need stimulus_scale
+SpectralUpsampler outputs sRGB-derived reflectances in [0, 1].  Spectral
+integration against a normalized sensitivity curve (also ≤ 1) with Δλ=5 nm and
+~69 bands gives typical excitation values of 20–70.  The Naka-Rushton
+half-saturation constant σ = 0.5 means everything saturates to ~R_max, making
+responses indistinguishable.  Fix: `DichromatValidator` applies
+`stimulus_scale = 0.01` to the SpectralImage after upsampling but before the
+optical stage.  This keeps excitations near σ and preserves the NR dynamic
+range.  Without scaling, D ≈ 0 for all colour pairs.
+
+### Use best-cone-type D, not dominant-cone D
+The confusion pair is designed so that dog S and L cone responses are equal for
+fg and bg.  Human L cone (560 nm) ≈ dog L cone (555 nm), so L_human responses
+are also similar.  Only human M cone (530 nm) differs.  If discriminability is
+computed only for the dominant cone type (L, both for human and dog), human D ≈
+dog D ≈ 0.  Fix: `_discriminability_one_seed` loops over ALL non-rod cone types
+and returns the MAX D across types.
+
+### find_confusion_pair: B ≤ 50 targets red-green axis, not S-confusion axis
+The search constrains the blue channel (B ≤ 50) to keep S-cone excitations low
+and equal for both colours.  The resulting pair lies on the deuteranopia-like
+confusion axis: equal dog S and L responses, different human M response.
+For a blue-yellow (tritan) confusion axis search, remove the blue constraint.
+
+### Noise floor for D_dog at n_seeds=2
+With n_seeds=2, mosaic and dot-pattern noise can make D_dog appear ~0.03–0.04
+even when the analytical prediction is <0.005.  The key test is the
+DIRECTION (D_human > D_dog), not an absolute ratio.  Stricter relative tests
+(e.g., D_dog < 0.80 × D_human) are unreliable at n_seeds=2; increase n_seeds
+to 10+ for rigorous quantitative comparison.
+
+### Phase 10 test patterns — 36 tests, ~17 s
+`pytest tests/test_dichromat.py -v`
+
 ## Test patterns
 
-Run all: `pytest` (~45s). Per-phase test files are named `test_{phase}.py` — see PROGRESS.md table.
+Run all: `pytest` (~60s). Per-phase test files are named `test_{phase}.py` — see PROGRESS.md table.

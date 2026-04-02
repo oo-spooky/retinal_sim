@@ -52,17 +52,17 @@ pre {
 </head>
 <body>
 <h1>retinal_sim — Status Report</h1>
-<p class="timestamp">Generated: 2026-04-02 12:18</p>
+<p class="timestamp">Generated: 2026-04-02 13:30</p>
 
 <h2>Test Results</h2>
-<div class="summary-box all-pass">329 passed, 1 skipped, 1 warning in 42.92s</div>
+<div class="summary-box all-pass">365 passed, 1 skipped, 1 warning in 99.16s (0:01:39)</div>
 <pre>============================== warnings summary ===============================
 tests/test_snellen.py::TestAcuityPrediction::test_human_acuity_in_expected_range
   C:\Users\steve\retinal_sim\retinal_sim\optical\stage.py:85: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
     kernels = psf_gen.gaussian_psf(wavelengths, defocus_diopters=defocus_diopters)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-329 passed, 1 skipped, 1 warning in 42.92s</pre>
+365 passed, 1 skipped, 1 warning in 99.16s (0:01:39)</pre>
 
 <h2>Phase Status</h2>
 <table>
@@ -81,7 +81,7 @@ tests/test_snellen.py::TestAcuityPrediction::test_human_acuity_in_expected_range
 <tr><td>7</td><td>Spectral integration + Naka-Rushton</td><td><span class="status-complete">COMPLETE</span></td><td>34/34 pass (`test_retinal_stage.py`)</td><td>`RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type</td></tr>
 <tr><td>8</td><td>Voronoi visualization</td><td><span class="status-complete">COMPLETE</span></td><td>28/28 pass (`test_output.py`)</td><td>`render_voronoi`, `render_reconstructed`, `render_comparison`, `render_mosaic_map`</td></tr>
 <tr><td>9</td><td>Snellen acuity validation</td><td><span class="status-complete">COMPLETE</span></td><td>42/42 pass (`test_snellen.py`)</td><td>Snellen E generator; full pipeline discriminability; species ordering validated</td></tr>
-<tr><td>10</td><td>Dichromat confusion validation</td><td><span class="status-ns">not started</span></td><td>—</td><td>Requires phases 2–7</td></tr>
+<tr><td>10</td><td>Dichromat confusion validation</td><td><span class="status-complete">COMPLETE</span></td><td>36/36 pass (`test_dichromat.py`)</td><td>Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human > D_dog for confusion pair</td></tr>
 <tr><td>11</td><td>Distance-dependent resolution test</td><td><span class="status-ns">not started</span></td><td>—</td><td>Requires phases 2–7</td></tr>
 <tr><td>12</td><td>Species comparison pipeline</td><td><span class="status-ns">not started</span></td><td>—</td><td>Requires phases 2–11</td></tr>
 <tr><td>13</td><td>Full validation report generator</td><td><span class="status-ns">not started</span></td><td>—</td><td>HTML report with all figures</td></tr>

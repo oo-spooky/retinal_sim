@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-04-02 (Phase 9 complete)_
+_Last updated: 2026-04-02 (Phase 10 complete)_
 
 ---
 
@@ -25,14 +25,14 @@ _Last updated: 2026-04-02 (Phase 9 complete)_
 | 7     | Spectral integration + Naka-Rushton| **COMPLETE** | 34/34 pass (`test_retinal_stage.py`) | `RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type |
 | 8     | Voronoi visualization              | **COMPLETE** | 28/28 pass (`test_output.py`)| `render_voronoi`, `render_reconstructed`, `render_comparison`, `render_mosaic_map` |
 | 9     | Snellen acuity validation          | **COMPLETE** | 42/42 pass (`test_snellen.py`)| Snellen E generator; full pipeline discriminability; species ordering validated |
-| 10    | Dichromat confusion validation     | not started  | —                            | Requires phases 2–7 |
+| 10    | Dichromat confusion validation     | **COMPLETE** | 36/36 pass (`test_dichromat.py`) | Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human > D_dog for confusion pair |
 | 11    | Distance-dependent resolution test | not started  | —                            | Requires phases 2–7 |
 | 12    | Species comparison pipeline        | not started  | —                            | Requires phases 2–11 |
 | 13    | Full validation report generator   | not started  | —                            | HTML report with all figures |
 
 ---
 
-## Phases 10–13 — Not yet started
+## Phases 11–13 — Not yet started
 
 See phase status summary above.
 
