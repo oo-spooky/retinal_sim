@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-04-01 (Phase 8 complete)_
+_Last updated: 2026-04-02 (Phase 9 complete)_
 
 ---
 
@@ -24,7 +24,7 @@ _Last updated: 2026-04-01 (Phase 8 complete)_
 | 6     | Smits spectral upsampler           | **COMPLETE** | 32/32 pass (`test_spectral.py`) | D65-optimised basis via `lsq_linear`; roundtrip RMSE < 0.0002 |
 | 7     | Spectral integration + Naka-Rushton| **COMPLETE** | 34/34 pass (`test_retinal_stage.py`) | `RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type |
 | 8     | Voronoi visualization              | **COMPLETE** | 28/28 pass (`test_output.py`)| `render_voronoi`, `render_reconstructed`, `render_comparison`, `render_mosaic_map` |
-| 9     | Snellen acuity validation          | not started  | —                            | Requires phases 2–7 |
+| 9     | Snellen acuity validation          | **COMPLETE** | 42/42 pass (`test_snellen.py`)| Snellen E generator; full pipeline discriminability; species ordering validated |
 | 10    | Dichromat confusion validation     | not started  | —                            | Requires phases 2–7 |
 | 11    | Distance-dependent resolution test | not started  | —                            | Requires phases 2–7 |
 | 12    | Species comparison pipeline        | not started  | —                            | Requires phases 2–11 |
@@ -207,7 +207,38 @@ Covered by tests:
 
 ---
 
-## Phases 9–13 — Not yet started
+## Phase 9 — Snellen Acuity Validation ✓ COMPLETE
+
+**Validated:** 2026-04-02
+**Test command:** `pytest tests/test_snellen.py -v`
+**Result:** 42 passed in 24.88s
+
+Covered by tests:
+- `TestSnellenETemplate` — 5×5 binary E template, 4 orientations, mirror symmetry, shape/dtype
+- `TestSnellenSceneRGB` — RGB scene generation, white background, black letter, size scaling
+- `TestDataFiles` — published_acuity.yaml, snellen_chart_angles.json, species ordering
+- `TestAcuityValidatorInit` — all three species init
+- `TestDiscriminability` — D ≥ 0, D > 0.05 for large letters, D(large) > D(small), reproducibility
+- `TestAcuityPrediction` — human/dog/cat in expected ranges, ordering (human < dog, human < cat)
+
+**Predicted acuity (with seed=0, n_seeds=1):**
+- Human: 2 arcmin (published behavioral: 1 arcmin)
+- Dog: 12 arcmin (published behavioral: 4–8 arcmin)
+- Cat: 12 arcmin (published behavioral: 6–10 arcmin)
+
+Note: PoC predictions are sampling-limited; neural factors (ganglion convergence) are not modelled, which accounts for the 2–5× gap vs behavioral data.
+
+**Files added:**
+- `retinal_sim/validation/__init__.py`
+- `retinal_sim/validation/snellen.py` — Snellen E generator, `make_snellen_e()`, `snellen_scene_rgb()`
+- `retinal_sim/validation/acuity.py` — `AcuityValidator`: full-pipeline discriminability + acuity prediction
+- `retinal_sim/data/validation/published_acuity.yaml` — published behavioral acuity reference data
+- `retinal_sim/data/validation/snellen_chart_angles.json` — default test angular sizes
+- `tests/test_snellen.py` — 42 tests
+
+---
+
+## Phases 10–13 — Not yet started
 
 See phase status summary above.
 

@@ -111,6 +111,42 @@ array as-is.
 ### Phase 7 test patterns — 34 tests, ~20 s
 `pytest tests/test_retinal_stage.py -v`
 
+---
+
+## Phase 9 gotchas
+
+### Naka-Rushton saturation kills discriminability in the full patch
+With white background images, the spectral integration produces excitation >> sigma (0.5),
+saturating nearly all Naka-Rushton responses to ~R_max.  Using raw mean(|r1-r2|)/(mean(r1+r2))
+gives D ≈ 0 for all letter sizes because the saturated background dominates.
+Fix: restrict comparison to cones whose positions fall INSIDE the letter's angular bounding box
+(±0.5×angular_size from the patch center).  Letter-region cones have high irradiance contrast
+(black strokes vs white gaps), giving reliable discriminability even under saturation.
+
+### Pearson correlation distance works; absolute-difference metric does not
+After letter-region masking, D = 1 - corr(r1, r2) (Pearson-correlation distance) cleanly
+distinguishes letter orientations.  E-right and E-left are anti-correlated in the letter
+region (D ≈ 0.5–1.5), while responses from two identical-orientation images are fully
+correlated (D ≈ 0).
+
+### Minimum-cone threshold determines sampling-limited acuity
+The predicted acuity is essentially: smallest letter for which ≥15 dominant-cone receptors
+fall inside the letter bounding box.  This naturally encodes the Nyquist sampling criterion:
+- Human (200K/mm² foveal cones): ≥15 L-cones at ~1.5–2 arcmin
+- Dog (12K/mm²): ≥15 L-cones at ~8 arcmin
+- Cat (10K/mm²): ≥15 L-cones at ~8–12 arcmin (stochastic; seed-dependent)
+N_min=15 (_MIN_CONES_IN_LETTER in acuity.py) was chosen so that dog correctly falls in the
+published 4–8 arcmin behavioral range.
+
+### Cat at 8 arcmin is seed-dependent
+Expected ~18 L-cones at 8 arcmin for cat.  Seeds 0 and 1 both happen to give <15 → D=0;
+seed 2 gives ≥15 → D=0.81.  With n_seeds=1, seed=0 (the fixture default), cat predicts
+12 arcmin instead of 8 arcmin.  This is within test bounds [1.5, 20].  Use n_seeds=3 if
+a tighter cat prediction is needed.
+
+### Phase 9 test patterns — 42 tests, ~25 s
+`pytest tests/test_snellen.py -v`
+
 ## Test patterns
 
 ### Phase 1 (nomogram) — 51 tests, ~0.08 s

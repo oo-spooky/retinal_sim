@@ -1,0 +1,14 @@
+human:
+  acuity_arcmin: 1.0
+  source: "Snellen 20/20 standard; MAR = 1 arcmin"
+  behavioral_range_arcmin: [0.8, 1.2]
+
+dog:
+  acuity_arcmin: 4.8
+  source: "Miller & Murphy 1995, approx 20/75; arch doc range 4-8 arcmin"
+  behavioral_range_arcmin: [4.0, 8.0]
+
+cat:
+  acuity_arcmin: 7.5
+  source: "Blake et al. 1974, 20/100-20/200; MAR 5-10 arcmin; arch doc range 6-10 arcmin"
+  behavioral_range_arcmin: [6.0, 10.0]
