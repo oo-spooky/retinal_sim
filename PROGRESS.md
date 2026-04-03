@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-04-02 (Phase 11 complete)_
+_Last updated: 2026-04-02 (Phase 12 complete)_
 
 ---
 
@@ -27,12 +27,12 @@ _Last updated: 2026-04-02 (Phase 11 complete)_
 | 9     | Snellen acuity validation          | **COMPLETE** | 42/42 pass (`test_snellen.py`)| Snellen E generator; full pipeline discriminability; species ordering validated |
 | 10    | Dichromat confusion validation     | **COMPLETE** | 36/36 pass (`test_dichromat.py`) | Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human > D_dog for confusion pair |
 | 11    | Distance-dependent resolution test | **COMPLETE** | 75/75 pass (`test_distance.py`) | Geometry scaling, receptor count 1/d², cross-species, coverage, seed stability, edge distances |
-| 12    | Species comparison pipeline        | not started  | —                            | Requires phases 2–11 |
+| 12    | Species comparison pipeline        | **COMPLETE** | 42/42 pass (`test_pipeline.py`) | RetinalSimulator orchestrator, compare_species, end-to-end color deficit validation |
 | 13    | Full validation report generator   | not started  | —                            | HTML report with all figures |
 
 ---
 
-## Phases 12–13 — Not yet started
+## Phase 13 — Not yet started
 
 See phase status summary above.
 
