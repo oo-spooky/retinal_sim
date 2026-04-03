@@ -183,6 +183,23 @@ to 10+ for rigorous quantitative comparison.
 ### Phase 10 test patterns — 36 tests, ~17 s
 `pytest tests/test_dichromat.py -v`
 
+## Phase 11 gotchas
+
+### Uniform density is required for 1/d² receptor count validation
+The architecture §11e test assumes receptor count scales as 1/d² with distance.
+This only holds for spatially uniform receptor density.  Human foveal density is
+200K/mm² at center but drops steeply with eccentricity.  At 1m, the 20cm object
+subtends ~11.4° and the retinal image spans into low-density periphery; at 100m
+the image sits entirely in the high-density center.  Result: the near/far ratio
+is far below 1/d² (~53× instead of 100× for human).
+Fix: `_uniform_density_retinal_params()` freezes cone and rod density functions
+at their area-centralis values via `dataclasses.replace`, isolating the geometry
+test from density gradient effects.  Dog happens to pass without this fix because
+its density gradient is shallower.
+
+### Phase 11 test patterns — 75 tests, ~167 s
+`pytest tests/test_distance.py -v`
+
 ## Codex CLI usage notes (verified 2026-04-02)
 
 ### Model compatibility with ChatGPT Plus auth

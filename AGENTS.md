@@ -60,6 +60,7 @@ tests/
   test_output.py        # Phase 8: output rendering (28 tests)
   test_snellen.py       # Phase 9: Snellen acuity (42 tests)
   test_dichromat.py     # Phase 10: dichromat validation (36 tests)
+  test_distance.py      # Phase 11: distance-dependent resolution (75 tests)
   test_pipeline.py      # integration tests
 ```
 
@@ -78,7 +79,7 @@ pip install setuptools wheel && pip install --no-build-isolation -e ".[dev]"
 
 ## Implementation status
 
-Phases 1-10 are COMPLETE (365 tests passing, 1 skipped). Next up: Phase 11 (distance-dependent resolution).
+Phases 1-11 are COMPLETE (440 tests passing, 1 skipped). Next up: Phase 12 (species comparison pipeline).
 
 ## Key design decisions and gotchas
 
