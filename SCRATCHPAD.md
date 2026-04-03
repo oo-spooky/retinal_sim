@@ -228,6 +228,27 @@ codex exec "<prompt>" --full-auto                             # read-only analys
 
 ---
 
+## Phase 13 gotchas
+
+### np.trapz removed in NumPy 2.x
+NumPy 2.x renamed `np.trapz` → `np.trapezoid`.  Use
+`_trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))` for cross-version compat.
+
+### ValidationResult.passed must be Python bool, not np.bool_
+Comparisons like `abs(x - y) < tol` return `np.bool_` which fails `is True` checks
+in tests.  Wrap with `bool(all_ok)` before storing in `ValidationResult.passed`.
+
+### RGB round-trip test: no `reconstruct_rgb` on SpectralUpsampler
+The SpectralUpsampler only goes RGB→spectral, not back.  The round-trip test
+manually integrates against approximate CIE 1931 2° observer functions and
+applies the XYZ→sRGB matrix + gamma.  Threshold is generous (RMSE < 15)
+because the CIE/D65 approximation is not exact.
+
+### Phase 13 test patterns — 41 tests, ~460 s
+`pytest tests/test_validation_report.py -v`
+
+---
+
 ## Test patterns
 
 Run all: `pytest` (~60s). Per-phase test files are named `test_{phase}.py` — see PROGRESS.md table.

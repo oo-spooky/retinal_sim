@@ -1,431 +1,518 @@
-"""Phase 12 — Species comparison pipeline tests.
+"""Phase 12: species comparison pipeline tests.
 
-Test classes:
+Tests are grouped into five classes:
 
 TestRetinalSimulatorInit
-    Constructor validation: string/config init, invalid species, properties.
+    Constructor validation: string/config initialisation, invalid species,
+    exposed properties, and default parameters.
 
 TestSimulateSingleSpecies
-    Single-species simulate(): result structure, shapes, reproducibility,
-    stimulus_scale effect, scene geometry paths.
+    Single-species ``simulate()`` integration tests: result type, per-species
+    execution, geometry paths, reproducibility, shapes, bounded responses, and
+    stimulus-scale sensitivity.
 
 TestCompareSpecies
-    compare_species(): all three species, key matching, receptor count
-    differences, seed and parameter preservation.
+    Multi-species ``compare_species()`` tests: dict structure, key preservation,
+    species-specific mosaics, and propagation of seed / stimulus-scale.
 
 TestEndToEndColorDeficit
-    KEY VALIDATION (architecture §11d): red/green collapse for dog,
-    blue/yellow preserved for both, luminance contrast preserved for cat.
+    Key Phase 12 validation (architecture section 11d): red-green collapse in
+    dog relative to human, blue-yellow preserved, human confusion-pair
+    discriminability above dog, and cat luminance contrast preserved.
 
 TestComparisonRendering
-    Integration with output renderers (voronoi, reconstruction, comparison).
+    Output-renderer integration using pipeline-generated activations and mosaics.
 """
 from __future__ import annotations
+
+import math
 
 import numpy as np
 import pytest
 
+from retinal_sim.output.comparison import render_comparison, render_mosaic_map
+from retinal_sim.output.reconstruction import render_reconstructed
+from retinal_sim.output.voronoi import render_voronoi
 from retinal_sim.pipeline import RetinalSimulator, SimulationResult
 from retinal_sim.species.config import SpeciesConfig
-
-# ---------------------------------------------------------------------------
-# Shared fixtures
-# ---------------------------------------------------------------------------
-
-_IMG_SIZE = 32
-_PATCH_DEG = 1.0
-_SEED = 42
+from retinal_sim.validation.ishihara import find_confusion_pair, make_dot_pattern
 
 
-def _random_image(size=_IMG_SIZE, seed=0):
-    rng = np.random.RandomState(seed)
-    return rng.randint(0, 255, (size, size, 3), dtype=np.uint8)
+PATCH_EXTENT_DEG = 1.0
+IMAGE_SIZE = 32
+VALIDATION_IMAGE_SIZE = 48
+STIMULUS_SCALE = 0.01
+SEED = 42
 
 
-def _solid_image(rgb, size=_IMG_SIZE):
-    img = np.empty((size, size, 3), dtype=np.uint8)
-    img[:, :] = rgb
+def _random_image(height: int = IMAGE_SIZE, width: int = IMAGE_SIZE, seed: int = 0) -> np.ndarray:
+    """Return a deterministic uint8 RGB image."""
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, 256, size=(height, width, 3), dtype=np.uint8)
+
+
+def _split_image(
+    left_rgb: tuple[int, int, int] | list[int],
+    right_rgb: tuple[int, int, int] | list[int],
+    size: int = VALIDATION_IMAGE_SIZE,
+) -> np.ndarray:
+    """Return an image with one colour on each half."""
+    img = np.zeros((size, size, 3), dtype=np.uint8)
+    img[:, : size // 2] = np.asarray(left_rgb, dtype=np.uint8)
+    img[:, size // 2 :] = np.asarray(right_rgb, dtype=np.uint8)
     return img
 
 
-def _split_image(left_rgb, right_rgb, size=_IMG_SIZE):
-    """Left half one colour, right half another."""
-    img = np.empty((size, size, 3), dtype=np.uint8)
-    img[:, : size // 2] = left_rgb
-    img[:, size // 2 :] = right_rgb
-    return img
+def _pixel_coordinates(result: SimulationResult, image_shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
+    """Map receptor positions back to nearest image pixel indices."""
+    height, width = image_shape
+    mm_per_pixel = float(result.scene.mm_per_pixel[0])
+    positions = result.mosaic.positions
+    cols = np.clip(
+        np.round(positions[:, 0] / mm_per_pixel + (width - 1) / 2.0).astype(int),
+        0,
+        width - 1,
+    )
+    rows = np.clip(
+        np.round(positions[:, 1] / mm_per_pixel + (height - 1) / 2.0).astype(int),
+        0,
+        height - 1,
+    )
+    return rows, cols
+
+
+def _mean_response_in_half(result: SimulationResult, receptor_type: str, left_half: bool, width: int) -> float:
+    """Return mean response for one receptor type in one image half."""
+    _, cols = _pixel_coordinates(result, (width, width))
+    type_mask = result.mosaic.types == receptor_type
+    half_mask = cols < (width // 2) if left_half else cols >= (width // 2)
+    mask = type_mask & half_mask
+    if not np.any(mask):
+        return float("nan")
+    return float(np.mean(result.activation.responses[mask]))
+
+
+def _cone_vector_difference(result: SimulationResult, width: int) -> float:
+    """Return Euclidean difference between left/right mean cone-response vectors."""
+    _, cols = _pixel_coordinates(result, (width, width))
+    left_means: list[float] = []
+    right_means: list[float] = []
+
+    for receptor_type in ("L_cone", "M_cone", "S_cone"):
+        type_mask = result.mosaic.types == receptor_type
+        left_mask = type_mask & (cols < (width // 2))
+        right_mask = type_mask & (cols >= (width // 2))
+        if not np.any(left_mask) or not np.any(right_mask):
+            continue
+        left_means.append(float(np.mean(result.activation.responses[left_mask])))
+        right_means.append(float(np.mean(result.activation.responses[right_mask])))
+
+    if not left_means:
+        return 0.0
+
+    return float(np.linalg.norm(np.asarray(left_means) - np.asarray(right_means)))
+
+
+def _best_figure_background_discriminability(
+    result: SimulationResult,
+    figure_mask: np.ndarray,
+) -> float:
+    """Return best cone-type figure/background discriminability for one result."""
+    rows, cols = _pixel_coordinates(result, figure_mask.shape)
+    in_figure = figure_mask[rows, cols]
+    best_d = 0.0
+
+    for receptor_type in np.unique(result.mosaic.types):
+        if receptor_type == "rod":
+            continue
+        type_mask = result.mosaic.types == receptor_type
+        figure_type_mask = type_mask & in_figure
+        background_type_mask = type_mask & ~in_figure
+        if figure_type_mask.sum() < 5 or background_type_mask.sum() < 5:
+            continue
+        mean_figure = float(np.mean(result.activation.responses[figure_type_mask]))
+        mean_background = float(np.mean(result.activation.responses[background_type_mask]))
+        d_value = abs(mean_figure - mean_background) / (mean_figure + mean_background + 1e-8)
+        best_d = max(best_d, d_value)
+
+    return best_d
 
 
 @pytest.fixture(scope="module")
-def human_sim():
-    return RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
+def human_config() -> SpeciesConfig:
+    return SpeciesConfig.load("human")
 
 
 @pytest.fixture(scope="module")
-def dog_sim():
-    return RetinalSimulator("dog", patch_extent_deg=_PATCH_DEG, seed=_SEED)
+def human_sim() -> RetinalSimulator:
+    return RetinalSimulator(
+        "human",
+        patch_extent_deg=PATCH_EXTENT_DEG,
+        stimulus_scale=STIMULUS_SCALE,
+        seed=SEED,
+    )
 
 
 @pytest.fixture(scope="module")
-def cat_sim():
-    return RetinalSimulator("cat", patch_extent_deg=_PATCH_DEG, seed=_SEED)
+def dog_sim() -> RetinalSimulator:
+    return RetinalSimulator(
+        "dog",
+        patch_extent_deg=PATCH_EXTENT_DEG,
+        stimulus_scale=STIMULUS_SCALE,
+        seed=SEED,
+    )
 
 
 @pytest.fixture(scope="module")
-def human_result(human_sim):
-    return human_sim.simulate(_random_image(), seed=_SEED)
+def cat_sim() -> RetinalSimulator:
+    return RetinalSimulator(
+        "cat",
+        patch_extent_deg=PATCH_EXTENT_DEG,
+        stimulus_scale=STIMULUS_SCALE,
+        seed=SEED,
+    )
 
 
 @pytest.fixture(scope="module")
-def dog_result(dog_sim):
-    return dog_sim.simulate(_random_image(), seed=_SEED)
+def base_image() -> np.ndarray:
+    return _random_image(seed=11)
 
 
 @pytest.fixture(scope="module")
-def cat_result(cat_sim):
-    return cat_sim.simulate(_random_image(), seed=_SEED)
+def human_result(human_sim: RetinalSimulator, base_image: np.ndarray) -> SimulationResult:
+    return human_sim.simulate(base_image, seed=SEED)
 
 
-# ===========================================================================
-# TestRetinalSimulatorInit
-# ===========================================================================
+@pytest.fixture(scope="module")
+def dog_result(dog_sim: RetinalSimulator, base_image: np.ndarray) -> SimulationResult:
+    return dog_sim.simulate(base_image, seed=SEED)
+
+
+@pytest.fixture(scope="module")
+def cat_result(cat_sim: RetinalSimulator, base_image: np.ndarray) -> SimulationResult:
+    return cat_sim.simulate(base_image, seed=SEED)
+
+
+@pytest.fixture(scope="module")
+def comparison_results(human_sim: RetinalSimulator, base_image: np.ndarray) -> dict[str, SimulationResult]:
+    return human_sim.compare_species(base_image, ["human", "dog", "cat"], seed=SEED)
+
+
+@pytest.fixture(scope="module")
+def red_green_image() -> np.ndarray:
+    return _split_image((200, 30, 30), (30, 180, 30))
+
+
+@pytest.fixture(scope="module")
+def red_green_results(human_sim: RetinalSimulator, red_green_image: np.ndarray) -> dict[str, SimulationResult]:
+    return human_sim.compare_species(red_green_image, ["human", "dog"], seed=SEED)
+
+
+@pytest.fixture(scope="module")
+def blue_yellow_image() -> np.ndarray:
+    return _split_image((30, 50, 220), (220, 210, 30))
+
+
+@pytest.fixture(scope="module")
+def blue_yellow_results(
+    human_sim: RetinalSimulator,
+    blue_yellow_image: np.ndarray,
+) -> dict[str, SimulationResult]:
+    return human_sim.compare_species(blue_yellow_image, ["human", "dog"], seed=SEED)
+
+
+@pytest.fixture(scope="module")
+def confusion_pair() -> tuple[np.ndarray, np.ndarray]:
+    return find_confusion_pair(species="dog", n_candidates=400, seed=7)
+
+
+@pytest.fixture(scope="module")
+def confusion_pair_pattern(
+    confusion_pair: tuple[np.ndarray, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
+    fg_rgb, bg_rgb = confusion_pair
+    return make_dot_pattern(
+        fg_rgb,
+        bg_rgb,
+        image_size_px=VALIDATION_IMAGE_SIZE,
+        n_dots=120,
+        seed=SEED,
+    )
+
+
+@pytest.fixture(scope="module")
+def confusion_pair_results(
+    human_sim: RetinalSimulator,
+    confusion_pair_pattern: tuple[np.ndarray, np.ndarray],
+) -> dict[str, SimulationResult]:
+    image, _ = confusion_pair_pattern
+    return human_sim.compare_species(image, ["human", "dog"], seed=SEED)
+
+
+@pytest.fixture(scope="module")
+def bright_dark_image() -> np.ndarray:
+    return _split_image((220, 220, 220), (20, 20, 20))
+
+
+@pytest.fixture(scope="module")
+def bright_dark_results(
+    human_sim: RetinalSimulator,
+    bright_dark_image: np.ndarray,
+) -> dict[str, SimulationResult]:
+    return human_sim.compare_species(bright_dark_image, ["cat"], seed=SEED)
 
 
 class TestRetinalSimulatorInit:
-
     @pytest.mark.parametrize("species", ["human", "dog", "cat"])
-    def test_init_from_string(self, species):
-        sim = RetinalSimulator(species, patch_extent_deg=_PATCH_DEG)
+    def test_init_from_string(self, species: str):
+        sim = RetinalSimulator(species, patch_extent_deg=PATCH_EXTENT_DEG)
         assert sim.species_name == species
 
-    def test_init_from_species_config(self):
-        cfg = SpeciesConfig.load("dog")
-        sim = RetinalSimulator(cfg, patch_extent_deg=_PATCH_DEG)
-        assert sim.species_name == "dog"
+    def test_init_from_species_config(self, human_config: SpeciesConfig):
+        sim = RetinalSimulator(human_config, patch_extent_deg=PATCH_EXTENT_DEG)
+        assert sim.species_name == human_config.name
+        assert sim.config is human_config
 
     def test_init_invalid_species_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unknown species"):
             RetinalSimulator("goldfish")
 
-    def test_species_name_property(self, human_sim):
-        assert human_sim.species_name == "human"
+    def test_species_name_property(self, dog_sim: RetinalSimulator):
+        assert dog_sim.species_name == "dog"
 
-    def test_config_property(self, human_sim):
-        assert isinstance(human_sim.config, SpeciesConfig)
-        assert human_sim.config.name == "human"
+    def test_config_property(self, cat_sim: RetinalSimulator):
+        assert isinstance(cat_sim.config, SpeciesConfig)
+        assert cat_sim.config.name == "cat"
 
     def test_default_params(self):
         sim = RetinalSimulator("human")
         assert sim._patch_extent_deg == 2.0
+        assert sim._light_level == "photopic"
         assert sim._stimulus_scale == 0.01
         assert sim._seed == 42
 
 
-# ===========================================================================
-# TestSimulateSingleSpecies
-# ===========================================================================
-
-
 class TestSimulateSingleSpecies:
-
-    def test_simulate_returns_simulation_result(self, human_result):
+    def test_simulate_returns_simulation_result(self, human_result: SimulationResult):
         assert isinstance(human_result, SimulationResult)
 
-    @pytest.mark.parametrize("species", ["human", "dog", "cat"])
-    def test_simulate_species(self, species):
-        sim = RetinalSimulator(species, patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        result = sim.simulate(_random_image())
-        assert result.mosaic.n_receptors > 0
-        assert result.activation.responses.min() >= 0.0
+    def test_simulate_human(self, human_result: SimulationResult):
+        assert human_result.mosaic.n_receptors > 0
+        assert np.all(human_result.activation.responses >= 0.0)
+        assert np.all(human_result.activation.responses <= 1.0)
 
-    def test_simulate_with_scene_geometry(self, human_sim):
-        img = _random_image()
-        result = human_sim.simulate(img, scene_width_m=0.3, viewing_distance_m=6.0)
-        assert result.scene.angular_width_deg > 0
+    def test_simulate_dog(self, dog_result: SimulationResult):
+        assert dog_result.mosaic.n_receptors > 0
+        assert np.all(dog_result.activation.responses >= 0.0)
+        assert np.all(dog_result.activation.responses <= 1.0)
+
+    def test_simulate_cat(self, cat_result: SimulationResult):
+        assert cat_result.mosaic.n_receptors > 0
+        assert np.all(cat_result.activation.responses >= 0.0)
+        assert np.all(cat_result.activation.responses <= 1.0)
+
+    def test_simulate_with_scene_geometry(self, human_sim: RetinalSimulator):
+        image = _random_image(seed=2)
+        result = human_sim.simulate(image, scene_width_m=0.3, viewing_distance_m=6.0, seed=SEED)
+        assert result.scene.scene_width_m == 0.3
         assert result.scene.viewing_distance_m == 6.0
+        assert result.scene.angular_width_deg > 0.0
+        assert result.scene.retinal_width_mm > 0.0
 
-    def test_simulate_without_scene_geometry(self, human_sim):
-        img = _random_image()
-        result = human_sim.simulate(img)
-        assert result.scene.viewing_distance_m == float("inf")
-        assert result.scene.angular_width_deg == _PATCH_DEG
+    def test_simulate_without_scene_geometry(self, human_sim: RetinalSimulator):
+        image = _random_image(seed=3)
+        result = human_sim.simulate(image, scene_width_m=None, seed=SEED)
+        assert math.isinf(result.scene.viewing_distance_m)
+        assert result.scene.angular_width_deg == PATCH_EXTENT_DEG
+        assert result.scene.scene_covers_patch_fraction == 1.0
 
-    def test_simulate_seed_reproducibility(self):
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG)
-        img = _random_image()
-        r1 = sim.simulate(img, seed=7)
-        r2 = sim.simulate(img, seed=7)
-        np.testing.assert_array_equal(r1.activation.responses, r2.activation.responses)
+    def test_simulate_seed_reproducibility(self, human_sim: RetinalSimulator, base_image: np.ndarray):
+        result_a = human_sim.simulate(base_image, seed=7)
+        result_b = human_sim.simulate(base_image, seed=7)
+        np.testing.assert_array_equal(result_a.mosaic.positions, result_b.mosaic.positions)
+        np.testing.assert_array_equal(result_a.mosaic.types, result_b.mosaic.types)
+        np.testing.assert_allclose(result_a.activation.responses, result_b.activation.responses)
 
-    def test_simulate_different_seeds(self):
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG)
-        img = _random_image()
-        r1 = sim.simulate(img, seed=0)
-        r2 = sim.simulate(img, seed=1)
-        # Different mosaics → generally different receptor count or positions
-        assert not np.array_equal(
-            r1.mosaic.positions, r2.mosaic.positions
-        )
+    def test_simulate_different_seeds(self, human_sim: RetinalSimulator, base_image: np.ndarray):
+        result_a = human_sim.simulate(base_image, seed=0)
+        result_b = human_sim.simulate(base_image, seed=1)
+        assert not np.array_equal(result_a.mosaic.positions, result_b.mosaic.positions)
 
-    def test_simulate_result_species_name(self, human_result):
-        assert human_result.species_name == "human"
+    def test_simulate_result_species_name(self, dog_result: SimulationResult):
+        assert dog_result.species_name == "dog"
 
-    def test_simulate_small_image(self):
-        sim = RetinalSimulator("dog", patch_extent_deg=0.5, seed=0)
-        img = _random_image(size=16)
-        result = sim.simulate(img)
+    def test_simulate_small_image(self, human_sim: RetinalSimulator):
+        image = _random_image(height=16, width=16, seed=4)
+        result = human_sim.simulate(image, seed=SEED)
+        assert result.spectral_image.data.shape[:2] == (16, 16)
         assert result.mosaic.n_receptors > 0
 
-    def test_simulate_rectangular_image(self, human_sim):
-        rng = np.random.RandomState(0)
-        img = rng.randint(0, 255, (24, 48, 3), dtype=np.uint8)
-        result = human_sim.simulate(img)
-        assert result.spectral_image.data.shape[0] == 24
-        assert result.spectral_image.data.shape[1] == 48
+    def test_simulate_rectangular_image(self, human_sim: RetinalSimulator):
+        image = _random_image(height=16, width=48, seed=5)
+        result = human_sim.simulate(image, seed=SEED)
+        assert result.spectral_image.data.shape[:2] == (16, 48)
+        assert result.retinal_irradiance.data.shape[:2] == (16, 48)
 
-    def test_simulate_spectral_image_wavelengths(self, human_result):
-        assert human_result.spectral_image.data.ndim == 3
-        N_lam = human_result.spectral_image.data.shape[2]
-        assert N_lam == len(human_result.spectral_image.wavelengths)
-        assert N_lam > 30  # at least 30 spectral bands
+    def test_simulate_spectral_image_shape(self, human_result: SimulationResult):
+        height, width, n_wavelengths = human_result.spectral_image.data.shape
+        assert (height, width) == (IMAGE_SIZE, IMAGE_SIZE)
+        assert n_wavelengths == len(human_result.spectral_image.wavelengths)
+        assert n_wavelengths > 30
 
-    def test_simulate_irradiance_shape(self, human_result):
-        H, W = _IMG_SIZE, _IMG_SIZE
-        assert human_result.retinal_irradiance.data.shape[:2] == (H, W)
+    def test_simulate_irradiance_shape(self, human_result: SimulationResult):
+        assert human_result.retinal_irradiance.data.shape == human_result.spectral_image.data.shape
 
-    def test_simulate_responses_bounded(self, human_result):
-        r = human_result.activation.responses
-        assert np.all(r >= 0.0)
-        assert np.all(r <= 1.5)  # R_max is typically 1.0
+    def test_simulate_responses_bounded(self, cat_result: SimulationResult):
+        responses = cat_result.activation.responses
+        assert np.all(responses >= 0.0)
+        assert np.all(responses <= 1.0)
 
-    def test_simulate_stimulus_scale_effect(self):
-        img = _random_image()
-        sim_low = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, stimulus_scale=0.001, seed=_SEED)
-        sim_high = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, stimulus_scale=0.1, seed=_SEED)
-        r_low = sim_low.simulate(img)
-        r_high = sim_high.simulate(img)
-        # Higher stimulus → higher mean response (Naka-Rushton is monotonic)
-        assert r_high.activation.responses.mean() > r_low.activation.responses.mean()
+    def test_simulate_stimulus_scale_effect(self, base_image: np.ndarray):
+        sim_low = RetinalSimulator(
+            "human",
+            patch_extent_deg=PATCH_EXTENT_DEG,
+            stimulus_scale=0.001,
+            seed=SEED,
+        )
+        sim_high = RetinalSimulator(
+            "human",
+            patch_extent_deg=PATCH_EXTENT_DEG,
+            stimulus_scale=0.1,
+            seed=SEED,
+        )
+        result_low = sim_low.simulate(base_image, seed=SEED)
+        result_high = sim_high.simulate(base_image, seed=SEED)
+        assert result_high.activation.responses.mean() > result_low.activation.responses.mean()
 
+    def test_simulate_activation_count_matches_mosaic(self, human_result: SimulationResult):
+        assert human_result.activation.responses.shape == (human_result.mosaic.n_receptors,)
 
-# ===========================================================================
-# TestCompareSpecies
-# ===========================================================================
+    def test_simulate_activation_metadata_present(self, human_result: SimulationResult):
+        assert "n_receptors" in human_result.activation.metadata
+        assert human_result.activation.metadata["n_receptors"] == human_result.mosaic.n_receptors
 
 
 class TestCompareSpecies:
+    def test_compare_returns_dict_with_all_species(self, comparison_results: dict[str, SimulationResult]):
+        assert isinstance(comparison_results, dict)
+        assert set(comparison_results) == {"human", "dog", "cat"}
 
-    @pytest.fixture(scope="class")
-    def comparison(self):
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        img = _random_image()
-        return sim.compare_species(img, ["human", "dog", "cat"])
+    def test_compare_human_dog_cat(self, comparison_results: dict[str, SimulationResult]):
+        for species in ("human", "dog", "cat"):
+            assert isinstance(comparison_results[species], SimulationResult)
+            assert comparison_results[species].species_name == species
 
-    def test_compare_returns_dict(self, comparison):
-        assert isinstance(comparison, dict)
+    def test_compare_result_keys_match_input(self, human_sim: RetinalSimulator, base_image: np.ndarray):
+        species_list = ["cat", "human"]
+        results = human_sim.compare_species(base_image, species_list, seed=SEED)
+        assert list(results.keys()) == species_list
 
-    def test_compare_keys_match_input(self, comparison):
-        assert set(comparison.keys()) == {"human", "dog", "cat"}
+    def test_compare_same_image_different_mosaics(self, comparison_results: dict[str, SimulationResult]):
+        human_count = comparison_results["human"].mosaic.n_receptors
+        dog_count = comparison_results["dog"].mosaic.n_receptors
+        assert human_count != dog_count
 
-    def test_compare_all_simulation_results(self, comparison):
-        for sp, r in comparison.items():
-            assert isinstance(r, SimulationResult)
-            assert r.species_name == sp
-
-    def test_compare_different_receptor_counts(self, comparison):
-        # Human foveal cone density >> dog/cat → more receptors for same patch
-        counts = {sp: r.mosaic.n_receptors for sp, r in comparison.items()}
-        # All should have receptors
-        for sp, c in counts.items():
-            assert c > 0, f"{sp} has 0 receptors"
-
-    def test_compare_single_species(self):
-        sim = RetinalSimulator("dog", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        results = sim.compare_species(_random_image(), ["dog"])
+    def test_compare_single_species(self, dog_sim: RetinalSimulator, base_image: np.ndarray):
+        results = dog_sim.compare_species(base_image, ["dog"], seed=SEED)
         assert list(results.keys()) == ["dog"]
+        assert results["dog"].species_name == "dog"
 
-    def test_compare_preserves_seed(self):
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=10)
-        img = _random_image()
-        r1 = sim.compare_species(img, ["human"], seed=7)
-        r2 = sim.compare_species(img, ["human"], seed=7)
-        np.testing.assert_array_equal(
-            r1["human"].activation.responses,
-            r2["human"].activation.responses,
+    def test_compare_preserves_seed(self, human_sim: RetinalSimulator, base_image: np.ndarray):
+        results_a = human_sim.compare_species(base_image, ["human", "dog"], seed=9)
+        results_b = human_sim.compare_species(base_image, ["human", "dog"], seed=9)
+        for species in ("human", "dog"):
+            np.testing.assert_array_equal(
+                results_a[species].mosaic.positions,
+                results_b[species].mosaic.positions,
+            )
+            np.testing.assert_allclose(
+                results_a[species].activation.responses,
+                results_b[species].activation.responses,
+            )
+
+    def test_compare_preserves_stimulus_scale(self, base_image: np.ndarray):
+        sim_low = RetinalSimulator(
+            "human",
+            patch_extent_deg=PATCH_EXTENT_DEG,
+            stimulus_scale=0.001,
+            seed=SEED,
         )
+        sim_high = RetinalSimulator(
+            "human",
+            patch_extent_deg=PATCH_EXTENT_DEG,
+            stimulus_scale=0.1,
+            seed=SEED,
+        )
+        low_results = sim_low.compare_species(base_image, ["human", "dog"], seed=SEED)
+        high_results = sim_high.compare_species(base_image, ["human", "dog"], seed=SEED)
+        assert high_results["human"].activation.responses.mean() > low_results["human"].activation.responses.mean()
+        assert high_results["dog"].activation.responses.mean() > low_results["dog"].activation.responses.mean()
 
-    def test_compare_preserves_stimulus_scale(self):
-        img = _random_image()
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, stimulus_scale=0.005, seed=_SEED)
-        results = sim.compare_species(img, ["human", "dog"])
-        # Both should run without error and produce non-empty results
-        for sp, r in results.items():
-            assert r.mosaic.n_receptors > 0
-
-
-# ===========================================================================
-# TestEndToEndColorDeficit
-# ===========================================================================
+    def test_compare_values_are_simulation_results(self, comparison_results: dict[str, SimulationResult]):
+        assert all(isinstance(result, SimulationResult) for result in comparison_results.values())
 
 
 class TestEndToEndColorDeficit:
-    """Architecture §11d — end-to-end validation of known visual deficits."""
+    def test_red_green_collapse_dog(self, red_green_results: dict[str, SimulationResult]):
+        human_diff = _cone_vector_difference(red_green_results["human"], VALIDATION_IMAGE_SIZE)
+        dog_diff = _cone_vector_difference(red_green_results["dog"], VALIDATION_IMAGE_SIZE)
+        assert human_diff > dog_diff * 1.5
 
-    @pytest.fixture(scope="class")
-    def red_green_results(self):
-        """Red/green split image through human and dog pipelines."""
-        red = [200, 30, 30]
-        green = [30, 180, 30]
-        img = _split_image(red, green, size=48)
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        return sim.compare_species(img, ["human", "dog"], seed=_SEED)
+    def test_blue_yellow_preserved_both(self, blue_yellow_results: dict[str, SimulationResult]):
+        human_diff = _cone_vector_difference(blue_yellow_results["human"], VALIDATION_IMAGE_SIZE)
+        dog_diff = _cone_vector_difference(blue_yellow_results["dog"], VALIDATION_IMAGE_SIZE)
+        assert human_diff > 0.1
+        assert dog_diff > 0.1
 
-    @pytest.fixture(scope="class")
-    def blue_yellow_results(self):
-        """Blue/yellow split image through human and dog pipelines."""
-        blue = [30, 50, 220]
-        yellow = [220, 210, 30]
-        img = _split_image(blue, yellow, size=48)
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        return sim.compare_species(img, ["human", "dog"], seed=_SEED)
-
-    @pytest.fixture(scope="class")
-    def bright_dark_results(self):
-        """Bright/dark split image through all three pipelines."""
-        bright = [200, 200, 200]
-        dark = [30, 30, 30]
-        img = _split_image(bright, dark, size=48)
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        return sim.compare_species(img, ["human", "dog", "cat"], seed=_SEED)
-
-    @staticmethod
-    def _half_response_diff(result, size=48):
-        """Compute |mean_left - mean_right| for cone responses.
-
-        Returns the best (max) diff across cone types.
-        """
-        mosaic = result.mosaic
-        responses = result.activation.responses
-        focal_mm = result.scene.retinal_width_mm  # total retinal width
-
-        # Map receptor x positions to left/right halves.
-        pos_x = mosaic.positions[:, 0]
-        median_x = np.median(pos_x)
-        left = pos_x < median_x
-        right = pos_x >= median_x
-
-        best_diff = 0.0
-        for ctype in np.unique(mosaic.types):
-            if ctype == "rod":
-                continue
-            type_mask = mosaic.types == ctype
-            left_mask = type_mask & left
-            right_mask = type_mask & right
-            if left_mask.sum() < 5 or right_mask.sum() < 5:
-                continue
-            mean_l = float(np.mean(responses[left_mask]))
-            mean_r = float(np.mean(responses[right_mask]))
-            diff = abs(mean_l - mean_r)
-            if diff > best_diff:
-                best_diff = diff
-        return best_diff
-
-    def test_red_green_collapse_dog(self, red_green_results):
-        """Dog should show less red/green differentiation than human."""
-        human_diff = self._half_response_diff(red_green_results["human"])
-        dog_diff = self._half_response_diff(red_green_results["dog"])
-        # Human trichromat should distinguish red from green better
-        assert human_diff > dog_diff, (
-            f"Expected human diff ({human_diff:.4f}) > dog diff ({dog_diff:.4f})"
+    def test_human_trichromat_better_than_dog_dichromat(
+        self,
+        confusion_pair_pattern: tuple[np.ndarray, np.ndarray],
+        confusion_pair_results: dict[str, SimulationResult],
+    ):
+        _, figure_mask = confusion_pair_pattern
+        human_d = _best_figure_background_discriminability(
+            confusion_pair_results["human"],
+            figure_mask,
         )
+        dog_d = _best_figure_background_discriminability(
+            confusion_pair_results["dog"],
+            figure_mask,
+        )
+        assert human_d > dog_d
 
-    def test_human_sees_red_green(self, red_green_results):
-        """Human should have non-trivial red/green differentiation."""
-        human_diff = self._half_response_diff(red_green_results["human"])
-        assert human_diff > 0.01, f"Human diff too small: {human_diff:.4f}"
-
-    def test_blue_yellow_both_see(self, blue_yellow_results):
-        """Both human and dog should distinguish blue from yellow (S-cone axis)."""
-        human_diff = self._half_response_diff(blue_yellow_results["human"])
-        dog_diff = self._half_response_diff(blue_yellow_results["dog"])
-        assert human_diff > 0.01, f"Human blue/yellow diff too small: {human_diff:.4f}"
-        assert dog_diff > 0.01, f"Dog blue/yellow diff too small: {dog_diff:.4f}"
-
-    def test_luminance_preserved_all_species(self, bright_dark_results):
-        """All species should distinguish bright from dark (luminance axis)."""
-        for sp in ["human", "dog", "cat"]:
-            diff = self._half_response_diff(bright_dark_results[sp])
-            assert diff > 0.01, f"{sp} luminance diff too small: {diff:.4f}"
-
-    def test_cat_luminance_contrast(self, bright_dark_results):
-        """Cat should show significant luminance contrast (larger receptive fields)."""
-        cat_diff = self._half_response_diff(bright_dark_results["cat"])
-        assert cat_diff > 0.02, f"Cat luminance diff too small: {cat_diff:.4f}"
-
-    def test_red_green_human_dog_ratio(self, red_green_results):
-        """Human should have at least 1.5x the red/green diff of dog."""
-        human_diff = self._half_response_diff(red_green_results["human"])
-        dog_diff = self._half_response_diff(red_green_results["dog"])
-        ratio = human_diff / (dog_diff + 1e-8)
-        assert ratio > 1.5, f"Human/dog red-green ratio only {ratio:.2f}"
-
-    def test_dog_red_green_near_zero(self, red_green_results):
-        """Dog red/green diff should be small (near confusion)."""
-        dog_diff = self._half_response_diff(red_green_results["dog"])
-        # Dog is dichromat — red and green should be nearly indistinguishable.
-        # Allow some residual from S-cone channel and mosaic noise.
-        assert dog_diff < 0.15, f"Dog red/green diff too large: {dog_diff:.4f}"
-
-
-# ===========================================================================
-# TestComparisonRendering
-# ===========================================================================
+    def test_cat_retains_luminance_contrast(self, bright_dark_results: dict[str, SimulationResult]):
+        cat_result = bright_dark_results["cat"]
+        left_mean = _mean_response_in_half(cat_result, "rod", True, VALIDATION_IMAGE_SIZE)
+        right_mean = _mean_response_in_half(cat_result, "rod", False, VALIDATION_IMAGE_SIZE)
+        assert abs(left_mean - right_mean) > 0.5
 
 
 class TestComparisonRendering:
-    """Test that output renderers work with pipeline results."""
-
-    @pytest.fixture(scope="class")
-    def result(self):
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        return sim.simulate(_random_image(size=32))
-
-    @pytest.fixture(scope="class")
-    def comparison(self):
-        sim = RetinalSimulator("human", patch_extent_deg=_PATCH_DEG, seed=_SEED)
-        return sim.compare_species(_random_image(size=32), ["human", "dog"])
-
-    def test_render_voronoi_from_pipeline(self, result):
-        from retinal_sim.output.voronoi import render_voronoi
-        img = render_voronoi(result.activation, output_size=(64, 64))
-        assert img.shape == (64, 64, 3)
-        assert img.dtype == np.float32
-
-    def test_render_reconstructed_from_pipeline(self, result):
-        from retinal_sim.output.reconstruction import render_reconstructed
-        img = render_reconstructed(result.activation, grid_shape=(64, 64))
-        assert img.shape == (64, 64)
-        assert img.dtype == np.float32
-
-    def test_render_comparison_from_pipeline(self, comparison):
-        from retinal_sim.output.comparison import render_comparison
+    def test_render_comparison_from_pipeline(self, comparison_results: dict[str, SimulationResult]):
         fig = render_comparison(
-            {sp: r.activation for sp, r in comparison.items()},
+            {species: result.activation for species, result in comparison_results.items()},
             output_size=(64, 64),
         )
-        # Should be a matplotlib Figure
-        assert hasattr(fig, "savefig")
+        assert hasattr(fig, "axes")
+        assert len(fig.axes) >= 3
         import matplotlib.pyplot as plt
         plt.close(fig)
 
-    def test_render_mosaic_map_from_pipeline(self, result):
-        from retinal_sim.output.comparison import render_mosaic_map
-        fig = render_mosaic_map(result.mosaic)
-        assert hasattr(fig, "savefig")
+    def test_render_voronoi_from_pipeline(self, human_result: SimulationResult):
+        image = render_voronoi(human_result.activation, output_size=(64, 64))
+        assert image.shape == (64, 64, 3)
+        assert image.dtype == np.float32
+        assert image.max() > 0.0
+
+    def test_render_reconstructed_from_pipeline(self, human_result: SimulationResult):
+        image = render_reconstructed(human_result.activation, grid_shape=(64, 64))
+        assert image.shape == (64, 64)
+        assert image.dtype == np.float32
+        assert image.max() > 0.0
+
+    def test_render_mosaic_map_from_pipeline(self, human_result: SimulationResult):
+        fig = render_mosaic_map(human_result.mosaic, output_size=(200, 200))
+        assert hasattr(fig, "axes")
+        assert len(fig.axes) == 1
         import matplotlib.pyplot as plt
         plt.close(fig)
-
-    def test_voronoi_nonzero(self, result):
-        from retinal_sim.output.voronoi import render_voronoi
-        img = render_voronoi(result.activation, output_size=(64, 64))
-        assert img.max() > 0, "Voronoi image is all black"

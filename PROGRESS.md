@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-04-02 (Phase 12 complete)_
+_Last updated: 2026-04-03 (Phase 13 complete)_
 
 ---
 
@@ -28,13 +28,16 @@ _Last updated: 2026-04-02 (Phase 12 complete)_
 | 10    | Dichromat confusion validation     | **COMPLETE** | 36/36 pass (`test_dichromat.py`) | Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human > D_dog for confusion pair |
 | 11    | Distance-dependent resolution test | **COMPLETE** | 75/75 pass (`test_distance.py`) | Geometry scaling, receptor count 1/d², cross-species, coverage, seed stability, edge distances |
 | 12    | Species comparison pipeline        | **COMPLETE** | 42/42 pass (`test_pipeline.py`) | RetinalSimulator orchestrator, compare_species, end-to-end color deficit validation |
-| 13    | Full validation report generator   | not started  | —                            | HTML report with all figures |
+| 13    | Full validation report generator   | **COMPLETE** | 41/41 pass (`test_validation_report.py`) | ValidationSuite with 14 tests, figures for every test, self-contained HTML report |
 
 ---
 
-## Phase 13 — Not yet started
+## Phase 13 — Complete
 
-See phase status summary above.
+`retinal_sim/validation/report.py` — `ValidationResult`, `ValidationReport`, `ValidationSuite` classes.
+14 validation tests across 5 stages (scene, spectral, optical, retinal, e2e), each producing
+a figure. `save_html()` generates a self-contained HTML report with embedded base64 figures,
+summary table, pass/fail badges, and bonus reference figures (nomogram, mosaics).
 
 ---
 

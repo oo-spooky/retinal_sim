@@ -52,20 +52,47 @@ pre {
 </head>
 <body>
 <h1>retinal_sim — Status Report</h1>
-<p class="timestamp">Generated: 2026-04-02 23:11</p>
+<p class="timestamp">Generated: 2026-04-03 13:36</p>
 
 <h2>Test Results</h2>
-<div class="summary-box all-pass">482 passed, 4 warnings in 246.86s (0:04:06)</div>
+<div class="summary-box all-pass">522 passed, 43 warnings in 491.50s (0:08:11)</div>
 <pre>============================== warnings summary ===============================
-tests/test_pipeline.py::TestSimulateSingleSpecies::test_simulate_species[cat]
-tests/test_pipeline.py::TestCompareSpecies::test_compare_returns_dict
-tests/test_pipeline.py::TestEndToEndColorDeficit::test_luminance_preserved_all_species
-tests/test_snellen.py::TestAcuityPrediction::test_human_acuity_in_expected_range
+tests/test_pipeline.py: 4 warnings
+tests/test_snellen.py: 1 warning
+tests/test_validation_report.py: 19 warnings
   C:\Users\steve\retinal_sim\retinal_sim\optical\stage.py:85: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
     kernels = psf_gen.gaussian_psf(wavelengths, defocus_diopters=defocus_diopters)
 
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_stage_optical_count
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_count
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_returns_validation_results
+tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffraction
+tests/test_validation_report.py::TestHTMLOutput::test_full_report_html
+tests/test_validation_report.py::TestHTMLOutput::test_report_contains_bonus_figures
+tests/test_validation_report.py::TestHTMLOutput::test_report_pass_fail_badges
+tests/test_validation_report.py::TestHTMLOutput::test_report_summary_table
+tests/test_validation_report.py::TestHTMLOutput::test_all_figures_have_alt_text
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:604: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
+    plt.tight_layout()
+
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_stage_optical_count
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_count
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_returns_validation_results
+tests/test_validation_report.py::TestValidationSuiteTests::test_psf_energy_conservation
+tests/test_validation_report.py::TestHTMLOutput::test_full_report_html
+tests/test_validation_report.py::TestHTMLOutput::test_report_contains_bonus_figures
+tests/test_validation_report.py::TestHTMLOutput::test_report_pass_fail_badges
+tests/test_validation_report.py::TestHTMLOutput::test_report_summary_table
+tests/test_validation_report.py::TestHTMLOutput::test_all_figures_have_alt_text
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:633: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
+    psfs = psf_gen.gaussian_psf(WAVELENGTHS, kernel_size=31)
+
+tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_count
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:582: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-482 passed, 4 warnings in 246.86s (0:04:06)</pre>
+522 passed, 43 warnings in 491.50s (0:08:11)</pre>
 
 <h2>Phase Status</h2>
 <table>
@@ -87,7 +114,7 @@ tests/test_snellen.py::TestAcuityPrediction::test_human_acuity_in_expected_range
 <tr><td>10</td><td>Dichromat confusion validation</td><td><span class="status-complete">COMPLETE</span></td><td>36/36 pass (`test_dichromat.py`)</td><td>Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human > D_dog for confusion pair</td></tr>
 <tr><td>11</td><td>Distance-dependent resolution test</td><td><span class="status-complete">COMPLETE</span></td><td>75/75 pass (`test_distance.py`)</td><td>Geometry scaling, receptor count 1/d², cross-species, coverage, seed stability, edge distances</td></tr>
 <tr><td>12</td><td>Species comparison pipeline</td><td><span class="status-complete">COMPLETE</span></td><td>42/42 pass (`test_pipeline.py`)</td><td>RetinalSimulator orchestrator, compare_species, end-to-end color deficit validation</td></tr>
-<tr><td>13</td><td>Full validation report generator</td><td><span class="status-ns">not started</span></td><td>—</td><td>HTML report with all figures</td></tr>
+<tr><td>13</td><td>Full validation report generator</td><td><span class="status-complete">COMPLETE</span></td><td>41/41 pass (`test_validation_report.py`)</td><td>ValidationSuite with 14 tests, figures for every test, self-contained HTML report</td></tr>
   </tbody>
 </table>
 
