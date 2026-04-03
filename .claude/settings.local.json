@@ -24,7 +24,11 @@
       "Bash(git push:*)",
       "Bash(codex --version)",
       "Bash(npm --version)",
-      "Bash(codex --help)"
+      "Bash(codex --help)",
+      "Bash(codex exec ':*)",
+      "Bash(tasklist)",
+      "Bash(codex exec:*)",
+      "Bash(codex review:*)"
     ]
   }
 }

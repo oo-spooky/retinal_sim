@@ -183,12 +183,31 @@ to 10+ for rigorous quantitative comparison.
 ### Phase 10 test patterns — 36 tests, ~17 s
 `pytest tests/test_dichromat.py -v`
 
-## Codex CLI usage notes
+## Codex CLI usage notes (verified 2026-04-02)
 
-- `codex exec "<prompt>"` runs non-interactively; use `--help` to check sandbox/permission flags before first use on a new task type.
-- `codex review` operates on the current working tree diff by default.
-- For Phase 11+ handoffs, include the architecture §11 validation matrix in the prompt so Codex has the acceptance criteria.
-- Codex output lands as a diff; inspect before accepting — it won't know project-specific gotchas (e.g., stimulus_scale, pixel_scale_mm key naming) unless they are in the prompt.
+### Model compatibility with ChatGPT Plus auth
+- **Works:** `gpt-5.4`, `gpt-5.2-codex`
+- **Does NOT work:** `o3`, `o4-mini`, `gpt-4.1`, `codex-mini-latest` — all return "not supported when using Codex with a ChatGPT account"
+- Default model is set to `gpt-5.4` in `~/.codex/config.toml`
+
+### Windows sandbox gotcha
+- `read-only` and `workspace-write` sandbox modes block most shell commands (pytest, git ls-files, etc.) on Windows
+- `codex review` works in read-only mode (it retries with simpler commands when complex ones are blocked)
+- `codex exec` needs `--dangerously-bypass-approvals-and-sandbox` for anything that runs tests or writes files
+- `codex exec "<prompt>" --full-auto` works for read-only tasks (listing files, reading code)
+
+### Project context
+- Codex reads `AGENTS.md` in the repo root automatically — all project architecture, gotchas, and conventions are there
+- For Phase 11+ handoffs, the AGENTS.md already contains key gotchas; add phase-specific acceptance criteria to the exec prompt
+- Codex output lands as a diff; inspect before accepting
+
+### Verified commands
+```bash
+codex review --uncommitted                                    # review working tree
+codex review --base master                                    # review branch vs master
+codex exec "<prompt>" --dangerously-bypass-approvals-and-sandbox  # run tests / write code
+codex exec "<prompt>" --full-auto                             # read-only analysis
+```
 
 ---
 

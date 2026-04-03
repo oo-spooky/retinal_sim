@@ -20,17 +20,29 @@ git push
 
 ## Codex CLI workflow
 
-`codex` CLI (v0.118.0) is installed and available. Use it in two ways:
+`codex` CLI (v0.118.0) is installed. Config: `~/.codex/config.toml` (model: `gpt-5.4`).
+Project context for Codex is in `AGENTS.md` (repo root) — Codex reads this automatically.
 
-**1. Background phase implementation** — hand off Phase 11+ implementation tasks to Codex as a non-interactive background worker while staying in context for architecture decisions:
+**Model:** `gpt-5.4` (works with ChatGPT Plus auth). Models `o3`, `o4-mini`, `gpt-4.1`, and `codex-mini-latest` do NOT work with ChatGPT auth.
+
+**1. Code review** — read-only sandbox is fine, no special flags needed:
 ```bash
-codex exec "<task prompt>"
+codex review --uncommitted                    # review working tree changes
+codex review --base master                    # review branch vs master
+codex review --commit HEAD                    # review last commit
 ```
 
-**2. Parallel code review** — after an Opus CODEREVIEW.md audit, run a Codex review pass on a diff for a second opinion:
+**2. Background implementation** — needs sandbox bypass on Windows to run tests/write files:
 ```bash
-codex review
+codex exec "<task prompt>" --dangerously-bypass-approvals-and-sandbox
 ```
+
+**3. Read-only tasks** (listing files, reading code, analysis) — `--full-auto` is sufficient:
+```bash
+codex exec "<analysis prompt>" --full-auto
+```
+
+**Windows sandbox note:** The `read-only` and `workspace-write` sandbox modes block most shell commands on Windows. For tasks that need to run pytest or write code, use `--dangerously-bypass-approvals-and-sandbox`. For read-only analysis, `--full-auto` works.
 
 Claude handles architecture decisions and orchestration; Codex handles implementation detail and review.
 
