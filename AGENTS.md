@@ -79,7 +79,13 @@ pip install setuptools wheel && pip install --no-build-isolation -e ".[dev]"
 
 ## Implementation status
 
-Phases 1-11 are COMPLETE (440 tests passing, 1 skipped). Next up: Phase 12 (species comparison pipeline).
+Phases 1-13 are COMPLETE. The current repo focus is full code review, architecture audit, and transparent reporting.
+
+Implementation progress, validation status, and architecture audit status are different things:
+- `PROGRESS.md` tracks implementation completion and test counts.
+- `CODEREVIEW.md` tracks review findings.
+- `reports/status_latest.html` is the audit dashboard for current test status, doc drift, and review state.
+- `reports/validation_report.html` is the detailed validation artifact; generated user content should expose assumptions, methods, thresholds, and code provenance.
 
 ## Key design decisions and gotchas
 

@@ -21,7 +21,6 @@ TestHTMLOutput
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +31,11 @@ from retinal_sim.validation.report import (
     ValidationReport,
     ValidationSuite,
 )
+
+def workspace_path(*parts: str) -> Path:
+    base = Path("tests/.tmp_validation_report")
+    base.mkdir(parents=True, exist_ok=True)
+    return base.joinpath(*parts)
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +133,14 @@ class TestValidationResult:
         assert isinstance(r.expected, dict)
         assert isinstance(r.actual, list)
 
+    def test_new_metadata_fields_default(self):
+        r = ValidationResult("Meta", True, 1, 1, 0.0, "ok")
+        assert r.stage == ""
+        assert r.architecture_ref == ""
+        assert r.code_refs == []
+        assert r.assumptions == []
+        assert r.limitations == []
+
 
 # ---------------------------------------------------------------------------
 # TestValidationReport
@@ -157,31 +169,29 @@ class TestValidationReport:
         report = ValidationReport([sample_result])
         assert len(report.results) == 1
         assert report.results[0] is sample_result
+        assert report.metadata == {}
 
     def test_save_html_creates_file(self, sample_result: ValidationResult):
         report = ValidationReport([sample_result])
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            assert os.path.exists(path)
-            content = Path(path).read_text(encoding="utf-8")
-            assert "<!DOCTYPE html>" in content
-            assert "Sample Test" in content
+        path = workspace_path("report_basic.html")
+        report.save_html(str(path))
+        assert path.exists()
+        content = path.read_text(encoding="utf-8")
+        assert "<!DOCTYPE html>" in content
+        assert "Sample Test" in content
 
     def test_save_html_with_figure(self, sample_result_with_figure: ValidationResult):
         report = ValidationReport([sample_result_with_figure])
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            assert "data:image/png;base64," in content
+        path = workspace_path("report_figure.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "data:image/png;base64," in content
 
     def test_save_html_creates_parent_dirs(self, sample_result: ValidationResult):
         report = ValidationReport([sample_result])
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "nested", "dir", "report.html")
-            report.save_html(path)
-            assert os.path.exists(path)
+        path = workspace_path("nested", "dir", "report.html")
+        report.save_html(str(path))
+        assert path.exists()
 
     def test_save_html_escapes_html_entities(self):
         r = ValidationResult(
@@ -193,12 +203,19 @@ class TestValidationReport:
             details="details with & < > chars",
         )
         report = ValidationReport([r])
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            assert "<script>" not in content
-            assert "&lt;script&gt;" in content
+        path = workspace_path("report_escape.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "<script>" not in content
+        assert "&lt;script&gt;" in content
+
+    def test_save_json_creates_file(self, sample_result: ValidationResult):
+        report = ValidationReport([sample_result], metadata={"report_type": "unit"})
+        path = workspace_path("report_unit.json")
+        report.save_json(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert '"report_type": "unit"' in content
+        assert '"test_name": "Sample Test"' in content
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +266,13 @@ class TestValidationSuiteConstruction:
         for r in report.results:
             assert isinstance(r, ValidationResult)
 
+    def test_run_all_metadata_contains_provenance(self, suite: ValidationSuite):
+        report = suite.run_all()
+        assert report.metadata["report_type"] == "full_validation_audit"
+        assert report.metadata["species"] == "human"
+        assert "architecture_coverage" in report.metadata
+        assert len(report.metadata["architecture_coverage"]) >= 14
+
 
 # ---------------------------------------------------------------------------
 # TestValidationSuiteTests — individual test methods
@@ -261,6 +285,12 @@ class TestValidationSuiteTests:
         assert r.test_name == "Angular Subtense"
         assert r.passed is True
         assert r.figure is not None
+        assert r.stage == "scene"
+        assert "Architecture" in r.architecture_ref
+        assert r.code_refs
+        assert r.pass_criterion
+        assert r.assumptions
+        assert r.limitations
 
     def test_retinal_scaling(self, suite: ValidationSuite):
         r = suite.test_retinal_scaling_across_species()
@@ -354,54 +384,67 @@ class TestValidationSuiteTests:
 class TestHTMLOutput:
     def test_full_report_html(self, suite: ValidationSuite):
         report = suite.run_all()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "full_report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            # Check structural elements
-            assert "<!DOCTYPE html>" in content
-            assert "Full Validation Report" in content
-            assert "Summary" in content
-            # Check all test names appear
-            for r in report.results:
-                assert r.test_name in content
-            # Check figures are embedded
-            assert content.count("data:image/png;base64,") >= 14  # at least one per test + bonus
+        path = workspace_path("full_report.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "<!DOCTYPE html>" in content
+        assert "Full Validation Audit Report" in content
+        assert "Summary" in content
+        assert "Architecture Coverage Matrix" in content
+        assert "Environment and Reproducibility" in content
+        for r in report.results:
+            assert r.test_name in content
+        assert content.count("data:image/png;base64,") >= 14
 
     def test_report_contains_bonus_figures(self, suite: ValidationSuite):
         report = suite.run_all()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            assert "Govardovskii Nomogram" in content
-            assert "Photoreceptor Mosaics" in content
+        path = workspace_path("report_bonus.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "Govardovskii Nomogram" in content
+        assert "Photoreceptor Mosaics" in content
 
     def test_report_pass_fail_badges(self, suite: ValidationSuite):
         report = suite.run_all()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            assert "PASS" in content
+        path = workspace_path("report_badges.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "PASS" in content
 
     def test_report_summary_table(self, suite: ValidationSuite):
         report = suite.run_all()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            assert "<table>" in content
-            assert "<thead>" in content
+        path = workspace_path("report_table.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "<table>" in content
+        assert "<thead>" in content
+        assert "Architecture" in content
 
     def test_all_figures_have_alt_text(self, suite: ValidationSuite):
         report = suite.run_all()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "report.html")
-            report.save_html(path)
-            content = Path(path).read_text(encoding="utf-8")
-            # Every img tag should have an alt attribute
-            import re
-            img_tags = re.findall(r"<img\s[^>]*>", content)
-            for tag in img_tags:
-                assert 'alt="' in tag
+        path = workspace_path("report_alt.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        import re
+        img_tags = re.findall(r"<img\s[^>]*>", content)
+        for tag in img_tags:
+            assert 'alt="' in tag
+
+    def test_report_contains_transparency_sections(self, suite: ValidationSuite):
+        report = suite.run_all()
+        path = workspace_path("report_transparency.html")
+        report.save_html(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert "Pass criterion" in content
+        assert "Assumptions" in content
+        assert "Limitations" in content
+        assert "Code references" in content
+
+    def test_report_json_contains_result_metadata(self, suite: ValidationSuite):
+        report = suite.run_all()
+        path = workspace_path("report_results.json")
+        report.save_json(str(path))
+        content = path.read_text(encoding="utf-8")
+        assert '"architecture_ref"' in content
+        assert '"code_refs"' in content
+        assert '"pass_criterion"' in content

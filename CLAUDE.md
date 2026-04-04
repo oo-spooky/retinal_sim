@@ -9,10 +9,11 @@ Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before 
 Check `CODEREVIEW.md` for open review findings and address any open items before starting new phase work.
 Update `PROGRESS.md` after completing any phase.
 Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
-**Before closing a session, run all tests and generate a status report at reports/status_latest.html. Include: phase completion status, test results summary, any validation figures generated this session, and open CODEREVIEW.md items. Keep it simple — one page, no frameworks.**
+**Before closing a session, run all tests and generate a status report at `reports/status_latest.html`. The status page must clearly separate automated test status, implementation progress, architecture/validation status, documentation drift warnings, and open `CODEREVIEW.md` items.**
 ```bash
 python scripts/status_report.py
 ```
+**When validation or audit logic changes, also generate the full validation audit artifact (`reports/validation_report.html`, with JSON companion if available). User-facing report content must expose pass criteria, assumptions, limitations, and code provenance rather than summary-only claims.**
 **Before confirming a session is ready to close: commit all changes, then push to the remote.**
 ```bash
 git push
@@ -81,7 +82,7 @@ RGB image
 
 `pipeline.py::RetinalSimulator` orchestrates these stages. `species/config.py::SpeciesConfig` loads all species-specific parameters (optical + retinal) from `data/species/{human,dog,cat}.yaml` and is the single place to change per-species constants.
 
-**Implementation status:** Phases 1–10 complete (see PROGRESS.md). Next: Phase 11 (distance-dependent resolution).
+**Implementation status:** Phases 1-13 are complete (see `PROGRESS.md`). Current work is comprehensive code review, architecture audit, and report/documentation transparency improvements.
 
 ## Key design decisions
 
@@ -89,7 +90,7 @@ RGB image
 - **Mosaic generation**: jittered grid (not Poisson disk) for speed. Upgrade path noted in `retina/mosaic.py`.
 - **PSF**: Gaussian placeholder first (`optical/psf.py::gaussian_psf`), then diffraction-limited FFT (`diffraction_psf`). Chromatic aberration deferred.
 - **Spectral upsampling**: Smits (1999) first, Mallett-Yuksel later. Either can be bypassed entirely if a hyperspectral input is provided.
-- **Each stage is independently validatable** — see architecture §11 for the full validation matrix. `tests/test_retina.py` covers Phase 1 (nomogram); other test files are stubs.
+- **Each stage is independently validatable** — see architecture §11 for the full validation matrix and `tests/test_validation_report.py` for the reporting artifact contract. The repo now has dedicated tests through Phase 13; do not describe later test files as stubs.
 
 ## Species constants
 

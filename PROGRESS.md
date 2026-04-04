@@ -39,6 +39,11 @@ _Last updated: 2026-04-03 (Phase 13 complete)_
 a figure. `save_html()` generates a self-contained HTML report with embedded base64 figures,
 summary table, pass/fail badges, and bonus reference figures (nomogram, mosaics).
 
+Current follow-on work is not a new implementation phase. It is an audit/reporting pass:
+- tighten top-level docs so they match the actual repo state,
+- separate implementation status from architecture audit status,
+- and make generated reports expose assumptions, methods, thresholds, limitations, and code provenance.
+
 ---
 
 _Detailed per-phase validation notes for Phases 1–9 are in git history. Key gotchas are in SCRATCHPAD.md._

@@ -19,7 +19,11 @@ from __future__ import annotations
 
 import base64
 import io
-from dataclasses import dataclass, field
+import json
+import platform
+import subprocess
+import sys
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -36,14 +40,28 @@ class ValidationResult:
     actual: Any
     tolerance: float
     details: str
+    stage: str = ""
+    architecture_ref: str = ""
+    code_refs: List[str] = field(default_factory=list)
+    inputs_summary: str = ""
+    assumptions: List[str] = field(default_factory=list)
+    method: str = ""
+    pass_criterion: str = ""
+    limitations: List[str] = field(default_factory=list)
+    artifacts: List[str] = field(default_factory=list)
     figure: Optional[object] = field(default=None, repr=False)
 
 
 class ValidationReport:
     """Collection of validation results with HTML export."""
 
-    def __init__(self, results: Optional[List[ValidationResult]] = None) -> None:
+    def __init__(
+        self,
+        results: Optional[List[ValidationResult]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         self.results: List[ValidationResult] = results or []
+        self.metadata: Dict[str, Any] = metadata or {}
 
     def summary(self) -> str:
         """Return one-line pass/fail summary."""
@@ -51,15 +69,48 @@ class ValidationReport:
         passed = sum(1 for r in self.results if r.passed)
         failed = total - passed
         if failed == 0:
-            return f"ALL PASSED ({passed}/{total} tests)"
-        return f"FAILURES: {failed}/{total} tests failed"
+            return f"PASSED: {passed}/{total} implemented validation checks passed"
+        return f"FAILED: {failed}/{total} implemented validation checks failed"
 
     def save_html(self, path: str) -> None:
         """Write a self-contained HTML report with embedded figures."""
-        html = _build_report_html(self.results)
+        html = _build_report_html(self)
         out = Path(path)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
+
+    def save_json(self, path: str) -> None:
+        """Write a machine-readable JSON companion artifact."""
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "metadata": _json_safe(self.metadata),
+            "summary": self.summary(),
+            "results": [
+                _json_safe(
+                    {
+                        "test_name": result.test_name,
+                        "passed": result.passed,
+                        "expected": result.expected,
+                        "actual": result.actual,
+                        "tolerance": result.tolerance,
+                        "details": result.details,
+                        "stage": result.stage,
+                        "architecture_ref": result.architecture_ref,
+                        "code_refs": result.code_refs,
+                        "inputs_summary": result.inputs_summary,
+                        "assumptions": result.assumptions,
+                        "method": result.method,
+                        "pass_criterion": result.pass_criterion,
+                        "limitations": result.limitations,
+                        "artifacts": result.artifacts,
+                        "has_figure": result.figure is not None,
+                    }
+                )
+                for result in self.results
+            ],
+        }
+        out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 class ValidationSuite:
@@ -84,7 +135,13 @@ class ValidationSuite:
         results: List[ValidationResult] = []
         for stage in ("scene", "spectral", "optical", "retinal", "e2e"):
             results.extend(self.run_stage(stage).results)
-        return ValidationReport(results)
+        return ValidationReport(
+            results,
+            metadata=self._build_report_metadata(
+                report_type="full_validation_audit",
+                stage_scope="all",
+            ),
+        )
 
     def run_stage(self, stage: str) -> ValidationReport:
         """Run validation tests for a single stage.
@@ -121,7 +178,89 @@ class ValidationSuite:
         if stage not in dispatch:
             raise ValueError(f"Unknown stage {stage!r}; expected one of {list(dispatch)}")
         results = [fn() for fn in dispatch[stage]]
-        return ValidationReport(results)
+        return ValidationReport(
+            results,
+            metadata=self._build_report_metadata(
+                report_type="stage_validation_audit",
+                stage_scope=stage,
+            ),
+        )
+
+    def _build_report_metadata(self, report_type: str, stage_scope: str) -> Dict[str, Any]:
+        """Build run-level provenance and audit metadata."""
+        species_name = getattr(self._sim, "species_name", "unknown")
+        config = getattr(self._sim, "config", None)
+        stage_counts = {
+            stage: len([result for result in self._all_result_specs().values() if result["stage"] == stage])
+            for stage in ("scene", "spectral", "optical", "retinal", "e2e")
+        }
+        return {
+            "title": "retinal_sim validation audit report",
+            "report_type": report_type,
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "stage_scope": stage_scope,
+            "repo_commit": _get_git_commit_hash(),
+            "species": species_name,
+            "seed": self._seed,
+            "patch_extent_deg": getattr(self._sim, "_patch_extent_deg", None),
+            "stimulus_scale": getattr(self._sim, "_stimulus_scale", None),
+            "light_level": getattr(self._sim, "_light_level", None),
+            "environment": {
+                "python": sys.version.split()[0],
+                "platform": platform.platform(),
+                "numpy": getattr(np, "__version__", "unknown"),
+            },
+            "species_config_summary": {
+                "optical": _summarize_dataclass(getattr(config, "optical", None)),
+                "retinal": _summarize_dataclass(getattr(config, "retinal", None)),
+            },
+            "warnings": [
+                "Visual-inspection checks remain labeled as visual/manual evidence, not strict quantitative proof.",
+                "Several validation checks use proof-of-concept simplifications documented in SCRATCHPAD.md.",
+            ],
+            "architecture_coverage": self._architecture_coverage_rows(),
+            "stage_counts": stage_counts,
+        }
+
+    def _result(
+        self,
+        test_name: str,
+        *,
+        passed: bool,
+        expected: Any,
+        actual: Any,
+        tolerance: float,
+        details: str,
+        figure: Optional[object] = None,
+    ) -> ValidationResult:
+        spec = self._all_result_specs()[test_name]
+        return ValidationResult(
+            test_name=test_name,
+            passed=bool(passed),
+            expected=expected,
+            actual=actual,
+            tolerance=tolerance,
+            details=details,
+            stage=spec["stage"],
+            architecture_ref=spec["architecture_ref"],
+            code_refs=list(spec["code_refs"]),
+            inputs_summary=spec["inputs_summary"],
+            assumptions=list(spec["assumptions"]),
+            method=spec["method"],
+            pass_criterion=spec["pass_criterion"],
+            limitations=list(spec["limitations"]),
+            artifacts=list(spec["artifacts"]),
+            figure=figure,
+        )
+
+    def _all_result_specs(self) -> Dict[str, Dict[str, Any]]:
+        return _RESULT_SPECS
+
+    def _architecture_coverage_rows(self) -> List[Dict[str, str]]:
+        rows: List[Dict[str, str]] = []
+        for item in _ARCHITECTURE_COVERAGE:
+            rows.append(dict(item))
+        return rows
 
     # ------------------------------------------------------------------
     # Scene geometry tests
@@ -173,8 +312,8 @@ class ValidationSuite:
         ax.legend()
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Angular Subtense",
+        return self._result(
+            "Angular Subtense",
             passed=bool(all_ok),
             expected="2*arctan(w/(2d))",
             actual="\n".join(details_lines),
@@ -228,8 +367,8 @@ class ValidationSuite:
         ax2.set_title(f"Retinal Image Size\n(scene: {w_m}m at {d_m}m)")
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Retinal Scaling Across Species",
+        return self._result(
+            "Retinal Scaling Across Species",
             passed=bool(all_ok),
             expected="retinal_width ∝ focal_length",
             actual="\n".join(details_lines),
@@ -283,8 +422,8 @@ class ValidationSuite:
         ax.legend()
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Accommodation Defocus",
+        return self._result(
+            "Accommodation Defocus",
             passed=bool(all_ok),
             expected="max(0, demand - max_accommodation)",
             actual="\n".join(details_lines),
@@ -349,8 +488,8 @@ class ValidationSuite:
         ax2.grid(True, alpha=0.3)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Distance-Dependent Receptor Sampling",
+        return self._result(
+            "Distance-Dependent Receptor Sampling",
             passed=bool(all_ok),
             expected="~1/d² scaling",
             actual="\n".join(details_lines),
@@ -418,8 +557,8 @@ class ValidationSuite:
         ax2.legend(fontsize=8)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Metamer Preservation",
+        return self._result(
+            "Metamer Preservation",
             passed=bool(all_ok),
             expected="Similar cone catches for near-metameric inputs",
             actual="\n".join(details_lines),
@@ -535,8 +674,8 @@ class ValidationSuite:
         ax2.set_yticks([])
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="RGB Round-Trip",
+        return self._result(
+            "RGB Round-Trip",
             passed=bool(all_ok),
             expected="RMSE < 15.0 for all colours",
             actual=f"Max RMSE = {max(errors):.2f}",
@@ -603,8 +742,8 @@ class ValidationSuite:
         ax2.set_xticks([])
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="MTF vs Diffraction Limit",
+        return self._result(
+            "MTF vs Diffraction Limit",
             passed=bool(all_ok),
             expected="PSF width increases with wavelength",
             actual=f"FWHMs: {fwhms}",
@@ -650,8 +789,8 @@ class ValidationSuite:
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="PSF Energy Conservation",
+        return self._result(
+            "PSF Energy Conservation",
             passed=bool(all_ok),
             expected="|sum(PSF) - 1.0| < 1e-6",
             actual="\n".join(details_lines),
@@ -730,8 +869,8 @@ class ValidationSuite:
         axes[3].set_title("Predicted Acuity")
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Snellen Acuity",
+        return self._result(
+            "Snellen Acuity",
             passed=bool(all_ok),
             expected="human < dog ≈ cat; within published ranges",
             actual=f"human={acuities['human']:.1f}′, dog={acuities['dog']:.1f}′, cat={acuities['cat']:.1f}′",
@@ -783,8 +922,8 @@ class ValidationSuite:
         axes[2].legend(fontsize=8)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Dichromat Confusion",
+        return self._result(
+            "Dichromat Confusion",
             passed=bool(all_ok),
             expected="D_human > D_dog",
             actual=f"D_human={d_human:.4f}, D_dog={d_dog:.4f}",
@@ -848,8 +987,8 @@ class ValidationSuite:
         ax.grid(True, alpha=0.3, axis="y")
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Nyquist Sampling",
+        return self._result(
+            "Nyquist Sampling",
             passed=bool(all_ok),
             expected="Spacing ≤ PSF FWHM",
             actual="\n".join(details_lines),
@@ -899,8 +1038,8 @@ class ValidationSuite:
         ax.legend(fontsize=8)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Receptor Count",
+        return self._result(
+            "Receptor Count",
             passed=bool(all_ok),
             expected="Non-zero receptor count per species",
             actual="\n".join(details_lines),
@@ -971,8 +1110,8 @@ class ValidationSuite:
         fig.suptitle("Color Deficit Reproduction: Red-Green Stimulus", fontsize=11)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Color Deficit Reproduction",
+        return self._result(
+            "Color Deficit Reproduction",
             passed=bool(all_ok),
             expected="Human sees R/G difference; dog does not",
             actual=f"human Δ={diffs['human']:.4f}, dog Δ={diffs['dog']:.4f}",
@@ -1043,8 +1182,8 @@ class ValidationSuite:
         fig.suptitle("Resolution Gradient: Checkerboard Stimulus", fontsize=11)
         plt.tight_layout()
 
-        return ValidationResult(
-            test_name="Resolution Gradient",
+        return self._result(
+            "Resolution Gradient",
             passed=True,  # Visual inspection test
             expected="Higher resolution at centre than periphery",
             actual="\n".join(details_lines),
@@ -1052,6 +1191,185 @@ class ValidationSuite:
             details="\n".join(details_lines),
             figure=fig,
         )
+
+
+# ---------------------------------------------------------------------------
+# Report metadata and coverage
+# ---------------------------------------------------------------------------
+
+_RESULT_SPECS: Dict[str, Dict[str, Any]] = {
+    "Angular Subtense": {
+        "stage": "scene",
+        "architecture_ref": "Architecture §11e Angular subtense correctness",
+        "code_refs": ["retinal_sim/scene/geometry.py", "retinal_sim/validation/report.py"],
+        "inputs_summary": "Three analytic scene width/distance cases using the human optical model.",
+        "assumptions": ["Exact 2*arctan geometry is the source of truth.", "Human optical focal length is used only to build SceneDescription."],
+        "method": "Compare computed angular width against the closed-form geometric equation.",
+        "pass_criterion": "Absolute angular error < 0.01 degrees for every case.",
+        "limitations": ["Checks representative cases, not exhaustive parameter sweeps."],
+        "artifacts": ["Bar chart: expected vs computed angular width"],
+    },
+    "Retinal Scaling Across Species": {
+        "stage": "scene",
+        "architecture_ref": "Architecture §11e Retinal image scaling across species",
+        "code_refs": ["retinal_sim/scene/geometry.py", "retinal_sim/species/config.py"],
+        "inputs_summary": "One shared physical scene evaluated for human, dog, and cat species configs.",
+        "assumptions": ["Retinal image width should scale with focal length when angular size is fixed."],
+        "method": "Compare retinal_width_mm / focal_length_mm across species.",
+        "pass_criterion": "Species ratios agree within 1% relative error.",
+        "limitations": ["Only validates proportionality, not downstream sampling behavior."],
+        "artifacts": ["Species focal-length bar chart", "Species retinal-width bar chart"],
+    },
+    "Accommodation Defocus": {
+        "stage": "scene",
+        "architecture_ref": "Architecture §0 Accommodation demand and residual defocus",
+        "code_refs": ["retinal_sim/scene/geometry.py"],
+        "inputs_summary": "Near-view scene at 0.25 m for human, dog, and cat.",
+        "assumptions": ["Accommodation is a hard cutoff.", "Max accommodation values are fixed PoC constants."],
+        "method": "Compare computed residual defocus against max(0, demand - max_accommodation).",
+        "pass_criterion": "Residual defocus matches expected value within 0.1 diopters.",
+        "limitations": ["No lead/lag accommodation response model is applied."],
+        "artifacts": ["Expected vs computed residual defocus bars"],
+    },
+    "Distance-Dependent Receptor Sampling": {
+        "stage": "scene",
+        "architecture_ref": "Architecture §11e Distance-dependent receptor sampling",
+        "code_refs": ["retinal_sim/pipeline.py", "retinal_sim/retina/mosaic.py"],
+        "inputs_summary": "Constant-size grayscale object at 1 m, 5 m, and 10 m using the human simulator.",
+        "assumptions": ["1/d^2 scaling is approximate because density gradients remain in play."],
+        "method": "Measure receptor counts covered by the scene at multiple viewing distances and compare against ideal inverse-square scaling.",
+        "pass_criterion": "Far/near receptor-count scaling stays within 50% relative error of ideal 1/d^2.",
+        "limitations": ["Tolerance is intentionally generous due to non-uniform mosaic density."],
+        "artifacts": ["Distance vs receptor count plot", "Log-log ideal vs measured scaling plot"],
+    },
+    "Metamer Preservation": {
+        "stage": "spectral",
+        "architecture_ref": "Architecture §11a Metamer preservation",
+        "code_refs": ["retinal_sim/spectral/upsampler.py", "retinal_sim/retina/opsin.py"],
+        "inputs_summary": "Two near-gray RGB triplets upsampled to spectra and integrated against human receptor sensitivities.",
+        "assumptions": ["Near-metameric RGBs are used as a practical proxy instead of a published metamer dataset."],
+        "method": "Compare integrated cone catches from two near-metameric inputs.",
+        "pass_criterion": "Relative cone-catch difference < 10% for each receptor class.",
+        "limitations": ["This is a practical approximation, not a formal metamer library benchmark."],
+        "artifacts": ["Upsampled spectra plot", "Cone-catch comparison bars"],
+    },
+    "RGB Round-Trip": {
+        "stage": "spectral",
+        "architecture_ref": "Architecture §11a Roundtrip consistency",
+        "code_refs": ["retinal_sim/spectral/upsampler.py", "retinal_sim/validation/report.py"],
+        "inputs_summary": "Eight canonical sRGB colors passed through spectral upsampling and approximate CIE XYZ reconstruction.",
+        "assumptions": ["Fallback CIE observer curves may be approximate.", "D65 is simplified in this report implementation."],
+        "method": "Reconstruct RGB via approximate XYZ integration and compute per-color RMSE.",
+        "pass_criterion": "RMSE < 15 8-bit counts for all tested colors.",
+        "limitations": ["Tolerance is generous because the reconstruction path is approximate and validation-oriented."],
+        "artifacts": ["RMSE bar chart", "Input vs reconstructed color swatches"],
+    },
+    "MTF vs Diffraction Limit": {
+        "stage": "optical",
+        "architecture_ref": "Architecture §11b Diffraction-limited resolution",
+        "code_refs": ["retinal_sim/optical/psf.py", "retinal_sim/species/config.py"],
+        "inputs_summary": "Human Gaussian PSF kernels at 400, 500, 600, and 700 nm.",
+        "assumptions": ["Current PoC uses Gaussian PSF behavior as the optical reference."],
+        "method": "Measure PSF profile widths across wavelength and verify monotonic broadening.",
+        "pass_criterion": "Measured FWHM is non-decreasing with wavelength.",
+        "limitations": ["This does not compute a full empirical MTF curve against the closed-form diffraction equation."],
+        "artifacts": ["PSF cross-section plot", "PSF kernel montage"],
+    },
+    "PSF Energy Conservation": {
+        "stage": "optical",
+        "architecture_ref": "Architecture §11b PSF energy conservation",
+        "code_refs": ["retinal_sim/optical/psf.py"],
+        "inputs_summary": "Gaussian PSF kernels across the canonical wavelength grid for all three species.",
+        "assumptions": ["Kernel normalization in float64 is the source of truth for this check."],
+        "method": "Sum each PSF kernel and measure max absolute deviation from 1.0.",
+        "pass_criterion": "Maximum |sum - 1.0| < 1e-6.",
+        "limitations": ["Only validates discrete kernel normalization, not broader optical energy accounting."],
+        "artifacts": ["Log-scale wavelength vs normalization error plot"],
+    },
+    "Snellen Acuity": {
+        "stage": "retinal",
+        "architecture_ref": "Architecture §11c Snellen acuity prediction",
+        "code_refs": ["retinal_sim/validation/acuity.py", "retinal_sim/validation/snellen.py"],
+        "inputs_summary": "Species-specific acuity prediction using Snellen E orientation discriminability.",
+        "assumptions": ["Published acuity ranges are broad PoC acceptance bands.", "Letter-region masking and Pearson correlation distance are required."],
+        "method": "Predict minimum resolvable angular size for each species and compare with expected ranges and ordering.",
+        "pass_criterion": "Each species falls within its target range and human acuity is best.",
+        "limitations": ["Cat predictions can be seed-sensitive near threshold."],
+        "artifacts": ["Snellen stimulus examples", "Predicted acuity bar chart"],
+    },
+    "Dichromat Confusion": {
+        "stage": "retinal",
+        "architecture_ref": "Architecture §11c Dichromat confusion axis",
+        "code_refs": ["retinal_sim/validation/dichromat.py", "retinal_sim/validation/ishihara.py"],
+        "inputs_summary": "Dog confusion pair rendered as an Ishihara-like dot pattern and scored for human vs dog.",
+        "assumptions": ["Stimulus scaling is applied to keep Naka-Rushton responses out of saturation."],
+        "method": "Compute discriminability for the same color pair under trichromat and dichromat models.",
+        "pass_criterion": "Human discriminability exceeds dog discriminability.",
+        "limitations": ["With low seed counts, noise can inflate small dog discriminability values."],
+        "artifacts": ["Pattern image", "Ground-truth mask", "Human vs dog discriminability bars"],
+    },
+    "Nyquist Sampling": {
+        "stage": "retinal",
+        "architecture_ref": "Architecture §11c Cone density to sampling limit",
+        "code_refs": ["retinal_sim/retina/mosaic.py", "retinal_sim/species/config.py"],
+        "inputs_summary": "Generated mosaics for all species, compared against PSF width at 550 nm.",
+        "assumptions": ["Mean nearest-neighbor spacing is used as the sampling proxy."],
+        "method": "Estimate nearest-neighbor receptor spacing and compare against PSF FWHM bandwidth proxy.",
+        "pass_criterion": "Mean nearest-neighbor spacing is no larger than the PSF FWHM proxy.",
+        "limitations": ["Uses a simplified spacing-vs-bandwidth criterion rather than full cpd analysis."],
+        "artifacts": ["Species receptor-spacing bar chart"],
+    },
+    "Receptor Count": {
+        "stage": "retinal",
+        "architecture_ref": "Architecture §11c Receptor count validation",
+        "code_refs": ["retinal_sim/retina/mosaic.py", "retinal_sim/species/config.py"],
+        "inputs_summary": "One generated 2-degree mosaic per species with receptor type counts.",
+        "assumptions": ["Current report checks non-zero structured output rather than literature-locked histology counts."],
+        "method": "Count total receptors and receptor-type breakdown in each generated mosaic.",
+        "pass_criterion": "Each species yields a non-zero receptor count and explicit breakdown.",
+        "limitations": ["This is a weaker check than literature-calibrated receptor-count matching."],
+        "artifacts": ["Stacked receptor-type count bar chart"],
+    },
+    "Color Deficit Reproduction": {
+        "stage": "e2e",
+        "architecture_ref": "Architecture §11d Known visual deficit reproduction",
+        "code_refs": ["retinal_sim/pipeline.py", "retinal_sim/output/voronoi.py"],
+        "inputs_summary": "Red-green split stimulus simulated for human, dog, and cat.",
+        "assumptions": ["Left/right response norm is used as the summary metric."],
+        "method": "Measure left/right cone-response difference after full-pipeline simulation.",
+        "pass_criterion": "Human left/right difference exceeds dog by at least 20%.",
+        "limitations": ["This is a compact proxy for a richer end-to-end color-deficit comparison."],
+        "artifacts": ["Input stimulus", "Per-species Voronoi renderings"],
+    },
+    "Resolution Gradient": {
+        "stage": "e2e",
+        "architecture_ref": "Architecture §11d Resolution gradient",
+        "code_refs": ["retinal_sim/pipeline.py", "retinal_sim/output/reconstruction.py", "retinal_sim/output/voronoi.py"],
+        "inputs_summary": "Checkerboard stimulus simulated for human, dog, and cat.",
+        "assumptions": ["This remains a visual-inspection-heavy validation."],
+        "method": "Compare center vs peripheral response variance and render species outputs for inspection.",
+        "pass_criterion": "Report is marked as visual/manual evidence; figures and measured variances must be shown.",
+        "limitations": ["Currently passes as a visual-inspection test instead of a strict quantitative gate."],
+        "artifacts": ["Input checkerboard", "Per-species Voronoi images", "Per-species reconstructions"],
+    },
+}
+
+_ARCHITECTURE_COVERAGE = [
+    {"architecture_ref": "Architecture §11e Angular subtense correctness", "test_name": "Angular Subtense", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Analytic geometric equality check."},
+    {"architecture_ref": "Architecture §11e Retinal image scaling across species", "test_name": "Retinal Scaling Across Species", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Checks focal-length proportionality."},
+    {"architecture_ref": "Architecture §11e Accommodation/defocus injection", "test_name": "Accommodation Defocus", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Hard-cutoff accommodation model."},
+    {"architecture_ref": "Architecture §11e Distance-dependent receptor sampling", "test_name": "Distance-Dependent Receptor Sampling", "code_path": "retinal_sim/pipeline.py", "status": "covered", "note": "Approximate inverse-square scaling."},
+    {"architecture_ref": "Architecture §11a Metamer preservation", "test_name": "Metamer Preservation", "code_path": "retinal_sim/spectral/upsampler.py", "status": "partially covered", "note": "Uses practical proxy, not a formal metamer dataset."},
+    {"architecture_ref": "Architecture §11a Roundtrip consistency", "test_name": "RGB Round-Trip", "code_path": "retinal_sim/spectral/upsampler.py", "status": "covered", "note": "Approximate CIE path with explicit tolerance."},
+    {"architecture_ref": "Architecture §11b Diffraction-limited resolution", "test_name": "MTF vs Diffraction Limit", "code_path": "retinal_sim/optical/psf.py", "status": "partially covered", "note": "PSF-width proxy rather than full closed-form MTF."},
+    {"architecture_ref": "Architecture §11b PSF energy conservation", "test_name": "PSF Energy Conservation", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Float64 normalization check."},
+    {"architecture_ref": "Architecture §11c Snellen acuity prediction", "test_name": "Snellen Acuity", "code_path": "retinal_sim/validation/acuity.py", "status": "covered", "note": "Ordering plus published-range checks."},
+    {"architecture_ref": "Architecture §11c Dichromat confusion axis", "test_name": "Dichromat Confusion", "code_path": "retinal_sim/validation/dichromat.py", "status": "covered", "note": "Human vs dog discriminability comparison."},
+    {"architecture_ref": "Architecture §11c Cone density to sampling limit", "test_name": "Nyquist Sampling", "code_path": "retinal_sim/retina/mosaic.py", "status": "partially covered", "note": "Uses spacing proxy instead of full cpd derivation."},
+    {"architecture_ref": "Architecture §11c Receptor count validation", "test_name": "Receptor Count", "code_path": "retinal_sim/retina/mosaic.py", "status": "partially covered", "note": "Non-zero count check is weaker than literature calibration."},
+    {"architecture_ref": "Architecture §11d Known visual deficit reproduction", "test_name": "Color Deficit Reproduction", "code_path": "retinal_sim/pipeline.py", "status": "covered", "note": "End-to-end species comparison."},
+    {"architecture_ref": "Architecture §11d Resolution gradient", "test_name": "Resolution Gradient", "code_path": "retinal_sim/output/reconstruction.py", "status": "partially covered", "note": "Visual/manual evidence with variance context."},
+]
 
 
 # ---------------------------------------------------------------------------
@@ -1268,6 +1586,321 @@ def _build_report_html(results: List[ValidationResult]) -> str:
 {bonus_html}
 
 <h2>Test Details &amp; Figures</h2>
+{cards_html}
+
+</body>
+</html>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Transparent audit-report overrides
+# ---------------------------------------------------------------------------
+
+_REPORT_STYLE = """
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 24px;
+    color: #222;
+    line-height: 1.5;
+}
+h1 { border-bottom: 2px solid #333; padding-bottom: 6px; }
+h2 { border-bottom: 1px solid #ccc; margin-top: 2.2em; color: #333; }
+h3 { margin-bottom: 0.4em; }
+.timestamp { color: #666; font-size: 0.88em; margin-top: -6px; }
+.summary-box {
+    display: inline-block; padding: 10px 18px; border-radius: 6px;
+    font-size: 1.1em; font-weight: bold; margin-bottom: 8px;
+}
+.all-pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.has-fail  { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.section-note {
+    background: #eef5fb; border: 1px solid #c9deef; border-radius: 6px;
+    padding: 10px 14px; margin: 12px 0;
+}
+.warning-list {
+    background: #fff3cd; border: 1px solid #ffe08a; border-radius: 6px;
+    padding: 10px 14px; margin: 12px 0;
+}
+.pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 0.78em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.pill-covered { background: #d4edda; color: #155724; }
+.pill-partial { background: #fff3cd; color: #856404; }
+.pill-gap { background: #f8d7da; color: #721c24; }
+.test-card {
+    border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin: 16px 0;
+    background: #fafafa;
+}
+.test-card.passed { border-left: 4px solid #28a745; }
+.test-card.failed { border-left: 4px solid #dc3545; }
+.test-title { font-size: 1.05em; font-weight: bold; margin: 0 0 8px 0; }
+.test-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 0.82em; font-weight: bold; margin-left: 8px;
+}
+.badge-pass { background: #d4edda; color: #155724; }
+.badge-fail { background: #f8d7da; color: #721c24; }
+.meta-grid {
+    display: grid; grid-template-columns: 220px 1fr; gap: 6px 12px; margin: 10px 0;
+}
+.meta-grid div { padding: 4px 0; border-bottom: 1px solid #eee; }
+.meta-label { font-weight: 700; color: #333; }
+.inline-list { margin: 0; padding-left: 18px; }
+pre {
+    background: #f0f0f0; border: 1px solid #ddd; padding: 10px;
+    border-radius: 4px; font-size: 0.82em; white-space: pre-wrap;
+    overflow-x: auto;
+}
+.test-figure { margin: 10px 0; }
+.test-figure img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; }
+.bonus-section img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; margin: 8px 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 0.92em; }
+th { background: #f4f4f4; }
+"""
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, np.generic):
+        return value.item()
+    if hasattr(value, "__dict__"):
+        return {str(k): _json_safe(v) for k, v in vars(value).items()}
+    return str(value)
+
+
+def _summarize_dataclass(value: Any) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    keys = (
+        "pupil_shape",
+        "pupil_diameter_mm",
+        "axial_length_mm",
+        "focal_length_mm",
+        "corneal_radius_mm",
+        "cone_ratio",
+        "cone_aperture_um",
+        "rod_aperture_um",
+        "patch_extent_deg",
+        "naka_rushton_sigma",
+    )
+    summary: Dict[str, Any] = {}
+    for key in keys:
+        if hasattr(value, key):
+            summary[key] = _json_safe(getattr(value, key))
+    return summary
+
+
+def _get_git_commit_hash() -> str:
+    repo_root = Path(__file__).resolve().parents[2]
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
+def _list_html(items: List[str]) -> str:
+    if not items:
+        return "<em>None recorded.</em>"
+    return "<ul class=\"inline-list\">" + "".join(
+        f"<li>{_escape(str(item))}</li>" for item in items
+    ) + "</ul>"
+
+
+def _metadata_table_html(metadata: Dict[str, Any]) -> str:
+    rows = [
+        ("Report type", metadata.get("report_type", "unknown")),
+        ("Stage scope", metadata.get("stage_scope", "unknown")),
+        ("Species", metadata.get("species", "unknown")),
+        ("Seed", metadata.get("seed", "unknown")),
+        ("Patch extent (deg)", metadata.get("patch_extent_deg", "unknown")),
+        ("Stimulus scale", metadata.get("stimulus_scale", "unknown")),
+        ("Light level", metadata.get("light_level", "unknown")),
+        ("Repo commit", metadata.get("repo_commit", "unknown")),
+        ("Python", metadata.get("environment", {}).get("python", "unknown")),
+        ("Platform", metadata.get("environment", {}).get("platform", "unknown")),
+        ("NumPy", metadata.get("environment", {}).get("numpy", "unknown")),
+    ]
+    return "<div class=\"meta-grid\">" + "".join(
+        f"<div class=\"meta-label\">{_escape(label)}</div><div>{_escape(str(value))}</div>"
+        for label, value in rows
+    ) + "</div>"
+
+
+def _coverage_badge(status: str) -> str:
+    if status == "covered":
+        cls = "pill-covered"
+    elif status == "partially covered":
+        cls = "pill-partial"
+    else:
+        cls = "pill-gap"
+    return f'<span class="pill {cls}">{_escape(status)}</span>'
+
+
+def _coverage_matrix_html(metadata: Dict[str, Any]) -> str:
+    rows_html = ""
+    for row in metadata.get("architecture_coverage", []):
+        rows_html += (
+            "<tr>"
+            f"<td>{_escape(row.get('architecture_ref', ''))}</td>"
+            f"<td>{_escape(row.get('test_name', ''))}</td>"
+            f"<td>{_escape(row.get('code_path', ''))}</td>"
+            f"<td>{_coverage_badge(row.get('status', 'gap'))}</td>"
+            f"<td>{_escape(row.get('note', ''))}</td>"
+            "</tr>"
+        )
+    return (
+        "<table><thead><tr>"
+        "<th>Architecture item</th><th>Implemented test</th><th>Code path</th><th>Status</th><th>Note</th>"
+        "</tr></thead><tbody>"
+        f"{rows_html}</tbody></table>"
+    )
+
+
+def _result_card_html(result: ValidationResult) -> str:
+    cls = "passed" if result.passed else "failed"
+    badge = (
+        '<span class="test-badge badge-pass">PASS</span>'
+        if result.passed else
+        '<span class="test-badge badge-fail">FAIL</span>'
+    )
+    fig_html = ""
+    if result.figure is not None:
+        try:
+            uri = _fig_to_data_uri(result.figure)
+            fig_html = f'<div class="test-figure"><img src="{uri}" alt="{_escape(result.test_name)}"></div>'
+        except Exception:
+            fig_html = '<p><em>Figure generation failed.</em></p>'
+
+    return f"""
+<div class="test-card {cls}">
+  <p class="test-title">{_escape(result.test_name)} {badge}</p>
+  <div class="meta-grid">
+    <div class="meta-label">Stage</div><div>{_escape(result.stage)}</div>
+    <div class="meta-label">Architecture reference</div><div>{_escape(result.architecture_ref)}</div>
+    <div class="meta-label">Expected outcome</div><div>{_escape(str(result.expected))}</div>
+    <div class="meta-label">Observed outcome</div><div>{_escape(str(result.actual))}</div>
+    <div class="meta-label">Tolerance</div><div>{_escape(str(result.tolerance))}</div>
+    <div class="meta-label">Pass criterion</div><div>{_escape(result.pass_criterion)}</div>
+    <div class="meta-label">Inputs summary</div><div>{_escape(result.inputs_summary)}</div>
+    <div class="meta-label">Method</div><div>{_escape(result.method)}</div>
+    <div class="meta-label">Code references</div><div>{_list_html(result.code_refs)}</div>
+    <div class="meta-label">Assumptions</div><div>{_list_html(result.assumptions)}</div>
+    <div class="meta-label">Limitations</div><div>{_list_html(result.limitations)}</div>
+    <div class="meta-label">Artifacts</div><div>{_list_html(result.artifacts)}</div>
+  </div>
+  <pre>{_escape(result.details)}</pre>
+  {fig_html}
+</div>
+"""
+
+
+def _build_report_html(report: ValidationReport) -> str:
+    """Build a self-contained HTML report."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    total = len(report.results)
+    passed = sum(1 for r in report.results if r.passed)
+    failed = total - passed
+    ok = failed == 0
+
+    box_cls = "all-pass" if ok else "has-fail"
+    summary_text = (
+        f"{passed}/{total} implemented validation checks passed under the current test harness"
+        if ok else
+        f"{failed}/{total} implemented validation checks failed under the current test harness"
+    )
+
+    cards_html = "".join(_result_card_html(r) for r in report.results)
+
+    bonus_html = ""
+    try:
+        nomo_fig = _make_nomogram_figure()
+        nomo_uri = _fig_to_data_uri(nomo_fig)
+        bonus_html += f'<h3>Govardovskii Nomogram</h3><div class="bonus-section"><img src="{nomo_uri}" alt="Nomogram"></div>'
+    except Exception:
+        bonus_html += '<p><em>Nomogram figure failed.</em></p>'
+    try:
+        mosaic_fig = _make_mosaic_figures()
+        mosaic_uri = _fig_to_data_uri(mosaic_fig)
+        bonus_html += f'<h3>Photoreceptor Mosaics</h3><div class="bonus-section"><img src="{mosaic_uri}" alt="Mosaics"></div>'
+    except Exception:
+        bonus_html += '<p><em>Mosaic figure failed.</em></p>'
+
+    table_html = "<table><thead><tr><th>#</th><th>Test</th><th>Result</th><th>Architecture</th><th>Observed</th></tr></thead><tbody>"
+    for i, r in enumerate(report.results, 1):
+        status = "PASS" if r.passed else "FAIL"
+        color = "#155724" if r.passed else "#721c24"
+        table_html += (
+            f'<tr><td>{i}</td><td>{_escape(r.test_name)}</td>'
+            f'<td style="color:{color};font-weight:bold">{status}</td>'
+            f'<td>{_escape(r.architecture_ref)}</td>'
+            f'<td>{_escape(str(r.actual)[:120])}</td></tr>'
+        )
+    table_html += "</tbody></table>"
+
+    warnings_html = _list_html(list(report.metadata.get("warnings", [])))
+    metadata_html = _metadata_table_html(report.metadata)
+    coverage_html = _coverage_matrix_html(report.metadata)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>retinal_sim - Full Validation Audit Report</title>
+  <style>{_REPORT_STYLE}</style>
+</head>
+<body>
+<h1>retinal_sim - Full Validation Audit Report</h1>
+<p class="timestamp">Generated: {timestamp}</p>
+
+<h2>Scope of This Report</h2>
+<div class="section-note">
+  This audit report shows the implemented validation checks, the exact pass criteria used,
+  the observed outcomes, the assumptions and limitations attached to each check, and the code paths
+  that produced the result. Statements here are evidence-backed for the current proof-of-concept build,
+  not blanket claims of full physiological completeness.
+</div>
+
+<h2>Summary</h2>
+<div class="summary-box {box_cls}">{_escape(summary_text)}</div>
+{table_html}
+
+<h2>Environment and Reproducibility</h2>
+{metadata_html}
+
+<h2>Known Limitations / Deferred Architecture Items</h2>
+<div class="warning-list">{warnings_html}</div>
+
+<h2>Architecture Coverage Matrix</h2>
+{coverage_html}
+
+<h2>Open Code Review Findings</h2>
+<div class="section-note">
+  Read this report alongside <code>CODEREVIEW.md</code> and the generated status report.
+  Validation pass/fail status does not replace code review findings or architecture audit notes.
+</div>
+
+<h2>Bonus: Reference Figures</h2>
+{bonus_html}
+
+<h2>Test Details, Evidence, and Provenance</h2>
 {cards_html}
 
 </body>

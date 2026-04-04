@@ -789,3 +789,14 @@ data/
 | 11    | Distance-dependent resolution test | Receptor count vs 1/d² scaling                  |
 | 12    | Species comparison pipeline        | End-to-end color deficit test                   |
 | 13    | Full validation report generator   | HTML report with all figures                    |
+
+### Reporting transparency requirement
+
+Generated validation and user-facing audit reports must expose:
+- the exact validation criterion or threshold used,
+- the measured result or observed output,
+- the assumptions and known simplifications behind the check,
+- whether the conclusion is measured, inferred, or visual/manual,
+- and the implementation location(s) that produced the result.
+
+Summary-only output is not sufficient for audit artifacts. The report should make it possible to trace each conclusion back to architecture intent, test logic, and code.
