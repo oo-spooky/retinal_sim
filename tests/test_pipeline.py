@@ -35,6 +35,8 @@ from retinal_sim.output.reconstruction import render_reconstructed
 from retinal_sim.output.voronoi import render_voronoi
 from retinal_sim.pipeline import RetinalSimulator, SimulationResult
 from retinal_sim.species.config import SpeciesConfig
+from retinal_sim.validation.datasets import control_pairs
+from retinal_sim.validation.metrics import split_half_discriminability
 from retinal_sim.validation.ishihara import find_confusion_pair, make_dot_pattern
 
 
@@ -391,6 +393,18 @@ class TestSimulateSingleSpecies:
         assert "n_receptors" in human_result.activation.metadata
         assert human_result.activation.metadata["n_receptors"] == human_result.mosaic.n_receptors
 
+    def test_simulate_populates_artifacts_and_summary_metrics(self, human_result: SimulationResult):
+        assert "stimulated_receptor_mask" in human_result.artifacts
+        assert human_result.artifacts["stimulated_receptor_mask"].shape == (human_result.mosaic.n_receptors,)
+        assert "stimulated_receptor_count" in human_result.summary_metrics
+        assert human_result.summary_metrics["stimulated_receptor_count"] > 0
+
+    def test_simulate_projected_scene_reduces_stimulated_receptors(self, human_sim: RetinalSimulator):
+        image = _random_image(seed=12)
+        near = human_sim.simulate(image, scene_width_m=0.02, viewing_distance_m=1.0, seed=SEED)
+        far = human_sim.simulate(image, scene_width_m=0.02, viewing_distance_m=8.0, seed=SEED)
+        assert near.summary_metrics["stimulated_receptor_count"] > far.summary_metrics["stimulated_receptor_count"]
+
 
 class TestCompareSpecies:
     def test_compare_returns_dict_with_all_species(self, comparison_results: dict[str, SimulationResult]):
@@ -485,6 +499,14 @@ class TestEndToEndColorDeficit:
         left_mean = _mean_response_in_half(cat_result, "rod", True, VALIDATION_IMAGE_SIZE)
         right_mean = _mean_response_in_half(cat_result, "rod", False, VALIDATION_IMAGE_SIZE)
         assert abs(left_mean - right_mean) > 0.5
+
+    def test_control_pairs_remain_discriminable(self, human_sim: RetinalSimulator):
+        for item in control_pairs()[:3]:
+            img = _split_image(item["rgb_a"], item["rgb_b"])
+            results = human_sim.compare_species(img, ["human", "dog", "cat"], seed=SEED)
+            for species in ("human", "dog", "cat"):
+                diff = split_half_discriminability(results[species], (VALIDATION_IMAGE_SIZE, VALIDATION_IMAGE_SIZE))
+                assert diff > 0.05
 
 
 class TestComparisonRendering:

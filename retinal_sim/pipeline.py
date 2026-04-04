@@ -28,6 +28,11 @@ from retinal_sim.scene.geometry import SceneGeometry, SceneDescription
 from retinal_sim.species.config import SpeciesConfig
 from retinal_sim.spectral.upsampler import SpectralImage, SpectralUpsampler
 from retinal_sim.constants import WAVELENGTHS
+from retinal_sim.validation.metrics import (
+    compute_simulation_summary_metrics,
+    receptor_pixel_coordinates,
+    stimulated_receptor_mask,
+)
 
 
 @dataclass
@@ -40,6 +45,8 @@ class SimulationResult:
     activation: MosaicActivation
     species_name: str = ""
     metadata: dict = field(default_factory=dict)
+    artifacts: dict = field(default_factory=dict)
+    summary_metrics: dict = field(default_factory=dict)
 
 
 class RetinalSimulator:
@@ -139,6 +146,22 @@ class RetinalSimulator:
         mosaic = retinal_stage.generate_mosaic(seed=seed)
         activation = retinal_stage.compute_response(mosaic, irradiance, scene)
 
+        artifacts = self._build_artifacts(
+            scene=scene,
+            mosaic=mosaic,
+            input_image=input_image,
+        )
+        temp_result = SimulationResult(
+            scene=scene,
+            spectral_image=spectral,
+            retinal_irradiance=irradiance,
+            mosaic=mosaic,
+            activation=activation,
+            species_name=self._cfg.name,
+            artifacts=artifacts,
+        )
+        summary_metrics = compute_simulation_summary_metrics(temp_result, input_image)
+
         return SimulationResult(
             scene=scene,
             spectral_image=spectral,
@@ -146,6 +169,8 @@ class RetinalSimulator:
             mosaic=mosaic,
             activation=activation,
             species_name=self._cfg.name,
+            artifacts=artifacts,
+            summary_metrics=summary_metrics,
         )
 
     def compare_species(
@@ -221,3 +246,25 @@ class RetinalSimulator:
             clipped=False,
             scene_covers_patch_fraction=1.0,
         )
+
+    def _build_artifacts(
+        self,
+        scene: SceneDescription,
+        mosaic: PhotoreceptorMosaic,
+        input_image: np.ndarray,
+    ) -> dict:
+        """Build lightweight derived artifacts used by validation and demos."""
+        class _ResultLike:
+            def __init__(self, scene_obj, mosaic_obj) -> None:
+                self.scene = scene_obj
+                self.mosaic = mosaic_obj
+
+        result_like = _ResultLike(scene, mosaic)
+        rows, cols = receptor_pixel_coordinates(result_like, input_image.shape[:2])
+        stimulated_mask = stimulated_receptor_mask(result_like, input_image.shape[:2])
+        return {
+            "input_shape": tuple(int(v) for v in input_image.shape),
+            "receptor_rows": rows,
+            "receptor_cols": cols,
+            "stimulated_receptor_mask": stimulated_mask,
+        }

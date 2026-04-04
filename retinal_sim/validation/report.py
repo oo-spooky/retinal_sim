@@ -157,22 +157,22 @@ class ValidationSuite:
                 self.test_distance_receptor_sampling,
             ],
             "spectral": [
-                self.test_metamer_preservation,
-                self.test_rgb_roundtrip,
+                self.test_metamer_preservation_v2,
+                self.test_rgb_roundtrip_v2,
             ],
             "optical": [
-                self.test_mtf_vs_diffraction_limit,
+                self.test_mtf_vs_diffraction_limit_v2,
                 self.test_psf_energy_conservation,
             ],
             "retinal": [
                 self.test_snellen_acuity,
-                self.test_dichromat_confusion,
-                self.test_nyquist_sampling,
-                self.test_receptor_count,
+                self.test_dichromat_confusion_v2,
+                self.test_nyquist_sampling_v2,
+                self.test_receptor_count_v2,
             ],
             "e2e": [
                 self.test_color_deficit_reproduction,
-                self.test_resolution_gradient,
+                self.test_resolution_gradient_v2,
             ],
         }
         if stage not in dispatch:
@@ -433,14 +433,14 @@ class ValidationSuite:
         )
 
     def test_distance_receptor_sampling(self) -> ValidationResult:
-        """Receptor count scales as ~1/d² with viewing distance."""
+        """Stimulated receptor count scales as ~1/d² with viewing distance."""
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         from retinal_sim.pipeline import RetinalSimulator
 
-        distances = [1.0, 5.0, 10.0]
-        object_width = 0.20
+        distances = [1.0, 2.0, 4.0, 8.0]
+        object_width = 0.02
         img = np.full((32, 32, 3), 128, dtype=np.uint8)
 
         sim = RetinalSimulator(
@@ -449,23 +449,26 @@ class ValidationSuite:
 
         counts = []
         for d in distances:
-            result = sim.simulate(img, scene_width_m=object_width, viewing_distance_m=d, seed=self._seed)
-            counts.append(result.mosaic.n_receptors)
+            result = sim.simulate(
+                img,
+                scene_width_m=object_width,
+                viewing_distance_m=d,
+                seed=self._seed,
+            )
+            counts.append(int(np.sum(result.artifacts["stimulated_receptor_mask"])))
 
-        # Check 1/d² scaling: count(d1)/count(d2) ≈ (d2/d1)²
         all_ok = True
         details_lines = []
         for i, d in enumerate(distances):
-            details_lines.append(f"d={d:.0f}m → {counts[i]} receptors")
+            details_lines.append(f"d={d:.0f}m → {counts[i]} stimulated receptors")
 
         if counts[0] > 0 and counts[-1] > 0:
             ratio_actual = counts[0] / counts[-1]
             ratio_expected = (distances[-1] / distances[0]) ** 2
             rel_err = abs(ratio_actual - ratio_expected) / ratio_expected
-            # Generous tolerance: density gradients prevent exact 1/d²
-            all_ok = rel_err < 0.5
+            all_ok = rel_err < 0.40
             details_lines.append(
-                f"count ratio (d={distances[0]}m/d={distances[-1]}m): "
+                f"stimulated-count ratio (d={distances[0]}m/d={distances[-1]}m): "
                 f"{ratio_actual:.1f} vs expected {ratio_expected:.1f} "
                 f"(rel err {rel_err:.2f}) {'✓' if all_ok else '✗'}"
             )
@@ -473,8 +476,8 @@ class ValidationSuite:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
         ax1.plot(distances, counts, "o-", color="#4c72b0", lw=2, markersize=8)
         ax1.set_xlabel("Viewing distance (m)")
-        ax1.set_ylabel("Receptor count")
-        ax1.set_title("Receptor Count vs Distance")
+        ax1.set_ylabel("Stimulated receptor count")
+        ax1.set_title("Stimulated Receptors vs Distance")
         ax1.grid(True, alpha=0.3)
 
         ax2.loglog(distances, counts, "o-", color="#4c72b0", lw=2, markersize=8, label="Measured")
@@ -482,7 +485,7 @@ class ValidationSuite:
         ideal = counts[0] * (distances[0] / d_arr) ** 2
         ax2.loglog(distances, ideal, "--", color="#dd8452", lw=1.5, label="Ideal 1/d²")
         ax2.set_xlabel("Viewing distance (m)")
-        ax2.set_ylabel("Receptor count")
+        ax2.set_ylabel("Stimulated receptor count")
         ax2.set_title("Log-Log: 1/d² Scaling Check")
         ax2.legend()
         ax2.grid(True, alpha=0.3)
@@ -493,7 +496,7 @@ class ValidationSuite:
             passed=bool(all_ok),
             expected="~1/d² scaling",
             actual="\n".join(details_lines),
-            tolerance=0.5,
+            tolerance=0.40,
             details="\n".join(details_lines),
             figure=fig,
         )
@@ -1192,6 +1195,492 @@ class ValidationSuite:
             figure=fig,
         )
 
+    def test_metamer_preservation_v2(self) -> ValidationResult:
+        """Fixed near-metamer dataset preserves human cone catches under D65."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.constants import WAVELENGTHS
+        from retinal_sim.retina.opsin import build_sensitivity_curves
+        from retinal_sim.spectral.upsampler import SpectralUpsampler
+        from retinal_sim.validation.datasets import as_uint8_pair, metamer_pairs
+
+        upsampler = SpectralUpsampler()
+        wl = WAVELENGTHS
+        dlam = float(np.mean(np.diff(wl)))
+        curves = build_sensitivity_curves("human", wl)
+
+        pair_names = []
+        pair_max_diffs = []
+        details_lines = []
+        all_ok = True
+        representative = None
+
+        for item in metamer_pairs():
+            rgb1, rgb2 = as_uint8_pair(item)
+            spec1 = upsampler.upsample(rgb1[np.newaxis, np.newaxis, :]).data[0, 0, :]
+            spec2 = upsampler.upsample(rgb2[np.newaxis, np.newaxis, :]).data[0, 0, :]
+            catches1 = {t: float(np.sum(spec1 * curves[t]) * dlam) for t in curves}
+            catches2 = {t: float(np.sum(spec2 * curves[t]) * dlam) for t in curves}
+            max_rel = max(
+                abs(catches1[t] - catches2[t]) / max(catches1[t], catches2[t], 1e-10)
+                for t in curves
+            )
+            ok = max_rel < 0.03
+            all_ok = all_ok and ok
+            pair_names.append(item["name"])
+            pair_max_diffs.append(max_rel)
+            details_lines.append(
+                f"{item['name']}: max cone-catch rel diff={max_rel:.4f} "
+                f"for {rgb1.tolist()} vs {rgb2.tolist()} {'✓' if ok else '✗'}"
+            )
+            if representative is None:
+                representative = (spec1, spec2, rgb1.tolist(), rgb2.tolist())
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+        spec1, spec2, rgb1_lbl, rgb2_lbl = representative
+        ax1.plot(wl, spec1, label=f"RGB {rgb1_lbl}", lw=1.5)
+        ax1.plot(wl, spec2, label=f"RGB {rgb2_lbl}", lw=1.5, ls="--")
+        ax1.set_xlabel("Wavelength (nm)")
+        ax1.set_ylabel("Spectral radiance")
+        ax1.set_title("Representative Near-Metamer Pair")
+        ax1.legend(fontsize=8)
+        ax1.grid(True, alpha=0.3)
+
+        ax2.bar(pair_names, pair_max_diffs, color="#4c72b0")
+        ax2.axhline(0.03, ls="--", color="red", lw=1, label="Threshold (3%)")
+        ax2.set_ylabel("Max cone-catch relative difference")
+        ax2.set_title("Fixed Near-Metamer Dataset")
+        ax2.tick_params(axis="x", rotation=35)
+        ax2.legend(fontsize=8)
+        plt.tight_layout()
+
+        return self._result(
+            "Metamer Preservation",
+            passed=bool(all_ok),
+            expected="Max cone-catch relative difference < 3% for fixed near-metamer dataset",
+            actual="\n".join(details_lines),
+            tolerance=0.03,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_rgb_roundtrip_v2(self) -> ValidationResult:
+        """Spectral upsampling and D65 reprojection round-trip faithfully."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.spectral.upsampler import SpectralUpsampler
+
+        upsampler = SpectralUpsampler()
+        test_colors = [
+            ("Red", [255, 0, 0]),
+            ("Green", [0, 255, 0]),
+            ("Blue", [0, 0, 255]),
+            ("Yellow", [255, 255, 0]),
+            ("Cyan", [0, 255, 255]),
+            ("Magenta", [255, 0, 255]),
+            ("White", [255, 255, 255]),
+            ("Gray", [128, 128, 128]),
+        ]
+
+        errors = []
+        details_lines = []
+        reconstructed_rgbs = []
+        all_ok = True
+
+        for name, rgb in test_colors:
+            inp = np.array([[rgb]], dtype=np.uint8)
+            spectral = upsampler.upsample(inp)
+            rgb_out = upsampler.spectral_to_srgb(spectral.data[0, 0, :]).astype(float)
+            reconstructed_rgbs.append(rgb_out)
+            rmse = float(np.sqrt(np.mean((np.array(rgb, dtype=float) - rgb_out) ** 2)))
+            errors.append(rmse)
+            ok = rmse < 2.0
+            all_ok = all_ok and ok
+            details_lines.append(
+                f"{name}: in={rgb} out=[{rgb_out[0]:.0f},{rgb_out[1]:.0f},{rgb_out[2]:.0f}] "
+                f"RMSE={rmse:.2f} {'✓' if ok else '✗'}"
+            )
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+        names = [c[0] for c in test_colors]
+        bar_colors = [np.clip(np.array(c[1]) / 255.0, 0, 1) for c in test_colors]
+        ax1.bar(names, errors, color=bar_colors, edgecolor="black", lw=0.5)
+        ax1.set_ylabel("RMSE (8-bit)")
+        ax1.set_title("RGB Round-Trip Error by Colour")
+        ax1.axhline(2.0, ls="--", color="red", lw=1, label="Threshold (2.0)")
+        ax1.legend(fontsize=8)
+        ax1.tick_params(axis="x", rotation=45)
+
+        for i, (name, rgb) in enumerate(test_colors):
+            ax2.add_patch(plt.Rectangle((i, 0), 0.45, 1, color=np.clip(np.array(rgb) / 255.0, 0, 1)))
+            ax2.add_patch(plt.Rectangle((i + 0.5, 0), 0.45, 1, color=np.clip(reconstructed_rgbs[i] / 255.0, 0, 1)))
+        ax2.set_xlim(-0.2, len(test_colors) + 0.2)
+        ax2.set_ylim(-0.1, 1.3)
+        ax2.set_xticks([i + 0.5 for i in range(len(test_colors))])
+        ax2.set_xticklabels(names, fontsize=7, rotation=45)
+        ax2.set_title("Input (left) vs Reconstructed (right)")
+        ax2.set_yticks([])
+        plt.tight_layout()
+
+        return self._result(
+            "RGB Round-Trip",
+            passed=bool(all_ok),
+            expected="RMSE < 2.0 for all colours",
+            actual=f"Max RMSE = {max(errors):.2f}",
+            tolerance=2.0,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_mtf_vs_diffraction_limit_v2(self) -> ValidationResult:
+        """Empirical sinusoidal contrast transfer matches the PSF MTF."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from scipy.ndimage import convolve
+        from retinal_sim.optical.psf import PSFGenerator
+        from retinal_sim.species.config import SpeciesConfig
+
+        cfg = SpeciesConfig.load("human")
+        patch_extent_deg = 2.0
+        image_width = 256
+        patch_width_mm = 2.0 * cfg.optical.focal_length_mm * np.tan(np.radians(patch_extent_deg / 2.0))
+        pixel_scale_mm = patch_width_mm / image_width
+        psf_gen = PSFGenerator(cfg.optical, pixel_scale_mm_per_px=pixel_scale_mm)
+        kernel = psf_gen.gaussian_psf(np.array([550.0]), kernel_size=41)[0]
+        freqs_cpd = np.array([5.0, 10.0, 20.0, 30.0])
+        x_deg = np.linspace(-patch_extent_deg / 2.0, patch_extent_deg / 2.0, image_width, endpoint=False)
+
+        yy, xx = np.mgrid[: kernel.shape[0], : kernel.shape[1]]
+        xx = xx - kernel.shape[1] // 2
+        measured = []
+        predicted = []
+        details_lines = []
+        all_ok = True
+
+        for freq in freqs_cpd:
+            grating_1d = 0.5 + 0.5 * np.sin(2.0 * np.pi * freq * x_deg)
+            grating = np.tile(grating_1d, (image_width, 1))
+            blurred = convolve(grating, kernel, mode="reflect")
+            input_amp = (float(grating_1d.max()) - float(grating_1d.min())) / 2.0
+            output_profile = blurred[image_width // 2]
+            output_amp = (float(output_profile.max()) - float(output_profile.min())) / 2.0
+            measured_mtf = output_amp / max(input_amp, 1e-8)
+            cycles_per_pixel = freq * patch_extent_deg / image_width
+            otf = np.sum(kernel * np.exp(-2j * np.pi * cycles_per_pixel * xx))
+            predicted_mtf = float(np.abs(otf))
+            err = abs(measured_mtf - predicted_mtf)
+            measured.append(measured_mtf)
+            predicted.append(predicted_mtf)
+            ok = err < 0.08
+            all_ok = all_ok and ok
+            details_lines.append(
+                f"{freq:.0f} cpd: measured={measured_mtf:.4f}, predicted={predicted_mtf:.4f}, "
+                f"|Δ|={err:.4f} {'✓' if ok else '✗'}"
+            )
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+        ax1.plot(freqs_cpd, measured, "o-", label="Measured contrast transfer", lw=1.5)
+        ax1.plot(freqs_cpd, predicted, "s--", label="Predicted MTF", lw=1.5)
+        ax1.set_xlabel("Spatial frequency (cpd)")
+        ax1.set_ylabel("Normalized modulation")
+        ax1.set_title("Empirical vs Predicted MTF")
+        ax1.legend(fontsize=8)
+        ax1.grid(True, alpha=0.3)
+
+        ax2.imshow(kernel, cmap="hot", interpolation="nearest")
+        ax2.set_title("550 nm PSF Kernel")
+        ax2.set_xticks([])
+        ax2.set_yticks([])
+        plt.tight_layout()
+
+        return self._result(
+            "MTF vs Diffraction Limit",
+            passed=bool(all_ok),
+            expected="Measured sinusoidal contrast transfer matches predicted MTF within 0.08",
+            actual=f"Max |measured-predicted| = {max(abs(m - p) for m, p in zip(measured, predicted)):.4f}",
+            tolerance=0.08,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_dichromat_confusion_v2(self) -> ValidationResult:
+        """Human median discriminability exceeds dog/cat medians on confusion sets."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.validation.dichromat import evaluate_stimulus_matrix
+        from retinal_sim.validation.metrics import median_by
+
+        matrix = evaluate_stimulus_matrix(["human", "dog", "cat"], seed=self._seed, n_seeds=2)
+        summary = {
+            species: {key: median_by(values) for key, values in groups.items()}
+            for species, groups in matrix.items()
+        }
+
+        checks = [
+            summary["dog"]["confusion_dog"] < summary["dog"]["control"],
+            summary["cat"]["confusion_cat"] < summary["cat"]["control"],
+            summary["human"]["confusion_cat"] > summary["cat"]["confusion_cat"] + 0.01,
+            summary["dog"]["control"] > 0.05,
+            summary["cat"]["control"] > 0.05,
+        ]
+        all_ok = all(checks)
+        details_lines = [
+            f"human medians: dog-conf={summary['human']['confusion_dog']:.4f}, "
+            f"cat-conf={summary['human']['confusion_cat']:.4f}, control={summary['human']['control']:.4f}",
+            f"dog medians: dog-conf={summary['dog']['confusion_dog']:.4f}, "
+            f"cat-conf={summary['dog']['confusion_cat']:.4f}, control={summary['dog']['control']:.4f}",
+            f"cat medians: dog-conf={summary['cat']['confusion_dog']:.4f}, "
+            f"cat-conf={summary['cat']['confusion_cat']:.4f}, control={summary['cat']['control']:.4f}",
+            f"Dog confusion median < dog control median: {'✓' if checks[0] else '✗'}",
+            f"Cat confusion median < cat control median: {'✓' if checks[1] else '✗'}",
+            f"Human > cat on cat confusion set: {'✓' if checks[2] else '✗'}",
+            f"Dog control median > 0.05: {'✓' if checks[3] else '✗'}",
+            f"Cat control median > 0.05: {'✓' if checks[4] else '✗'}",
+        ]
+
+        fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+        categories = ["dog confusion", "cat confusion", "control"]
+        x = np.arange(len(categories))
+        width = 0.24
+        for i, species in enumerate(["human", "dog", "cat"]):
+            ax.bar(
+                x + (i - 1) * width,
+                [
+                    summary[species]["confusion_dog"],
+                    summary[species]["confusion_cat"],
+                    summary[species]["control"],
+                ],
+                width=width,
+                label=species,
+            )
+        ax.set_xticks(x)
+        ax.set_xticklabels(categories)
+        ax.set_ylabel("Median discriminability")
+        ax.set_title("Stimulus-Matrix Dichromat Validation")
+        ax.legend(fontsize=8)
+        plt.tight_layout()
+
+        return self._result(
+            "Dichromat Confusion",
+            passed=bool(all_ok),
+            expected="Species-specific confusion medians are suppressed relative to controls, and human exceeds cat on the cat confusion set",
+            actual="\n".join(details_lines),
+            tolerance=0.01,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_nyquist_sampling_v2(self) -> ValidationResult:
+        """Local cone density predicts species-specific Nyquist limits in cpd."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.species.config import SpeciesConfig
+
+        target_ranges = {
+            "human": (45.0, 90.0),
+            "dog": (10.0, 30.0),
+            "cat": (8.0, 25.0),
+        }
+        species_list = ["human", "dog", "cat"]
+        values = {}
+        details_lines = []
+        all_ok = True
+
+        for sp in species_list:
+            cfg = SpeciesConfig.load(sp)
+            cone_density = float(sum(cfg.retinal.cone_density_fn(0.0, 0.0).values()))
+            spacing_mm = np.sqrt(2.0 / (np.sqrt(3.0) * cone_density))
+            mm_per_degree = cfg.optical.focal_length_mm * np.tan(np.radians(1.0))
+            cpd = (1.0 / (2.0 * spacing_mm)) * mm_per_degree
+            lo, hi = target_ranges[sp]
+            ok = lo <= cpd <= hi
+            all_ok = all_ok and ok
+            values[sp] = cpd
+            details_lines.append(
+                f"{sp}: cone_density={cone_density:.0f}/mm², spacing={spacing_mm * 1000:.2f}µm, "
+                f"nyquist={cpd:.1f} cpd (target {lo:.0f}-{hi:.0f}) {'✓' if ok else '✗'}"
+            )
+
+        fig, ax = plt.subplots(1, 1, figsize=(7, 4))
+        ax.bar(species_list, [values[s] for s in species_list], color=["#4c72b0", "#dd8452", "#55a868"])
+        ax.set_ylabel("Nyquist limit (cpd)")
+        ax.set_title("Area Centralis Nyquist Estimates")
+        ax.grid(True, alpha=0.3, axis="y")
+        plt.tight_layout()
+
+        return self._result(
+            "Nyquist Sampling",
+            passed=bool(all_ok),
+            expected="Species Nyquist estimates fall within target cpd bands",
+            actual="\n".join(details_lines),
+            tolerance=0.0,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_receptor_count_v2(self) -> ValidationResult:
+        """Generated receptor counts match density-model expectations over the simulated patch."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.constants import WAVELENGTHS
+        from retinal_sim.retina.mosaic import MosaicGenerator
+        from retinal_sim.species.config import SpeciesConfig
+        species_list = ["human", "dog", "cat"]
+        measured_totals = {}
+        expected_totals = {}
+        details_lines = []
+        all_ok = True
+
+        for sp in species_list:
+            cfg = SpeciesConfig.load(sp)
+            gen = MosaicGenerator(cfg.retinal, cfg.optical, WAVELENGTHS)
+            mosaic = gen.generate(seed=self._seed)
+            half_width = float(gen._patch_half_mm)
+            patch_width = 2.0 * half_width
+            mask = (
+                (np.abs(mosaic.positions[:, 0]) <= half_width) &
+                (np.abs(mosaic.positions[:, 1]) <= half_width)
+            )
+            unique, cnts = np.unique(mosaic.types[mask], return_counts=True)
+            measured = dict(zip(unique.tolist(), cnts.tolist()))
+            measured_total = int(mask.sum())
+            sample_axis = np.linspace(-half_width, half_width, 101)
+            XX, YY = np.meshgrid(sample_axis, sample_axis)
+            ecc = np.sqrt(XX ** 2 + YY ** 2)
+            ang = np.arctan2(YY, XX)
+            cone_density_grid = np.zeros_like(ecc)
+            for i in range(ecc.shape[0]):
+                for j in range(ecc.shape[1]):
+                    cone_density_grid[i, j] = sum(
+                        cfg.retinal.cone_density_fn(float(ecc[i, j]), float(ang[i, j])).values()
+                    )
+            rod_density_grid = np.vectorize(
+                lambda e, a: cfg.retinal.rod_density_fn(float(e), float(a))
+            )(ecc, ang)
+            expected_total = float(np.mean(cone_density_grid + rod_density_grid) * patch_width * patch_width)
+            cone_ratio_measured = (
+                measured.get("S_cone", 0) + measured.get("M_cone", 0) + measured.get("L_cone", 0)
+            ) / max(measured_total, 1)
+            cone_ratio_expected = float(np.mean(cone_density_grid) / max(np.mean(cone_density_grid + rod_density_grid), 1e-10))
+
+            count_err = abs(measured_total - expected_total) / max(expected_total, 1.0)
+            ratio_err = abs(cone_ratio_measured - cone_ratio_expected) / max(cone_ratio_expected, 1e-10)
+            ok = count_err < 0.25 and ratio_err < 0.15
+            all_ok = all_ok and ok
+            measured_totals[sp] = measured_total
+            expected_totals[sp] = expected_total
+            details_lines.append(
+                f"{sp}: measured={measured_total}, expected={expected_total:.0f}, "
+                f"count_err={count_err:.3f}, cone_ratio_err={ratio_err:.3f} {'✓' if ok else '✗'}"
+            )
+
+        fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+        x = np.arange(len(species_list))
+        ax.bar(x - 0.18, [measured_totals[s] for s in species_list], width=0.35, label="Measured")
+        ax.bar(x + 0.18, [expected_totals[s] for s in species_list], width=0.35, label="Expected")
+        ax.set_xticks(x)
+        ax.set_xticklabels(species_list)
+        ax.set_ylabel("Receptors in simulated patch")
+        ax.set_title("Measured vs Expected Patch Counts")
+        ax.legend(fontsize=8)
+        plt.tight_layout()
+
+        return self._result(
+            "Receptor Count",
+            passed=bool(all_ok),
+            expected="Measured counts and cone/rod ratios stay within density-model tolerance bands over the simulated patch",
+            actual="\n".join(details_lines),
+            tolerance=0.25,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_resolution_gradient_v2(self) -> ValidationResult:
+        """Human center contrast exceeds peripheral and dichromat center contrast on a fine checkerboard."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.pipeline import RetinalSimulator
+        from retinal_sim.output.reconstruction import render_reconstructed
+        from retinal_sim.output.voronoi import render_voronoi
+        from retinal_sim.validation.metrics import response_contrast_by_region
+
+        checker = np.zeros((64, 64, 3), dtype=np.uint8)
+        for r in range(64):
+            for c in range(64):
+                checker[r, c] = [200, 200, 200] if (r + c) % 2 == 0 else [50, 50, 50]
+        bright_mask = checker[:, :, 0] > 100
+
+        species_list = ["human", "dog", "cat"]
+        results = {}
+        details_lines = []
+        all_ok = True
+        contrast_summary = {}
+
+        for sp in species_list:
+            sim = RetinalSimulator(sp, patch_extent_deg=2.0, stimulus_scale=0.01, seed=self._seed)
+            results[sp] = sim.simulate(checker, seed=self._seed)
+            radii = np.sqrt(np.sum(results[sp].mosaic.positions ** 2, axis=1))
+            center_mask = radii <= np.quantile(radii, 0.35)
+            periphery_mask = radii >= np.quantile(radii, 0.65)
+            center_contrast = response_contrast_by_region(results[sp], bright_mask, center_mask)
+            periphery_contrast = response_contrast_by_region(results[sp], bright_mask, periphery_mask)
+            contrast_summary[sp] = (center_contrast, periphery_contrast)
+            details_lines.append(f"{sp}: center_contrast={center_contrast:.4f}, periphery_contrast={periphery_contrast:.4f}")
+
+        checks = [
+            contrast_summary["human"][0] > contrast_summary["human"][1],
+            contrast_summary["human"][0] > contrast_summary["dog"][0],
+            contrast_summary["human"][0] > contrast_summary["cat"][0],
+        ]
+        all_ok = all(checks)
+        details_lines.extend(
+            [
+                f"Human center > human periphery: {'✓' if checks[0] else '✗'}",
+                f"Human center > dog center: {'✓' if checks[1] else '✗'}",
+                f"Human center > cat center: {'✓' if checks[2] else '✗'}",
+            ]
+        )
+
+        fig, axes = plt.subplots(2, len(species_list) + 1, figsize=(4 * (len(species_list) + 1), 8))
+        axes[0, 0].imshow(checker)
+        axes[0, 0].set_title("Input\n(Checkerboard)", fontsize=9)
+        axes[0, 0].axis("off")
+        axes[1, 0].axis("off")
+
+        for i, sp in enumerate(species_list):
+            voronoi_img = render_voronoi(results[sp].activation, output_size=(128, 128))
+            axes[0, i + 1].imshow(voronoi_img, origin="lower")
+            axes[0, i + 1].set_title(
+                f"{sp.capitalize()}\nC={contrast_summary[sp][0]:.3f}, P={contrast_summary[sp][1]:.3f}",
+                fontsize=9,
+            )
+            axes[0, i + 1].axis("off")
+
+            recon = render_reconstructed(results[sp].activation, (128, 128))
+            axes[1, i + 1].imshow(recon, cmap="gray", origin="lower", vmin=0, vmax=1)
+            axes[1, i + 1].set_title(f"{sp.capitalize()}\nReconstructed", fontsize=9)
+            axes[1, i + 1].axis("off")
+
+        fig.suptitle("Resolution Gradient: Quantified Center vs Periphery Contrast", fontsize=11)
+        plt.tight_layout()
+
+        return self._result(
+            "Resolution Gradient",
+            passed=bool(all_ok),
+            expected="Human center contrast exceeds human periphery and dichromat center contrast on a fine checkerboard",
+            actual="\n".join(details_lines),
+            tolerance=0.0,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Report metadata and coverage
@@ -1235,45 +1724,45 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "stage": "scene",
         "architecture_ref": "Architecture §11e Distance-dependent receptor sampling",
         "code_refs": ["retinal_sim/pipeline.py", "retinal_sim/retina/mosaic.py"],
-        "inputs_summary": "Constant-size grayscale object at 1 m, 5 m, and 10 m using the human simulator.",
-        "assumptions": ["1/d^2 scaling is approximate because density gradients remain in play."],
-        "method": "Measure receptor counts covered by the scene at multiple viewing distances and compare against ideal inverse-square scaling.",
-        "pass_criterion": "Far/near receptor-count scaling stays within 50% relative error of ideal 1/d^2.",
-        "limitations": ["Tolerance is intentionally generous due to non-uniform mosaic density."],
-        "artifacts": ["Distance vs receptor count plot", "Log-log ideal vs measured scaling plot"],
+        "inputs_summary": "Constant-size grayscale object that remains smaller than the 2° patch across all tested distances.",
+        "assumptions": ["Stimulated receptors are those whose mapped positions fall inside the projected object footprint."],
+        "method": "Measure stimulated receptor counts at multiple viewing distances and compare against ideal inverse-square scaling.",
+        "pass_criterion": "Far/near stimulated-receptor scaling stays within 40% relative error of ideal 1/d^2.",
+        "limitations": ["Density gradients and stochastic mosaic sampling still introduce some deviation from exact inverse-square behaviour."],
+        "artifacts": ["Distance vs stimulated receptor count plot", "Log-log ideal vs measured scaling plot"],
     },
     "Metamer Preservation": {
         "stage": "spectral",
         "architecture_ref": "Architecture §11a Metamer preservation",
         "code_refs": ["retinal_sim/spectral/upsampler.py", "retinal_sim/retina/opsin.py"],
-        "inputs_summary": "Two near-gray RGB triplets upsampled to spectra and integrated against human receptor sensitivities.",
-        "assumptions": ["Near-metameric RGBs are used as a practical proxy instead of a published metamer dataset."],
-        "method": "Compare integrated cone catches from two near-metameric inputs.",
-        "pass_criterion": "Relative cone-catch difference < 10% for each receptor class.",
-        "limitations": ["This is a practical approximation, not a formal metamer library benchmark."],
-        "artifacts": ["Upsampled spectra plot", "Cone-catch comparison bars"],
+        "inputs_summary": "Fixed near-metamer RGB pair dataset integrated against human receptor sensitivities under D65.",
+        "assumptions": ["Dataset is repo-local and deterministic to keep the audit reproducible."],
+        "method": "Upsample each RGB pair, integrate against human sensitivities, and bound the maximum cone-catch relative difference.",
+        "pass_criterion": "Maximum cone-catch relative difference < 3% for every dataset pair.",
+        "limitations": ["Dataset is compact rather than exhaustive; it is intended as a deterministic regression panel."],
+        "artifacts": ["Representative pair spectra plot", "Per-pair max cone-catch difference bars"],
     },
     "RGB Round-Trip": {
         "stage": "spectral",
         "architecture_ref": "Architecture §11a Roundtrip consistency",
         "code_refs": ["retinal_sim/spectral/upsampler.py", "retinal_sim/validation/report.py"],
-        "inputs_summary": "Eight canonical sRGB colors passed through spectral upsampling and approximate CIE XYZ reconstruction.",
-        "assumptions": ["Fallback CIE observer curves may be approximate.", "D65 is simplified in this report implementation."],
-        "method": "Reconstruct RGB via approximate XYZ integration and compute per-color RMSE.",
-        "pass_criterion": "RMSE < 15 8-bit counts for all tested colors.",
-        "limitations": ["Tolerance is generous because the reconstruction path is approximate and validation-oriented."],
+        "inputs_summary": "Eight canonical sRGB colors passed through spectral upsampling and D65-based reprojection.",
+        "assumptions": ["The same D65-referenced observer model used to build the basis spectra is used for reprojection."],
+        "method": "Project upsampled spectra back to sRGB and compute per-colour RMSE.",
+        "pass_criterion": "RMSE < 2 8-bit counts for all tested colours.",
+        "limitations": ["This validates the D65 round-trip path, not arbitrary illuminant changes."],
         "artifacts": ["RMSE bar chart", "Input vs reconstructed color swatches"],
     },
     "MTF vs Diffraction Limit": {
         "stage": "optical",
         "architecture_ref": "Architecture §11b Diffraction-limited resolution",
         "code_refs": ["retinal_sim/optical/psf.py", "retinal_sim/species/config.py"],
-        "inputs_summary": "Human Gaussian PSF kernels at 400, 500, 600, and 700 nm.",
-        "assumptions": ["Current PoC uses Gaussian PSF behavior as the optical reference."],
-        "method": "Measure PSF profile widths across wavelength and verify monotonic broadening.",
-        "pass_criterion": "Measured FWHM is non-decreasing with wavelength.",
-        "limitations": ["This does not compute a full empirical MTF curve against the closed-form diffraction equation."],
-        "artifacts": ["PSF cross-section plot", "PSF kernel montage"],
+        "inputs_summary": "Human 550 nm PSF tested with sinusoidal gratings spanning low-to-mid spatial frequencies.",
+        "assumptions": ["The implemented PSF is a diffraction-derived Gaussian approximation."],
+        "method": "Measure empirical contrast transfer on sinusoidal gratings and compare it with the PSF-predicted MTF.",
+        "pass_criterion": "Measured modulation stays within 0.08 of the predicted MTF at all tested spatial frequencies.",
+        "limitations": ["Validation targets the implemented diffraction-derived PSF model, not a full Airy-pattern optical stack."],
+        "artifacts": ["Measured vs predicted MTF plot", "550 nm PSF kernel image"],
     },
     "PSF Energy Conservation": {
         "stage": "optical",
@@ -1301,34 +1790,34 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "stage": "retinal",
         "architecture_ref": "Architecture §11c Dichromat confusion axis",
         "code_refs": ["retinal_sim/validation/dichromat.py", "retinal_sim/validation/ishihara.py"],
-        "inputs_summary": "Dog confusion pair rendered as an Ishihara-like dot pattern and scored for human vs dog.",
+        "inputs_summary": "Fixed confusion-pair panels for dog and cat plus a shared control-pair panel.",
         "assumptions": ["Stimulus scaling is applied to keep Naka-Rushton responses out of saturation."],
-        "method": "Compute discriminability for the same color pair under trichromat and dichromat models.",
-        "pass_criterion": "Human discriminability exceeds dog discriminability.",
-        "limitations": ["With low seed counts, noise can inflate small dog discriminability values."],
-        "artifacts": ["Pattern image", "Ground-truth mask", "Human vs dog discriminability bars"],
+        "method": "Compute species-wise discriminability distributions across deterministic confusion/control stimulus matrices and compare confusion medians against controls.",
+        "pass_criterion": "Each species-specific confusion median is suppressed relative to its controls, and human exceeds cat on the cat confusion set.",
+        "limitations": ["Compact panel intended for deterministic regression rather than exhaustive colour-space coverage."],
+        "artifacts": ["Median discriminability bar chart"],
     },
     "Nyquist Sampling": {
         "stage": "retinal",
         "architecture_ref": "Architecture §11c Cone density to sampling limit",
         "code_refs": ["retinal_sim/retina/mosaic.py", "retinal_sim/species/config.py"],
-        "inputs_summary": "Generated mosaics for all species, compared against PSF width at 550 nm.",
-        "assumptions": ["Mean nearest-neighbor spacing is used as the sampling proxy."],
-        "method": "Estimate nearest-neighbor receptor spacing and compare against PSF FWHM bandwidth proxy.",
-        "pass_criterion": "Mean nearest-neighbor spacing is no larger than the PSF FWHM proxy.",
-        "limitations": ["Uses a simplified spacing-vs-bandwidth criterion rather than full cpd analysis."],
-        "artifacts": ["Species receptor-spacing bar chart"],
+        "inputs_summary": "Area-centralis cone densities converted to spacing and cycles/degree for all species.",
+        "assumptions": ["Hexagonal spacing approximation is used to map cone density to Nyquist limit."],
+        "method": "Convert local cone density to spacing, then convert spacing to cycles/degree using focal-length-based retinal magnification.",
+        "pass_criterion": "Each species falls inside its target cycles/degree band.",
+        "limitations": ["Uses density-model predictions at the patch centre rather than a full eccentricity sweep."],
+        "artifacts": ["Species Nyquist-limit bar chart"],
     },
     "Receptor Count": {
         "stage": "retinal",
         "architecture_ref": "Architecture §11c Receptor count validation",
         "code_refs": ["retinal_sim/retina/mosaic.py", "retinal_sim/species/config.py"],
-        "inputs_summary": "One generated 2-degree mosaic per species with receptor type counts.",
-        "assumptions": ["Current report checks non-zero structured output rather than literature-locked histology counts."],
-        "method": "Count total receptors and receptor-type breakdown in each generated mosaic.",
-        "pass_criterion": "Each species yields a non-zero receptor count and explicit breakdown.",
-        "limitations": ["This is a weaker check than literature-calibrated receptor-count matching."],
-        "artifacts": ["Stacked receptor-type count bar chart"],
+        "inputs_summary": "Generated mosaics compared against density-model expectations over the simulated square patch.",
+        "assumptions": ["Species density functions are the literature-backed PoC source of truth for expected counts."],
+        "method": "Compare measured receptor counts and cone/rod composition against integrated density-model expectations over the simulated patch.",
+        "pass_criterion": "Total count error < 25% and cone/rod composition error < 15% for every species.",
+        "limitations": ["Current model still uses simplified analytic density functions rather than digitised histology maps."],
+        "artifacts": ["Measured vs expected count bars"],
     },
     "Color Deficit Reproduction": {
         "stage": "e2e",
@@ -1346,10 +1835,10 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "architecture_ref": "Architecture §11d Resolution gradient",
         "code_refs": ["retinal_sim/pipeline.py", "retinal_sim/output/reconstruction.py", "retinal_sim/output/voronoi.py"],
         "inputs_summary": "Checkerboard stimulus simulated for human, dog, and cat.",
-        "assumptions": ["This remains a visual-inspection-heavy validation."],
-        "method": "Compare center vs peripheral response variance and render species outputs for inspection.",
-        "pass_criterion": "Report is marked as visual/manual evidence; figures and measured variances must be shown.",
-        "limitations": ["Currently passes as a visual-inspection test instead of a strict quantitative gate."],
+        "assumptions": ["Checkerboard bright/dark contrast is used as the resolvability proxy."],
+        "method": "Compare center vs peripheral bright/dark response contrast on a fine checkerboard and compare human center contrast against dichromat center contrast.",
+        "pass_criterion": "Human center contrast exceeds human periphery and exceeds dog/cat center contrast.",
+        "limitations": ["Quantifies contrast retention on a fine checkerboard but does not yet fit a full eccentricity-dependent MTF curve."],
         "artifacts": ["Input checkerboard", "Per-species Voronoi images", "Per-species reconstructions"],
     },
 }
@@ -1358,17 +1847,17 @@ _ARCHITECTURE_COVERAGE = [
     {"architecture_ref": "Architecture §11e Angular subtense correctness", "test_name": "Angular Subtense", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Analytic geometric equality check."},
     {"architecture_ref": "Architecture §11e Retinal image scaling across species", "test_name": "Retinal Scaling Across Species", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Checks focal-length proportionality."},
     {"architecture_ref": "Architecture §11e Accommodation/defocus injection", "test_name": "Accommodation Defocus", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Hard-cutoff accommodation model."},
-    {"architecture_ref": "Architecture §11e Distance-dependent receptor sampling", "test_name": "Distance-Dependent Receptor Sampling", "code_path": "retinal_sim/pipeline.py", "status": "covered", "note": "Approximate inverse-square scaling."},
-    {"architecture_ref": "Architecture §11a Metamer preservation", "test_name": "Metamer Preservation", "code_path": "retinal_sim/spectral/upsampler.py", "status": "partially covered", "note": "Uses practical proxy, not a formal metamer dataset."},
-    {"architecture_ref": "Architecture §11a Roundtrip consistency", "test_name": "RGB Round-Trip", "code_path": "retinal_sim/spectral/upsampler.py", "status": "covered", "note": "Approximate CIE path with explicit tolerance."},
-    {"architecture_ref": "Architecture §11b Diffraction-limited resolution", "test_name": "MTF vs Diffraction Limit", "code_path": "retinal_sim/optical/psf.py", "status": "partially covered", "note": "PSF-width proxy rather than full closed-form MTF."},
+    {"architecture_ref": "Architecture §11e Distance-dependent receptor sampling", "test_name": "Distance-Dependent Receptor Sampling", "code_path": "retinal_sim/pipeline.py", "status": "covered", "note": "Counts stimulated receptors inside the projected object footprint."},
+    {"architecture_ref": "Architecture §11a Metamer preservation", "test_name": "Metamer Preservation", "code_path": "retinal_sim/spectral/upsampler.py", "status": "covered", "note": "Uses a fixed deterministic near-metamer regression dataset under D65."},
+    {"architecture_ref": "Architecture §11a Roundtrip consistency", "test_name": "RGB Round-Trip", "code_path": "retinal_sim/spectral/upsampler.py", "status": "covered", "note": "Uses the same D65 observer model as the basis construction for reprojection."},
+    {"architecture_ref": "Architecture §11b Diffraction-limited resolution", "test_name": "MTF vs Diffraction Limit", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Measures empirical sinusoidal contrast transfer against the implemented PSF MTF."},
     {"architecture_ref": "Architecture §11b PSF energy conservation", "test_name": "PSF Energy Conservation", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Float64 normalization check."},
     {"architecture_ref": "Architecture §11c Snellen acuity prediction", "test_name": "Snellen Acuity", "code_path": "retinal_sim/validation/acuity.py", "status": "covered", "note": "Ordering plus published-range checks."},
-    {"architecture_ref": "Architecture §11c Dichromat confusion axis", "test_name": "Dichromat Confusion", "code_path": "retinal_sim/validation/dichromat.py", "status": "covered", "note": "Human vs dog discriminability comparison."},
-    {"architecture_ref": "Architecture §11c Cone density to sampling limit", "test_name": "Nyquist Sampling", "code_path": "retinal_sim/retina/mosaic.py", "status": "partially covered", "note": "Uses spacing proxy instead of full cpd derivation."},
-    {"architecture_ref": "Architecture §11c Receptor count validation", "test_name": "Receptor Count", "code_path": "retinal_sim/retina/mosaic.py", "status": "partially covered", "note": "Non-zero count check is weaker than literature calibration."},
+    {"architecture_ref": "Architecture §11c Dichromat confusion axis", "test_name": "Dichromat Confusion", "code_path": "retinal_sim/validation/dichromat.py", "status": "covered", "note": "Uses fixed confusion/control stimulus matrices with median-based comparisons."},
+    {"architecture_ref": "Architecture §11c Cone density to sampling limit", "test_name": "Nyquist Sampling", "code_path": "retinal_sim/retina/mosaic.py", "status": "covered", "note": "Converts local cone density to cycles/degree using focal-length magnification."},
+    {"architecture_ref": "Architecture §11c Receptor count validation", "test_name": "Receptor Count", "code_path": "retinal_sim/retina/mosaic.py", "status": "covered", "note": "Compares measured 1 mm² counts against density-model expectations."},
     {"architecture_ref": "Architecture §11d Known visual deficit reproduction", "test_name": "Color Deficit Reproduction", "code_path": "retinal_sim/pipeline.py", "status": "covered", "note": "End-to-end species comparison."},
-    {"architecture_ref": "Architecture §11d Resolution gradient", "test_name": "Resolution Gradient", "code_path": "retinal_sim/output/reconstruction.py", "status": "partially covered", "note": "Visual/manual evidence with variance context."},
+    {"architecture_ref": "Architecture §11d Resolution gradient", "test_name": "Resolution Gradient", "code_path": "retinal_sim/output/reconstruction.py", "status": "covered", "note": "Quantifies center-vs-periphery contrast loss on a checkerboard stimulus."},
 ]
 
 

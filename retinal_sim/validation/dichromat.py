@@ -42,6 +42,7 @@ from retinal_sim.retina.stage import MosaicActivation, RetinalStage
 from retinal_sim.species.config import SpeciesConfig
 from retinal_sim.spectral.upsampler import SpectralUpsampler
 from retinal_sim.validation.ishihara import make_dot_pattern
+from retinal_sim.validation.datasets import confusion_pairs, control_pairs, as_uint8_pair
 
 # Default discriminability threshold for "confused" (cannot see figure).
 _DEFAULT_THRESHOLD = 0.10
@@ -282,3 +283,40 @@ def _dominant_cone_type(mosaic) -> str:
     cone_types = mosaic.types[cone_mask]
     unique, counts = np.unique(cone_types, return_counts=True)
     return str(unique[np.argmax(counts)])
+
+
+def evaluate_stimulus_matrix(
+    species_list: list[str],
+    *,
+    patch_size_deg: float = 2.0,
+    image_size_px: int = 48,
+    n_seeds: int = 2,
+    seed: int = 42,
+) -> dict[str, dict[str, list[float]]]:
+    """Evaluate fixed confusion/control stimulus panels for multiple species."""
+    validators = {
+        species: DichromatValidator(species, seed=seed, n_seeds=n_seeds)
+        for species in species_list
+    }
+    results: dict[str, dict[str, list[float]]] = {
+        species: {"confusion_dog": [], "confusion_cat": [], "control": []}
+        for species in species_list
+    }
+
+    for dataset_name, items in (
+        ("confusion_dog", confusion_pairs("dog")),
+        ("confusion_cat", confusion_pairs("cat")),
+        ("control", control_pairs()),
+    ):
+        for item in items:
+            fg_rgb, bg_rgb = as_uint8_pair(item)
+            for species, validator in validators.items():
+                d_value = validator.discriminability(
+                    fg_rgb,
+                    bg_rgb,
+                    patch_size_deg=patch_size_deg,
+                    image_size_px=image_size_px,
+                )
+                results[species][dataset_name].append(float(d_value))
+
+    return results

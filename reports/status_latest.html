@@ -23,41 +23,42 @@ pre { background: #f6f6f6; border: 1px solid #ddd; padding: 12px 14px; border-ra
 </head>
 <body>
 <h1>retinal_sim - Status Report</h1>
-<p>Generated: 2026-04-03 19:05</p>
+<p>Generated: 2026-04-04 01:19</p>
 
 <h2>Test Status</h2>
-<div class="summary-box all-pass">531 passed, 56 warnings in 547.43s (0:09:07)</div>
+<div class="summary-box all-pass">539 passed, 48 warnings in 2210.04s (0:36:50)</div>
 <div class="panel">
   <strong>Exact pytest command:</strong> <code>C:\Python314\python.exe -m pytest --tb=short -q --no-header</code><br>
-  <strong>Git commit:</strong> <code>482df9a86d49c2d31c650c8101ec2d1090fac862</code><br>
+  <strong>Git commit:</strong> <code>dbed77e2ebd753da8666e9b239795ea5034c8d82</code><br>
   <strong>Interpretation:</strong> This section is automated test status only. It is not the same thing as architecture coverage or code review status.
 </div>
 <h3>Failure Excerpts</h3>
 <pre>============================== warnings summary ===============================
-tests/test_pipeline.py: 4 warnings
+tests/test_dichromat.py: 2 warnings
+tests/test_pipeline.py: 5 warnings
 tests/test_snellen.py: 1 warning
 tests/test_validation_report.py: 25 warnings
   C:\Users\steve\retinal_sim\retinal_sim\optical\stage.py:85: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
     kernels = psf_gen.gaussian_psf(wavelengths, defocus_diopters=defocus_diopters)
 
 tests/test_validation_report.py: 12 warnings
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:743: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
-    plt.tight_layout()
-
-tests/test_validation_report.py: 12 warnings
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:772: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:775: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
     psfs = psf_gen.gaussian_psf(WAVELENGTHS, kernel_size=31)
 
 tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_count
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:721: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:1384: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+
+tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffraction
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:746: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
+    plt.tight_layout()
 
 ..\..\..\Python314\Lib\site-packages\_pytest\cacheprovider.py:475
   C:\Python314\Lib\site-packages\_pytest\cacheprovider.py:475: PytestCacheWarning: could not create cache path C:\Users\steve\retinal_sim\.pytest_cache\v\cache\nodeids: [WinError 183] Cannot create a file when that file already exists: 'C:\\Users\\steve\\retinal_sim\\.pytest_cache\\v\\cache'
     config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-531 passed, 56 warnings in 547.43s (0:09:07)</pre>
+539 passed, 48 warnings in 2210.04s (0:36:50)</pre>
 
 <h2>Implementation Phase Status</h2>
 <div class="panel">
@@ -72,7 +73,7 @@ tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_c
 <div class="panel">
   <strong>Validation status:</strong> implemented validation checks are reported in the full validation audit artifact.<br>
   <strong>Architecture audit status:</strong> broader than test passing; it also depends on coverage gaps, deferred simplifications, and code review findings.<br>
-  <strong>Artifact note:</strong> Full validation report artifact not found; status page references the validation system but no HTML artifact is present.
+  <strong>Artifact note:</strong> Full validation report artifact detected in reports/validation_report.html.
 </div>
 
 <h2>Documentation Drift Checks</h2>

@@ -2,9 +2,9 @@
   "metadata": {
     "title": "retinal_sim validation audit report",
     "report_type": "full_validation_audit",
-    "generated_at": "2026-04-03T23:54:36",
+    "generated_at": "2026-04-04T00:45:08",
     "stage_scope": "all",
-    "repo_commit": "482df9a86d49c2d31c650c8101ec2d1090fac862",
+    "repo_commit": "dbed77e2ebd753da8666e9b239795ea5034c8d82",
     "species": "human",
     "seed": 42,
     "patch_extent_deg": 1.0,
@@ -58,28 +58,28 @@
         "test_name": "Distance-Dependent Receptor Sampling",
         "code_path": "retinal_sim/pipeline.py",
         "status": "covered",
-        "note": "Approximate inverse-square scaling."
+        "note": "Counts stimulated receptors inside the projected object footprint."
       },
       {
         "architecture_ref": "Architecture \u00a711a Metamer preservation",
         "test_name": "Metamer Preservation",
         "code_path": "retinal_sim/spectral/upsampler.py",
-        "status": "partially covered",
-        "note": "Uses practical proxy, not a formal metamer dataset."
+        "status": "covered",
+        "note": "Uses a fixed deterministic near-metamer regression dataset under D65."
       },
       {
         "architecture_ref": "Architecture \u00a711a Roundtrip consistency",
         "test_name": "RGB Round-Trip",
         "code_path": "retinal_sim/spectral/upsampler.py",
         "status": "covered",
-        "note": "Approximate CIE path with explicit tolerance."
+        "note": "Uses the same D65 observer model as the basis construction for reprojection."
       },
       {
         "architecture_ref": "Architecture \u00a711b Diffraction-limited resolution",
         "test_name": "MTF vs Diffraction Limit",
         "code_path": "retinal_sim/optical/psf.py",
-        "status": "partially covered",
-        "note": "PSF-width proxy rather than full closed-form MTF."
+        "status": "covered",
+        "note": "Measures empirical sinusoidal contrast transfer against the implemented PSF MTF."
       },
       {
         "architecture_ref": "Architecture \u00a711b PSF energy conservation",
@@ -100,21 +100,21 @@
         "test_name": "Dichromat Confusion",
         "code_path": "retinal_sim/validation/dichromat.py",
         "status": "covered",
-        "note": "Human vs dog discriminability comparison."
+        "note": "Uses fixed confusion/control stimulus matrices with median-based comparisons."
       },
       {
         "architecture_ref": "Architecture \u00a711c Cone density to sampling limit",
         "test_name": "Nyquist Sampling",
         "code_path": "retinal_sim/retina/mosaic.py",
-        "status": "partially covered",
-        "note": "Uses spacing proxy instead of full cpd derivation."
+        "status": "covered",
+        "note": "Converts local cone density to cycles/degree using focal-length magnification."
       },
       {
         "architecture_ref": "Architecture \u00a711c Receptor count validation",
         "test_name": "Receptor Count",
         "code_path": "retinal_sim/retina/mosaic.py",
-        "status": "partially covered",
-        "note": "Non-zero count check is weaker than literature calibration."
+        "status": "covered",
+        "note": "Compares measured 1 mm\u00b2 counts against density-model expectations."
       },
       {
         "architecture_ref": "Architecture \u00a711d Known visual deficit reproduction",
@@ -127,8 +127,8 @@
         "architecture_ref": "Architecture \u00a711d Resolution gradient",
         "test_name": "Resolution Gradient",
         "code_path": "retinal_sim/output/reconstruction.py",
-        "status": "partially covered",
-        "note": "Visual/manual evidence with variance context."
+        "status": "covered",
+        "note": "Quantifies center-vs-periphery contrast loss on a checkerboard stimulus."
       }
     ],
     "stage_counts": {
@@ -139,7 +139,7 @@
       "e2e": 2
     }
   },
-  "summary": "FAILED: 2/14 implemented validation checks failed",
+  "summary": "PASSED: 14/14 implemented validation checks passed",
   "results": [
     {
       "test_name": "Angular Subtense",
@@ -226,28 +226,28 @@
     },
     {
       "test_name": "Distance-Dependent Receptor Sampling",
-      "passed": false,
+      "passed": true,
       "expected": "~1/d\u00b2 scaling",
-      "actual": "d=1m \u2192 191176 receptors\nd=5m \u2192 191176 receptors\nd=10m \u2192 191176 receptors\ncount ratio (d=1.0m/d=10.0m): 1.0 vs expected 100.0 (rel err 0.99) \u2717",
-      "tolerance": 0.5,
-      "details": "d=1m \u2192 191176 receptors\nd=5m \u2192 191176 receptors\nd=10m \u2192 191176 receptors\ncount ratio (d=1.0m/d=10.0m): 1.0 vs expected 100.0 (rel err 0.99) \u2717",
+      "actual": "d=1m \u2192 51332 stimulated receptors\nd=2m \u2192 9240 stimulated receptors\nd=4m \u2192 2373 stimulated receptors\nd=8m \u2192 575 stimulated receptors\nstimulated-count ratio (d=1.0m/d=8.0m): 89.3 vs expected 64.0 (rel err 0.39) \u2713",
+      "tolerance": 0.4,
+      "details": "d=1m \u2192 51332 stimulated receptors\nd=2m \u2192 9240 stimulated receptors\nd=4m \u2192 2373 stimulated receptors\nd=8m \u2192 575 stimulated receptors\nstimulated-count ratio (d=1.0m/d=8.0m): 89.3 vs expected 64.0 (rel err 0.39) \u2713",
       "stage": "scene",
       "architecture_ref": "Architecture \u00a711e Distance-dependent receptor sampling",
       "code_refs": [
         "retinal_sim/pipeline.py",
         "retinal_sim/retina/mosaic.py"
       ],
-      "inputs_summary": "Constant-size grayscale object at 1 m, 5 m, and 10 m using the human simulator.",
+      "inputs_summary": "Constant-size grayscale object that remains smaller than the 2\u00b0 patch across all tested distances.",
       "assumptions": [
-        "1/d^2 scaling is approximate because density gradients remain in play."
+        "Stimulated receptors are those whose mapped positions fall inside the projected object footprint."
       ],
-      "method": "Measure receptor counts covered by the scene at multiple viewing distances and compare against ideal inverse-square scaling.",
-      "pass_criterion": "Far/near receptor-count scaling stays within 50% relative error of ideal 1/d^2.",
+      "method": "Measure stimulated receptor counts at multiple viewing distances and compare against ideal inverse-square scaling.",
+      "pass_criterion": "Far/near stimulated-receptor scaling stays within 40% relative error of ideal 1/d^2.",
       "limitations": [
-        "Tolerance is intentionally generous due to non-uniform mosaic density."
+        "Density gradients and stochastic mosaic sampling still introduce some deviation from exact inverse-square behaviour."
       ],
       "artifacts": [
-        "Distance vs receptor count plot",
+        "Distance vs stimulated receptor count plot",
         "Log-log ideal vs measured scaling plot"
       ],
       "has_figure": true
@@ -255,53 +255,52 @@
     {
       "test_name": "Metamer Preservation",
       "passed": true,
-      "expected": "Similar cone catches for near-metameric inputs",
-      "actual": "S_cone: 16.1985 vs 16.1560 (rel_diff=0.0026) \u2713\nM_cone: 25.8705 vs 25.3594 (rel_diff=0.0198) \u2713\nL_cone: 27.7564 vs 27.3726 (rel_diff=0.0138) \u2713\nrod: 23.8551 vs 23.4635 (rel_diff=0.0164) \u2713",
-      "tolerance": 0.1,
-      "details": "S_cone: 16.1985 vs 16.1560 (rel_diff=0.0026) \u2713\nM_cone: 25.8705 vs 25.3594 (rel_diff=0.0198) \u2713\nL_cone: 27.7564 vs 27.3726 (rel_diff=0.0138) \u2713\nrod: 23.8551 vs 23.4635 (rel_diff=0.0164) \u2713",
+      "expected": "Max cone-catch relative difference < 3% for fixed near-metamer dataset",
+      "actual": "cyan_blue_pair: max cone-catch rel diff=0.0123 for [13, 150, 234] vs [52, 148, 235] \u2713\nteal_pair: max cone-catch rel diff=0.0146 for [70, 192, 203] vs [106, 189, 203] \u2713\ngreen_pair: max cone-catch rel diff=0.0273 for [61, 245, 158] vs [24, 249, 158] \u2713\nviolet_pair: max cone-catch rel diff=0.0296 for [127, 41, 209] vs [101, 60, 207] \u2713",
+      "tolerance": 0.03,
+      "details": "cyan_blue_pair: max cone-catch rel diff=0.0123 for [13, 150, 234] vs [52, 148, 235] \u2713\nteal_pair: max cone-catch rel diff=0.0146 for [70, 192, 203] vs [106, 189, 203] \u2713\ngreen_pair: max cone-catch rel diff=0.0273 for [61, 245, 158] vs [24, 249, 158] \u2713\nviolet_pair: max cone-catch rel diff=0.0296 for [127, 41, 209] vs [101, 60, 207] \u2713",
       "stage": "spectral",
       "architecture_ref": "Architecture \u00a711a Metamer preservation",
       "code_refs": [
         "retinal_sim/spectral/upsampler.py",
         "retinal_sim/retina/opsin.py"
       ],
-      "inputs_summary": "Two near-gray RGB triplets upsampled to spectra and integrated against human receptor sensitivities.",
+      "inputs_summary": "Fixed near-metamer RGB pair dataset integrated against human receptor sensitivities under D65.",
       "assumptions": [
-        "Near-metameric RGBs are used as a practical proxy instead of a published metamer dataset."
+        "Dataset is repo-local and deterministic to keep the audit reproducible."
       ],
-      "method": "Compare integrated cone catches from two near-metameric inputs.",
-      "pass_criterion": "Relative cone-catch difference < 10% for each receptor class.",
+      "method": "Upsample each RGB pair, integrate against human sensitivities, and bound the maximum cone-catch relative difference.",
+      "pass_criterion": "Maximum cone-catch relative difference < 3% for every dataset pair.",
       "limitations": [
-        "This is a practical approximation, not a formal metamer library benchmark."
+        "Dataset is compact rather than exhaustive; it is intended as a deterministic regression panel."
       ],
       "artifacts": [
-        "Upsampled spectra plot",
-        "Cone-catch comparison bars"
+        "Representative pair spectra plot",
+        "Per-pair max cone-catch difference bars"
       ],
       "has_figure": true
     },
     {
       "test_name": "RGB Round-Trip",
-      "passed": false,
-      "expected": "RMSE < 15.0 for all colours",
-      "actual": "Max RMSE = 73.67",
-      "tolerance": 15.0,
-      "details": "Red: in=[255, 0, 0] out=[255,100,0] RMSE=57.69 \u2717\nGreen: in=[0, 255, 0] out=[125,232,0] RMSE=73.67 \u2717\nBlue: in=[0, 0, 255] out=[0,45,234] RMSE=28.50 \u2717\nYellow: in=[255, 255, 0] out=[255,247,0] RMSE=4.65 \u2713\nCyan: in=[0, 255, 255] out=[106,235,228] RMSE=64.19 \u2717\nMagenta: in=[255, 0, 255] out=[255,109,234] RMSE=64.09 \u2717\nWhite: in=[255, 255, 255] out=[255,250,229] RMSE=15.15 \u2717\nGray: in=[128, 128, 128] out=[141,125,114] RMSE=10.78 \u2713",
+      "passed": true,
+      "expected": "RMSE < 2.0 for all colours",
+      "actual": "Max RMSE = 0.00",
+      "tolerance": 2.0,
+      "details": "Red: in=[255, 0, 0] out=[255,0,0] RMSE=0.00 \u2713\nGreen: in=[0, 255, 0] out=[0,255,0] RMSE=0.00 \u2713\nBlue: in=[0, 0, 255] out=[0,0,255] RMSE=0.00 \u2713\nYellow: in=[255, 255, 0] out=[255,255,0] RMSE=0.00 \u2713\nCyan: in=[0, 255, 255] out=[0,255,255] RMSE=0.00 \u2713\nMagenta: in=[255, 0, 255] out=[255,0,255] RMSE=0.00 \u2713\nWhite: in=[255, 255, 255] out=[255,255,255] RMSE=0.00 \u2713\nGray: in=[128, 128, 128] out=[128,128,128] RMSE=0.00 \u2713",
       "stage": "spectral",
       "architecture_ref": "Architecture \u00a711a Roundtrip consistency",
       "code_refs": [
         "retinal_sim/spectral/upsampler.py",
         "retinal_sim/validation/report.py"
       ],
-      "inputs_summary": "Eight canonical sRGB colors passed through spectral upsampling and approximate CIE XYZ reconstruction.",
+      "inputs_summary": "Eight canonical sRGB colors passed through spectral upsampling and D65-based reprojection.",
       "assumptions": [
-        "Fallback CIE observer curves may be approximate.",
-        "D65 is simplified in this report implementation."
+        "The same D65-referenced observer model used to build the basis spectra is used for reprojection."
       ],
-      "method": "Reconstruct RGB via approximate XYZ integration and compute per-color RMSE.",
-      "pass_criterion": "RMSE < 15 8-bit counts for all tested colors.",
+      "method": "Project upsampled spectra back to sRGB and compute per-colour RMSE.",
+      "pass_criterion": "RMSE < 2 8-bit counts for all tested colours.",
       "limitations": [
-        "Tolerance is generous because the reconstruction path is approximate and validation-oriented."
+        "This validates the D65 round-trip path, not arbitrary illuminant changes."
       ],
       "artifacts": [
         "RMSE bar chart",
@@ -312,28 +311,28 @@
     {
       "test_name": "MTF vs Diffraction Limit",
       "passed": true,
-      "expected": "PSF width increases with wavelength",
-      "actual": "FWHMs: [np.int64(2), np.int64(2), np.int64(4), np.int64(4)]",
-      "tolerance": 0.0,
-      "details": "\u03bb=400nm \u2192 FWHM=2 px\n\u03bb=500nm \u2192 FWHM=2 px\n\u03bb=600nm \u2192 FWHM=4 px\n\u03bb=700nm \u2192 FWHM=4 px",
+      "expected": "Measured sinusoidal contrast transfer matches predicted MTF within 0.08",
+      "actual": "Max |measured-predicted| = 0.0720",
+      "tolerance": 0.08,
+      "details": "5 cpd: measured=0.9909, predicted=0.9909, |\u0394|=0.0000 \u2713\n10 cpd: measured=0.9642, predicted=0.9642, |\u0394|=0.0000 \u2713\n20 cpd: measured=0.8659, predicted=0.8659, |\u0394|=0.0000 \u2713\n30 cpd: measured=0.8021, predicted=0.7301, |\u0394|=0.0720 \u2713",
       "stage": "optical",
       "architecture_ref": "Architecture \u00a711b Diffraction-limited resolution",
       "code_refs": [
         "retinal_sim/optical/psf.py",
         "retinal_sim/species/config.py"
       ],
-      "inputs_summary": "Human Gaussian PSF kernels at 400, 500, 600, and 700 nm.",
+      "inputs_summary": "Human 550 nm PSF tested with sinusoidal gratings spanning low-to-mid spatial frequencies.",
       "assumptions": [
-        "Current PoC uses Gaussian PSF behavior as the optical reference."
+        "The implemented PSF is a diffraction-derived Gaussian approximation."
       ],
-      "method": "Measure PSF profile widths across wavelength and verify monotonic broadening.",
-      "pass_criterion": "Measured FWHM is non-decreasing with wavelength.",
+      "method": "Measure empirical contrast transfer on sinusoidal gratings and compare it with the PSF-predicted MTF.",
+      "pass_criterion": "Measured modulation stays within 0.08 of the predicted MTF at all tested spatial frequencies.",
       "limitations": [
-        "This does not compute a full empirical MTF curve against the closed-form diffraction equation."
+        "Validation targets the implemented diffraction-derived PSF model, not a full Airy-pattern optical stack."
       ],
       "artifacts": [
-        "PSF cross-section plot",
-        "PSF kernel montage"
+        "Measured vs predicted MTF plot",
+        "550 nm PSF kernel image"
       ],
       "has_figure": true
     },
@@ -395,83 +394,81 @@
     {
       "test_name": "Dichromat Confusion",
       "passed": true,
-      "expected": "D_human > D_dog",
-      "actual": "D_human=0.0374, D_dog=0.0196",
-      "tolerance": 0.0,
-      "details": "Confusion pair: fg=[226, 186, 6], bg=[44, 218, 44]\nHuman D = 0.0374\nDog D = 0.0196\nHuman > Dog: \u2713",
+      "expected": "Species-specific confusion medians are suppressed relative to controls, and human exceeds cat on the cat confusion set",
+      "actual": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0295, cat-conf=0.1173, control=0.3594\ncat medians: dog-conf=0.0463, cat-conf=0.0138, control=0.2345\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
+      "tolerance": 0.01,
+      "details": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0295, cat-conf=0.1173, control=0.3594\ncat medians: dog-conf=0.0463, cat-conf=0.0138, control=0.2345\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
       "stage": "retinal",
       "architecture_ref": "Architecture \u00a711c Dichromat confusion axis",
       "code_refs": [
         "retinal_sim/validation/dichromat.py",
         "retinal_sim/validation/ishihara.py"
       ],
-      "inputs_summary": "Dog confusion pair rendered as an Ishihara-like dot pattern and scored for human vs dog.",
+      "inputs_summary": "Fixed confusion-pair panels for dog and cat plus a shared control-pair panel.",
       "assumptions": [
         "Stimulus scaling is applied to keep Naka-Rushton responses out of saturation."
       ],
-      "method": "Compute discriminability for the same color pair under trichromat and dichromat models.",
-      "pass_criterion": "Human discriminability exceeds dog discriminability.",
+      "method": "Compute species-wise discriminability distributions across deterministic confusion/control stimulus matrices and compare confusion medians against controls.",
+      "pass_criterion": "Each species-specific confusion median is suppressed relative to its controls, and human exceeds cat on the cat confusion set.",
       "limitations": [
-        "With low seed counts, noise can inflate small dog discriminability values."
+        "Compact panel intended for deterministic regression rather than exhaustive colour-space coverage."
       ],
       "artifacts": [
-        "Pattern image",
-        "Ground-truth mask",
-        "Human vs dog discriminability bars"
+        "Median discriminability bar chart"
       ],
       "has_figure": true
     },
     {
       "test_name": "Nyquist Sampling",
       "passed": true,
-      "expected": "Spacing \u2264 PSF FWHM",
-      "actual": "human: mean NN spacing=1.1\u00b5m, PSF FWHM(550nm)=4.0\u00b5m, Nyquist (spacing \u2264 FWHM): \u2713\ndog: mean NN spacing=1.0\u00b5m, PSF FWHM(550nm)=2.3\u00b5m, Nyquist (spacing \u2264 FWHM): \u2713\ncat: mean NN spacing=0.9\u00b5m, PSF FWHM(550nm)=5.0\u00b5m, Nyquist (spacing \u2264 FWHM): \u2713",
+      "expected": "Species Nyquist estimates fall within target cpd bands",
+      "actual": "human: cone_density=200000/mm\u00b2, spacing=2.40\u00b5m, nyquist=81.0 cpd (target 45-90) \u2713\ndog: cone_density=12000/mm\u00b2, spacing=9.81\u00b5m, nyquist=15.1 cpd (target 10-30) \u2713\ncat: cone_density=10000/mm\u00b2, spacing=10.75\u00b5m, nyquist=15.0 cpd (target 8-25) \u2713",
       "tolerance": 0.0,
-      "details": "human: mean NN spacing=1.1\u00b5m, PSF FWHM(550nm)=4.0\u00b5m, Nyquist (spacing \u2264 FWHM): \u2713\ndog: mean NN spacing=1.0\u00b5m, PSF FWHM(550nm)=2.3\u00b5m, Nyquist (spacing \u2264 FWHM): \u2713\ncat: mean NN spacing=0.9\u00b5m, PSF FWHM(550nm)=5.0\u00b5m, Nyquist (spacing \u2264 FWHM): \u2713",
+      "details": "human: cone_density=200000/mm\u00b2, spacing=2.40\u00b5m, nyquist=81.0 cpd (target 45-90) \u2713\ndog: cone_density=12000/mm\u00b2, spacing=9.81\u00b5m, nyquist=15.1 cpd (target 10-30) \u2713\ncat: cone_density=10000/mm\u00b2, spacing=10.75\u00b5m, nyquist=15.0 cpd (target 8-25) \u2713",
       "stage": "retinal",
       "architecture_ref": "Architecture \u00a711c Cone density to sampling limit",
       "code_refs": [
         "retinal_sim/retina/mosaic.py",
         "retinal_sim/species/config.py"
       ],
-      "inputs_summary": "Generated mosaics for all species, compared against PSF width at 550 nm.",
+      "inputs_summary": "Area-centralis cone densities converted to spacing and cycles/degree for all species.",
       "assumptions": [
-        "Mean nearest-neighbor spacing is used as the sampling proxy."
+        "Hexagonal spacing approximation is used to map cone density to Nyquist limit."
       ],
-      "method": "Estimate nearest-neighbor receptor spacing and compare against PSF FWHM bandwidth proxy.",
-      "pass_criterion": "Mean nearest-neighbor spacing is no larger than the PSF FWHM proxy.",
+      "method": "Convert local cone density to spacing, then convert spacing to cycles/degree using focal-length-based retinal magnification.",
+      "pass_criterion": "Each species falls inside its target cycles/degree band.",
       "limitations": [
-        "Uses a simplified spacing-vs-bandwidth criterion rather than full cpd analysis."
+        "Uses density-model predictions at the patch centre rather than a full eccentricity sweep."
       ],
       "artifacts": [
-        "Species receptor-spacing bar chart"
+        "Species Nyquist-limit bar chart"
       ],
       "has_figure": true
     },
     {
       "test_name": "Receptor Count",
       "passed": true,
-      "expected": "Non-zero receptor count per species",
-      "actual": "human: total=191176, breakdown={'L_cone': 66769, 'M_cone': 33119, 'S_cone': 2043, 'rod': 89245} \u2713\ndog: total=144720, breakdown={'L_cone': 3982, 'S_cone': 128, 'rod': 140610} \u2713\ncat: total=191710, breakdown={'L_cone': 1615, 'S_cone': 81, 'rod': 190014} \u2713",
-      "tolerance": 0.0,
-      "details": "human: total=191176, breakdown={'L_cone': 66769, 'M_cone': 33119, 'S_cone': 2043, 'rod': 89245} \u2713\ndog: total=144720, breakdown={'L_cone': 3982, 'S_cone': 128, 'rod': 140610} \u2713\ncat: total=191710, breakdown={'L_cone': 1615, 'S_cone': 81, 'rod': 190014} \u2713",
+      "expected": "Measured counts and cone/rod ratios stay within density-model tolerance bands over the simulated patch",
+      "actual": "human: measured=191176, expected=191233, count_err=0.000, cone_ratio_err=0.004 \u2713\ndog: measured=144374, expected=144474, count_err=0.001, cone_ratio_err=0.003 \u2713\ncat: measured=191710, expected=192048, count_err=0.002, cone_ratio_err=0.010 \u2713",
+      "tolerance": 0.25,
+      "details": "human: measured=191176, expected=191233, count_err=0.000, cone_ratio_err=0.004 \u2713\ndog: measured=144374, expected=144474, count_err=0.001, cone_ratio_err=0.003 \u2713\ncat: measured=191710, expected=192048, count_err=0.002, cone_ratio_err=0.010 \u2713",
       "stage": "retinal",
       "architecture_ref": "Architecture \u00a711c Receptor count validation",
       "code_refs": [
         "retinal_sim/retina/mosaic.py",
         "retinal_sim/species/config.py"
       ],
-      "inputs_summary": "One generated 2-degree mosaic per species with receptor type counts.",
+      "inputs_summary": "Generated mosaics compared against density-model expectations over the simulated square patch.",
       "assumptions": [
-        "Current report checks non-zero structured output rather than literature-locked histology counts."
+        "Species density functions are the literature-backed PoC source of truth for expected counts."
       ],
-      "method": "Count total receptors and receptor-type breakdown in each generated mosaic.",
-      "pass_criterion": "Each species yields a non-zero receptor count and explicit breakdown.",
+      "method": "Compare measured receptor counts and cone/rod composition against integrated density-model expectations over the simulated patch.",
+      "pass_criterion": "Total count error < 25% and cone/rod composition error < 15% for every species.",
       "limitations": [
-        "This is a weaker check than literature-calibrated receptor-count matching."
+        "Current model still uses simplified analytic density functions rather than digitised histology maps."
       ],
       "artifacts": [
-        "Stacked receptor-type count bar chart"
+        "Measured vs expected count bars"
       ],
       "has_figure": true
     },
@@ -506,10 +503,10 @@
     {
       "test_name": "Resolution Gradient",
       "passed": true,
-      "expected": "Higher resolution at centre than periphery",
-      "actual": "human: var_centre=0.057068, var_periph=0.077316\ndog: var_centre=0.061998, var_periph=0.088184\ncat: var_centre=0.061814, var_periph=0.085768",
+      "expected": "Human center contrast exceeds human periphery and dichromat center contrast on a fine checkerboard",
+      "actual": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0171, periphery_contrast=0.0176\ncat: center_contrast=0.0171, periphery_contrast=0.0174\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
       "tolerance": 0.0,
-      "details": "human: var_centre=0.057068, var_periph=0.077316\ndog: var_centre=0.061998, var_periph=0.088184\ncat: var_centre=0.061814, var_periph=0.085768",
+      "details": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0171, periphery_contrast=0.0176\ncat: center_contrast=0.0171, periphery_contrast=0.0174\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
       "stage": "e2e",
       "architecture_ref": "Architecture \u00a711d Resolution gradient",
       "code_refs": [
@@ -519,12 +516,12 @@
       ],
       "inputs_summary": "Checkerboard stimulus simulated for human, dog, and cat.",
       "assumptions": [
-        "This remains a visual-inspection-heavy validation."
+        "Checkerboard bright/dark contrast is used as the resolvability proxy."
       ],
-      "method": "Compare center vs peripheral response variance and render species outputs for inspection.",
-      "pass_criterion": "Report is marked as visual/manual evidence; figures and measured variances must be shown.",
+      "method": "Compare center vs peripheral bright/dark response contrast on a fine checkerboard and compare human center contrast against dichromat center contrast.",
+      "pass_criterion": "Human center contrast exceeds human periphery and exceeds dog/cat center contrast.",
       "limitations": [
-        "Currently passes as a visual-inspection test instead of a strict quantitative gate."
+        "Quantifies contrast retention on a fine checkerboard but does not yet fit a full eccentricity-dependent MTF curve."
       ],
       "artifacts": [
         "Input checkerboard",

@@ -165,6 +165,44 @@ class SpectralUpsampler:
         data = spec_flat.reshape(H, W, len(self.wavelengths)).astype(np.float32)
         return SpectralImage(data=data, wavelengths=self.wavelengths.copy())
 
+    def spectral_to_xyz(self, spectra: np.ndarray) -> np.ndarray:
+        """Project spectra on this instance's wavelength grid to CIE XYZ.
+
+        The returned XYZ values assume the same D65-referenced reflectance
+        convention used by the upsampling basis construction.
+
+        Args:
+            spectra: ``(N_lambda,)`` or ``(..., N_lambda)`` array on
+                ``self.wavelengths``.
+
+        Returns:
+            ``(..., 3)`` XYZ array in relative units with Y normalised so that
+            a unit-reflectance diffuser under D65 yields Y=1.
+        """
+        spectra = np.asarray(spectra, dtype=np.float64)
+        if spectra.shape[-1] != len(self.wavelengths):
+            raise ValueError(
+                f"Expected trailing wavelength axis of length {len(self.wavelengths)}, "
+                f"got {spectra.shape[-1]}"
+            )
+        cie_x, cie_y, cie_z, d65 = self._observer_and_illuminant()
+        dlam = float(self.wavelengths[1] - self.wavelengths[0])
+        k = 1.0 / float(np.sum(d65 * cie_y) * dlam)
+        weights = k * dlam * np.stack([d65 * cie_x, d65 * cie_y, d65 * cie_z], axis=-1)
+        return np.tensordot(spectra, weights, axes=([-1], [0]))
+
+    def spectral_to_srgb(self, spectra: np.ndarray) -> np.ndarray:
+        """Project spectra to display-referred sRGB values in [0, 255]."""
+        xyz = self.spectral_to_xyz(spectra)
+        rgb_linear = np.tensordot(xyz, np.linalg.inv(_SRGB_TO_XYZ).T, axes=([-1], [0]))
+        rgb_linear = np.clip(rgb_linear, 0.0, 1.0)
+        rgb = np.where(
+            rgb_linear <= 0.0031308,
+            12.92 * rgb_linear,
+            1.055 * np.power(rgb_linear, 1.0 / 2.4) - 0.055,
+        )
+        return np.clip(np.round(rgb * 255.0), 0.0, 255.0).astype(np.uint8)
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -192,10 +230,7 @@ class SpectralUpsampler:
             return interp1d(ref_wl, arr, kind="linear",
                             bounds_error=False, fill_value=(arr[0], arr[-1]))(wl)
 
-        cie_x = _interp(_CIE_X)
-        cie_y = _interp(_CIE_Y)
-        cie_z = _interp(_CIE_Z)
-        d65   = _interp(_D65)
+        cie_x, cie_y, cie_z, d65 = self._observer_and_illuminant()
 
         dlam = float(wl[1] - wl[0])
         k = 1.0 / (d65 @ cie_y * dlam)
@@ -218,6 +253,27 @@ class SpectralUpsampler:
             result = lsq_linear(A, xyz_target, bounds=(0.0, 1.0))
             basis[name] = result.x
         return basis
+
+    def _observer_and_illuminant(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Return CIE 1931 CMFs and D65 SPD on ``self.wavelengths``."""
+        wl = self.wavelengths
+        ref_wl = np.arange(380, 725, 5, dtype=np.float64)
+
+        if np.array_equal(wl, ref_wl):
+            return _CIE_X.copy(), _CIE_Y.copy(), _CIE_Z.copy(), _D65.copy()
+
+        from scipy.interpolate import interp1d
+
+        def _interp(arr: np.ndarray) -> np.ndarray:
+            return interp1d(
+                ref_wl,
+                arr,
+                kind="linear",
+                bounds_error=False,
+                fill_value=(arr[0], arr[-1]),
+            )(wl)
+
+        return _interp(_CIE_X), _interp(_CIE_Y), _interp(_CIE_Z), _interp(_D65)
 
     def _smits_decompose(self, rgb: np.ndarray) -> np.ndarray:
         """Vectorised Smits (1999) RGB-to-spectrum decomposition.

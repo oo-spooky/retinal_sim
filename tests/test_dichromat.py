@@ -28,7 +28,9 @@ import pytest
 from retinal_sim.constants import WAVELENGTHS
 from retinal_sim.retina.opsin import LAMBDA_MAX, govardovskii_a1
 from retinal_sim.spectral.upsampler import SpectralUpsampler
+from retinal_sim.validation.datasets import confusion_pairs, control_pairs, metamer_pairs, as_uint8_pair
 from retinal_sim.validation.dichromat import DichromatValidator
+from retinal_sim.validation.dichromat import evaluate_stimulus_matrix
 from retinal_sim.validation.ishihara import find_confusion_pair, make_dot_pattern
 
 # ---------------------------------------------------------------------------
@@ -243,6 +245,10 @@ class TestFindConfusionPair:
         assert fg.dtype == np.uint8
         assert bg.shape == (3,)
 
+    def test_fixed_confusion_dataset_contains_multiple_pairs(self):
+        assert len(confusion_pairs("dog")) >= 8
+        assert len(confusion_pairs("cat")) >= 8
+
 
 # ===========================================================================
 # TestDichromatDiscriminability
@@ -377,3 +383,39 @@ class TestDichromatDiscriminability:
             assert confused
         else:
             assert not confused
+
+    def test_stimulus_matrix_shows_species_specific_confusion_suppression(self):
+        matrix = evaluate_stimulus_matrix(["human", "dog", "cat"], seed=0, n_seeds=1, image_size_px=32)
+        assert np.median(matrix["dog"]["confusion_dog"]) < np.median(matrix["dog"]["control"])
+        assert np.median(matrix["cat"]["confusion_cat"]) < np.median(matrix["cat"]["control"])
+        assert np.median(matrix["human"]["confusion_cat"]) > np.median(matrix["cat"]["confusion_cat"])
+
+    def test_stimulus_matrix_controls_remain_visible_to_dichromats(self):
+        matrix = evaluate_stimulus_matrix(["dog", "cat"], seed=0, n_seeds=1, image_size_px=32)
+        assert np.median(matrix["dog"]["control"]) > 0.05
+        assert np.median(matrix["cat"]["control"]) > 0.05
+
+
+class TestFixedValidationDatasets:
+    def test_metamer_dataset_pairs_are_close_in_human_cone_catches(self):
+        upsampler = SpectralUpsampler()
+        wl = WAVELENGTHS.astype(float)
+        dlam = float(np.mean(np.diff(wl)))
+        curves = {
+            key: govardovskii_a1(LAMBDA_MAX["human"][key], wl)
+            for key in ("S_cone", "M_cone", "L_cone")
+        }
+
+        for item in metamer_pairs():
+            rgb_a, rgb_b = as_uint8_pair(item)
+            spec_a = upsampler.upsample(rgb_a[np.newaxis, np.newaxis, :]).data[0, 0, :].astype(float)
+            spec_b = upsampler.upsample(rgb_b[np.newaxis, np.newaxis, :]).data[0, 0, :].astype(float)
+            rel_diffs = []
+            for curve in curves.values():
+                catch_a = float(spec_a @ curve) * dlam
+                catch_b = float(spec_b @ curve) * dlam
+                rel_diffs.append(abs(catch_a - catch_b) / max(catch_a, catch_b, 1e-12))
+            assert max(rel_diffs) < 0.03
+
+    def test_control_dataset_has_multiple_pairs(self):
+        assert len(control_pairs()) >= 4
