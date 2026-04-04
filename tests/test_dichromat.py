@@ -26,9 +26,16 @@ import numpy as np
 import pytest
 
 from retinal_sim.constants import WAVELENGTHS
-from retinal_sim.retina.opsin import LAMBDA_MAX, govardovskii_a1
+from retinal_sim.retina.opsin import LAMBDA_MAX, build_sensitivity_curves, govardovskii_a1
 from retinal_sim.spectral.upsampler import SpectralUpsampler
-from retinal_sim.validation.datasets import confusion_pairs, control_pairs, metamer_pairs, as_uint8_pair
+from retinal_sim.validation.datasets import (
+    confusion_pairs,
+    control_pairs,
+    metamer_pairs,
+    spectral_response_panel,
+    as_uint8_color,
+    as_uint8_pair,
+)
 from retinal_sim.validation.dichromat import DichromatValidator
 from retinal_sim.validation.dichromat import evaluate_stimulus_matrix
 from retinal_sim.validation.ishihara import find_confusion_pair, make_dot_pattern
@@ -419,3 +426,58 @@ class TestFixedValidationDatasets:
 
     def test_control_dataset_has_multiple_pairs(self):
         assert len(control_pairs()) >= 4
+
+    def test_spectral_response_panel_contains_anchor_colors(self):
+        names = {item["name"] for item in spectral_response_panel()}
+        assert {"violet", "blue", "green", "amber", "red"}.issubset(names)
+
+    def test_spectral_response_panel_human_anchor_dominance(self):
+        upsampler = SpectralUpsampler()
+        wl = upsampler.wavelengths.astype(float)
+        dlam = float(np.mean(np.diff(wl)))
+        _, _, _, d65 = upsampler._observer_and_illuminant()
+        curves = build_sensitivity_curves("human", wl)
+        panel = {item["name"]: as_uint8_color(item) for item in spectral_response_panel()}
+
+        def dominant(color_name: str) -> str:
+            spectrum = upsampler.upsample(panel[color_name][np.newaxis, np.newaxis, :]).data[0, 0, :].astype(float)
+            catches = {
+                receptor_type: float(np.sum(spectrum * d65 * curve) * dlam)
+                for receptor_type, curve in curves.items()
+                if receptor_type != "rod"
+            }
+            return max(catches, key=catches.get)
+
+        assert dominant("violet") == "S_cone"
+        assert dominant("blue") == "S_cone"
+        assert dominant("green") == "M_cone"
+        assert dominant("amber") == "L_cone"
+        assert dominant("red") == "L_cone"
+
+    @pytest.mark.parametrize("species", ["dog", "cat"])
+    def test_spectral_response_panel_dichromat_blue_warm_separation(self, species: str):
+        upsampler = SpectralUpsampler()
+        wl = upsampler.wavelengths.astype(float)
+        dlam = float(np.mean(np.diff(wl)))
+        _, _, _, d65 = upsampler._observer_and_illuminant()
+        curves = build_sensitivity_curves(species, wl)
+        panel = {item["name"]: as_uint8_color(item) for item in spectral_response_panel()}
+
+        def normalized_catches(color_name: str) -> np.ndarray:
+            spectrum = upsampler.upsample(panel[color_name][np.newaxis, np.newaxis, :]).data[0, 0, :].astype(float)
+            catches = np.array(
+                [
+                    float(np.sum(spectrum * d65 * curve) * dlam)
+                    for receptor_type, curve in curves.items()
+                    if receptor_type != "rod"
+                ],
+                dtype=float,
+            )
+            return catches / max(float(np.sum(catches)), 1e-12)
+
+        blue = normalized_catches("blue")
+        yellow = normalized_catches("yellow")
+        red = normalized_catches("red")
+
+        assert np.linalg.norm(blue - yellow) > 0.45
+        assert np.linalg.norm(blue - red) > 0.45

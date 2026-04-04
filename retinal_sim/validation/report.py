@@ -159,6 +159,7 @@ class ValidationSuite:
             "spectral": [
                 self.test_metamer_preservation_v2,
                 self.test_rgb_roundtrip_v2,
+                self.test_spectral_response_panel_v2,
             ],
             "optical": [
                 self.test_mtf_vs_diffraction_limit_v2,
@@ -1334,6 +1335,152 @@ class ValidationSuite:
             figure=fig,
         )
 
+    def test_spectral_response_panel_v2(self) -> ValidationResult:
+        """Deterministic RGB probe panel preserves expected cone-catch ordering."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.retina.opsin import build_sensitivity_curves
+        from retinal_sim.spectral.upsampler import SpectralUpsampler
+        from retinal_sim.validation.datasets import as_uint8_color, spectral_response_panel
+
+        upsampler = SpectralUpsampler()
+        wl = upsampler.wavelengths.astype(float)
+        dlam = float(np.mean(np.diff(wl)))
+        _, _, _, d65 = upsampler._observer_and_illuminant()
+
+        panel = {item["name"]: as_uint8_color(item) for item in spectral_response_panel()}
+        species_order = ["human", "dog", "cat"]
+        spectra_by_name = {
+            name: upsampler.upsample(rgb[np.newaxis, np.newaxis, :]).data[0, 0, :].astype(float)
+            for name, rgb in panel.items()
+        }
+        catch_fractions: dict[str, dict[str, dict[str, float]]] = {}
+
+        for species in species_order:
+            curves = build_sensitivity_curves(species, wl)
+            species_catches: dict[str, dict[str, float]] = {}
+            for name, spectrum in spectra_by_name.items():
+                catches = {
+                    receptor_type: float(np.sum(spectrum * d65 * curve) * dlam)
+                    for receptor_type, curve in curves.items()
+                    if receptor_type != "rod"
+                }
+                total = sum(catches.values())
+                species_catches[name] = {
+                    receptor_type: catches[receptor_type] / max(total, 1e-12)
+                    for receptor_type in catches
+                }
+            catch_fractions[species] = species_catches
+
+        def _dominant(species: str, color_name: str) -> str:
+            color_catches = catch_fractions[species][color_name]
+            return max(color_catches, key=color_catches.get)
+
+        def _fraction(species: str, color_name: str, receptor_type: str) -> float:
+            return catch_fractions[species][color_name].get(receptor_type, 0.0)
+
+        def _separation(species: str, color_a: str, color_b: str) -> float:
+            vec_a = np.array(list(catch_fractions[species][color_a].values()), dtype=float)
+            vec_b = np.array(list(catch_fractions[species][color_b].values()), dtype=float)
+            return float(np.linalg.norm(vec_a - vec_b))
+
+        checks = [
+            (_dominant("human", "violet") == "S_cone", "Human violet is S-dominant"),
+            (_dominant("human", "blue") == "S_cone", "Human blue is S-dominant"),
+            (_dominant("human", "green") == "M_cone", "Human green is M-dominant"),
+            (_dominant("human", "amber") == "L_cone", "Human amber is L-dominant"),
+            (_dominant("human", "red") == "L_cone", "Human red is L-dominant"),
+            (
+                _fraction("human", "yellow", "L_cone") + _fraction("human", "yellow", "M_cone") > 0.90,
+                "Human yellow remains dominated by L+M cone catch",
+            ),
+            (
+                _fraction("human", "yellow", "S_cone") < 0.10
+                and _fraction("human", "blue", "S_cone") - _fraction("human", "yellow", "S_cone") > 0.25,
+                "Human yellow keeps low S contribution relative to blue",
+            ),
+            (_dominant("dog", "blue") == "S_cone", "Dog blue is S-dominant"),
+            (_dominant("dog", "amber") == "L_cone", "Dog amber is L-dominant"),
+            (_dominant("dog", "red") == "L_cone", "Dog red is L-dominant"),
+            (_separation("dog", "blue", "yellow") > 0.45, "Dog blue-yellow separation remains substantial"),
+            (_separation("dog", "blue", "red") > 0.45, "Dog blue-red separation remains substantial"),
+            (_dominant("cat", "blue") == "S_cone", "Cat blue is S-dominant"),
+            (_dominant("cat", "amber") == "L_cone", "Cat amber is L-dominant"),
+            (_dominant("cat", "red") == "L_cone", "Cat red is L-dominant"),
+            (_separation("cat", "blue", "yellow") > 0.45, "Cat blue-yellow separation remains substantial"),
+            (_separation("cat", "blue", "red") > 0.45, "Cat blue-red separation remains substantial"),
+        ]
+        all_ok = all(ok for ok, _ in checks)
+
+        details_lines = []
+        for species in species_order:
+            details_lines.append(
+                f"{species}: "
+                + ", ".join(
+                    f"{color}->{_dominant(species, color)}"
+                    for color in ("violet", "blue", "green", "yellow", "amber", "red")
+                )
+            )
+            details_lines.append(
+                f"{species}: sep(blue,yellow)={_separation(species, 'blue', 'yellow'):.3f}, "
+                f"sep(blue,red)={_separation(species, 'blue', 'red'):.3f}"
+            )
+        details_lines.extend(f"{'OK' if ok else 'FAIL'}: {label}" for ok, label in checks)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.5))
+        for color_name, style, color in (
+            ("blue", "-", "#3366cc"),
+            ("green", "--", "#2ca02c"),
+            ("amber", "-.", "#d98c1f"),
+            ("red", ":", "#c23b22"),
+        ):
+            ax1.plot(wl, spectra_by_name[color_name], linestyle=style, color=color, lw=1.8, label=color_name)
+        ax1.set_xlabel("Wavelength (nm)")
+        ax1.set_ylabel("Reconstructed reflectance")
+        ax1.set_title("Representative RGB-Probe Spectra")
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(fontsize=8)
+
+        x = np.arange(len(panel))
+        species_colors = {"human": "#1f77b4", "dog": "#ff7f0e", "cat": "#2ca02c"}
+        receptor_markers = {"S_cone": "o", "M_cone": "s", "L_cone": "^"}
+        receptor_order = {
+            "human": ["S_cone", "M_cone", "L_cone"],
+            "dog": ["S_cone", "L_cone"],
+            "cat": ["S_cone", "L_cone"],
+        }
+        panel_names = list(panel.keys())
+        for species in species_order:
+            for receptor_type in receptor_order[species]:
+                ax2.plot(
+                    x,
+                    [_fraction(species, color_name, receptor_type) for color_name in panel_names],
+                    marker=receptor_markers[receptor_type],
+                    lw=1.3,
+                    color=species_colors[species],
+                    alpha=0.95 if receptor_type == receptor_order[species][0] else 0.55,
+                    label=f"{species} {receptor_type}",
+                )
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(panel_names, rotation=35, ha="right")
+        ax2.set_ylabel("Normalized cone-catch fraction")
+        ax2.set_title("Per-Species Cone-Catch Ordering")
+        ax2.set_ylim(0.0, 1.0)
+        ax2.grid(True, alpha=0.25)
+        ax2.legend(fontsize=7, ncol=2)
+        plt.tight_layout()
+
+        return self._result(
+            "Spectral Response Panel",
+            passed=bool(all_ok),
+            expected="Anchor RGB probes preserve expected cone-catch dominance and blue-vs-warm separation across species",
+            actual="\n".join(details_lines),
+            tolerance=0.45,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
     def test_mtf_vs_diffraction_limit_v2(self) -> ValidationResult:
         """Empirical sinusoidal contrast transfer matches the PSF MTF."""
         import matplotlib
@@ -1753,6 +1900,17 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "limitations": ["This validates the D65 round-trip path, not arbitrary illuminant changes."],
         "artifacts": ["RMSE bar chart", "Input vs reconstructed color swatches"],
     },
+    "Spectral Response Panel": {
+        "stage": "spectral",
+        "architecture_ref": "Architecture §11a Spectral response ordering",
+        "code_refs": ["retinal_sim/spectral/upsampler.py", "retinal_sim/retina/opsin.py", "retinal_sim/validation/datasets.py"],
+        "inputs_summary": "Deterministic RGB probe panel spanning violet-to-red anchors plus mixed colors, integrated with D65-weighted species sensitivities.",
+        "assumptions": ["The panel is RGB-defined and deterministic; it is a regression sanity check rather than a physical monochromator dataset."],
+        "method": "Upsample each probe color, compute D65-weighted cone catches for each species, and verify expected dominance/order and blue-vs-warm separations.",
+        "pass_criterion": "Anchor colors preserve expected cone-type dominance and dog/cat blue-vs-yellow/red separations exceed the fixed margin.",
+        "limitations": ["Because the probes originate from sRGB values, this validates response ordering under the current D65-based reconstruction model rather than true narrowband physiology."],
+        "artifacts": ["Representative reconstructed spectra plot", "Per-species normalized cone-catch panel"],
+    },
     "MTF vs Diffraction Limit": {
         "stage": "optical",
         "architecture_ref": "Architecture §11b Diffraction-limited resolution",
@@ -1850,6 +2008,7 @@ _ARCHITECTURE_COVERAGE = [
     {"architecture_ref": "Architecture §11e Distance-dependent receptor sampling", "test_name": "Distance-Dependent Receptor Sampling", "code_path": "retinal_sim/pipeline.py", "status": "covered", "note": "Counts stimulated receptors inside the projected object footprint."},
     {"architecture_ref": "Architecture §11a Metamer preservation", "test_name": "Metamer Preservation", "code_path": "retinal_sim/spectral/upsampler.py", "status": "covered", "note": "Uses a fixed deterministic near-metamer regression dataset under D65."},
     {"architecture_ref": "Architecture §11a Roundtrip consistency", "test_name": "RGB Round-Trip", "code_path": "retinal_sim/spectral/upsampler.py", "status": "covered", "note": "Uses the same D65 observer model as the basis construction for reprojection."},
+    {"architecture_ref": "Architecture §11a Spectral response ordering", "test_name": "Spectral Response Panel", "code_path": "retinal_sim/validation/report.py", "status": "covered", "note": "Uses deterministic RGB probes to sanity-check cone-catch ordering under the D65-based reconstruction model."},
     {"architecture_ref": "Architecture §11b Diffraction-limited resolution", "test_name": "MTF vs Diffraction Limit", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Measures empirical sinusoidal contrast transfer against the implemented PSF MTF."},
     {"architecture_ref": "Architecture §11b PSF energy conservation", "test_name": "PSF Energy Conservation", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Float64 normalization check."},
     {"architecture_ref": "Architecture §11c Snellen acuity prediction", "test_name": "Snellen Acuity", "code_path": "retinal_sim/validation/acuity.py", "status": "covered", "note": "Ordering plus published-range checks."},

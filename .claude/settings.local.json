@@ -28,7 +28,8 @@
       "Bash(codex exec ':*)",
       "Bash(tasklist)",
       "Bash(codex exec:*)",
-      "Bash(codex review:*)"
+      "Bash(codex review:*)",
+      "Bash(echo \"EXIT_CODE=$?\")"
     ]
   }
 }

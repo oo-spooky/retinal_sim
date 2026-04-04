@@ -234,7 +234,7 @@ class TestValidationSuiteConstruction:
     def test_run_stage_returns_report(self, suite: ValidationSuite):
         report = suite.run_stage("spectral")
         assert isinstance(report, ValidationReport)
-        assert len(report.results) == 2
+        assert len(report.results) == 3
 
     def test_run_stage_scene_count(self, suite: ValidationSuite):
         report = suite.run_stage("scene")
@@ -259,7 +259,7 @@ class TestValidationSuiteConstruction:
     def test_run_all_count(self, suite: ValidationSuite):
         report = suite.run_all()
         assert isinstance(report, ValidationReport)
-        assert len(report.results) == 14
+        assert len(report.results) == 15
 
     def test_run_all_returns_validation_results(self, suite: ValidationSuite):
         report = suite.run_all()
@@ -322,6 +322,13 @@ class TestValidationSuiteTests:
         r = suite.test_rgb_roundtrip()
         assert isinstance(r, ValidationResult)
         assert r.test_name == "RGB Round-Trip"
+        assert r.figure is not None
+
+    def test_spectral_response_panel(self, suite: ValidationSuite):
+        r = suite.test_spectral_response_panel_v2()
+        assert isinstance(r, ValidationResult)
+        assert r.test_name == "Spectral Response Panel"
+        assert r.passed is True
         assert r.figure is not None
 
     def test_mtf_vs_diffraction(self, suite: ValidationSuite):
@@ -394,7 +401,7 @@ class TestHTMLOutput:
         assert "Environment and Reproducibility" in content
         for r in report.results:
             assert r.test_name in content
-        assert content.count("data:image/png;base64,") >= 14
+        assert content.count("data:image/png;base64,") >= 15
 
     def test_report_contains_bonus_figures(self, suite: ValidationSuite):
         report = suite.run_all()

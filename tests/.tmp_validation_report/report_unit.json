@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "report_type": "unit"
+  },
+  "summary": "PASSED: 1/1 implemented validation checks passed",
+  "results": [
+    {
+      "test_name": "Sample Test",
+      "passed": true,
+      "expected": 1.0,
+      "actual": 0.99,
+      "tolerance": 0.05,
+      "details": "Sample details",
+      "stage": "",
+      "architecture_ref": "",
+      "code_refs": [],
+      "inputs_summary": "",
+      "assumptions": [],
+      "method": "",
+      "pass_criterion": "",
+      "limitations": [],
+      "artifacts": [],
+      "has_figure": false
+    }
+  ]
+}
