@@ -2,9 +2,9 @@
   "metadata": {
     "title": "retinal_sim validation audit report",
     "report_type": "full_validation_audit",
-    "generated_at": "2026-04-04T16:27:09",
+    "generated_at": "2026-04-04T19:12:28",
     "stage_scope": "all",
-    "repo_commit": "37edbc822fd0e432ccb358c3a981e759f332718a",
+    "repo_commit": "a2c4a008a8d9caa4e8bab3cc833a6cd309e232c4",
     "species": "human",
     "seed": 42,
     "patch_extent_deg": 1.0,
@@ -19,6 +19,7 @@
       "optical": {
         "pupil_shape": "circular",
         "pupil_diameter_mm": 3.0,
+        "pupil_height_mm": null,
         "axial_length_mm": 24.0,
         "focal_length_mm": 22.3,
         "corneal_radius_mm": 7.8
@@ -96,6 +97,20 @@
         "note": "Float64 normalization check."
       },
       {
+        "architecture_ref": "Architecture \u00a72a Pupil throughput and aperture geometry",
+        "test_name": "Pupil Throughput Scaling",
+        "code_path": "retinal_sim/validation/report.py",
+        "status": "covered",
+        "note": "Report-layer pupil-area diagnostic normalised to the human reference pupil."
+      },
+      {
+        "architecture_ref": "Architecture \u00a72b Slit pupil anisotropic blur diagnostics",
+        "test_name": "Cat Slit Anisotropy",
+        "code_path": "retinal_sim/validation/report.py",
+        "status": "covered",
+        "note": "Report-layer elliptical Gaussian point-response diagnostic for the cat slit pupil."
+      },
+      {
         "architecture_ref": "Architecture \u00a711c Snellen acuity prediction",
         "test_name": "Snellen Acuity",
         "code_path": "retinal_sim/validation/acuity.py",
@@ -141,12 +156,12 @@
     "stage_counts": {
       "scene": 4,
       "spectral": 3,
-      "optical": 2,
+      "optical": 4,
       "retinal": 4,
       "e2e": 2
     }
   },
-  "summary": "PASSED: 15/15 implemented validation checks passed",
+  "summary": "PASSED: 17/17 implemented validation checks passed",
   "results": [
     {
       "test_name": "Angular Subtense",
@@ -376,9 +391,9 @@
       "test_name": "PSF Energy Conservation",
       "passed": true,
       "expected": "|sum(PSF) - 1.0| < 1e-6",
-      "actual": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 4.44e-16 \u2713\ncat: max |sum-1| = 4.44e-16 \u2713",
+      "actual": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 4.44e-16 \u2713\ncat: max |sum-1| = 2.22e-16 \u2713",
       "tolerance": 1e-06,
-      "details": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 4.44e-16 \u2713\ncat: max |sum-1| = 4.44e-16 \u2713",
+      "details": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 4.44e-16 \u2713\ncat: max |sum-1| = 2.22e-16 \u2713",
       "stage": "optical",
       "architecture_ref": "Architecture \u00a711b PSF energy conservation",
       "code_refs": [
@@ -395,6 +410,64 @@
       ],
       "artifacts": [
         "Log-scale wavelength vs normalization error plot"
+      ],
+      "has_figure": true
+    },
+    {
+      "test_name": "Pupil Throughput Scaling",
+      "passed": true,
+      "expected": "Species pupil areas differ and scale throughput relative to the human reference pupil",
+      "actual": "total_energy={human=1024.0000, dog=1820.4448, cat=1592.8888}; ratios_vs_human={human=1.000, dog=1.778, cat=1.556}; max_ratio_error=0.0000",
+      "tolerance": 0.0,
+      "details": "human: pupil_shape=circular, pupil_area_mm2=7.0686, total_retinal_energy=1024.0000, throughput_vs_human=1.000, expected_ratio=1.000\ndog: pupil_shape=circular, pupil_area_mm2=12.5664, total_retinal_energy=1820.4448, throughput_vs_human=1.778, expected_ratio=1.778\ncat: pupil_shape=slit, pupil_area_mm2=10.9956, total_retinal_energy=1592.8888, throughput_vs_human=1.556, expected_ratio=1.556\nThroughput is normalized to the human pupil area reference; the optical stage measurement uses a unit spectral field and a fixed scene scale.",
+      "stage": "optical",
+      "architecture_ref": "Architecture \u00a72a Pupil throughput and aperture geometry",
+      "code_refs": [
+        "retinal_sim/validation/report.py",
+        "retinal_sim/species/config.py"
+      ],
+      "inputs_summary": "Human, dog, and cat species configs with circular/slit pupil geometries.",
+      "assumptions": [
+        "Pupil area is the relevant throughput proxy for the validation report.",
+        "Cat slit height is read from the species optical config when present."
+      ],
+      "method": "Compute pupil area for each species, normalize to the human reference pupil, and compare the resulting throughput ratios.",
+      "pass_criterion": "Species pupil areas differ and human-normalized throughput increases from human to dog/cat.",
+      "limitations": [
+        "This is a report-layer optical-throughput diagnostic rather than an end-to-end irradiance measurement."
+      ],
+      "artifacts": [
+        "Species pupil area bar chart",
+        "Human-normalized throughput summary"
+      ],
+      "has_figure": true
+    },
+    {
+      "test_name": "Cat Slit Anisotropy",
+      "passed": true,
+      "expected": "Cat slit pupil produces sigma_x > sigma_y and a wider horizontal cross-section",
+      "actual": "sigma_x_px=2.137, sigma_y_px=0.610, FWHM_x_px=5, FWHM_y_px=1; psf_sigma_mm_x=0.0021, psf_sigma_mm_y=0.0006",
+      "tolerance": 1e-06,
+      "details": "cat pupil_shape=slit, pupil_area_mm2=10.9956\neffective_f_number=4.944\neffective_f_number_x=9.250\neffective_f_number_y=2.643\nsigma_x_mm=0.0021, sigma_y_mm=0.0006\nsigma_x_px=2.137, sigma_y_px=0.610\npsf_sigma_px_x=2.137, psf_sigma_px_y=0.610\nFWHM_x_px=5, FWHM_y_px=1\nanisotropy_active=True\npsf_sigma_mm_x=0.0021\nPoint-response diagnostic uses the current optical-stage slit kernel and metadata.",
+      "stage": "optical",
+      "architecture_ref": "Architecture \u00a72b Slit pupil anisotropic blur diagnostics",
+      "code_refs": [
+        "retinal_sim/validation/report.py",
+        "retinal_sim/species/config.py"
+      ],
+      "inputs_summary": "Cat slit pupil evaluated with a point-response diagnostic at 550 nm.",
+      "assumptions": [
+        "The diagnostic uses an elliptical Gaussian approximation for the slit pupil.",
+        "Horizontal blur should exceed vertical blur for the vertical slit approximation."
+      ],
+      "method": "Generate a point-spread diagnostic, measure axis-specific sigma/FWHM, and require horizontal spread to exceed vertical spread.",
+      "pass_criterion": "Cat diagnostic reports sigma_x > sigma_y and FWHM_x > FWHM_y while remaining normalized.",
+      "limitations": [
+        "This report-layer approximation anticipates the axis-aware optical stage rather than replacing it."
+      ],
+      "artifacts": [
+        "Cat slit point-response heatmap",
+        "Axis-specific cross-section profile plot"
       ],
       "has_figure": true
     },
@@ -431,9 +504,9 @@
       "test_name": "Dichromat Confusion",
       "passed": true,
       "expected": "Species-specific confusion medians are suppressed relative to controls, and human exceeds cat on the cat confusion set",
-      "actual": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0295, cat-conf=0.1173, control=0.3594\ncat medians: dog-conf=0.0463, cat-conf=0.0138, control=0.2345\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
+      "actual": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0298, cat-conf=0.1108, control=0.3219\ncat medians: dog-conf=0.0434, cat-conf=0.0140, control=0.2125\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
       "tolerance": 0.01,
-      "details": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0295, cat-conf=0.1173, control=0.3594\ncat medians: dog-conf=0.0463, cat-conf=0.0138, control=0.2345\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
+      "details": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0298, cat-conf=0.1108, control=0.3219\ncat medians: dog-conf=0.0434, cat-conf=0.0140, control=0.2125\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
       "stage": "retinal",
       "architecture_ref": "Architecture \u00a711c Dichromat confusion axis",
       "code_refs": [
@@ -512,9 +585,9 @@
       "test_name": "Color Deficit Reproduction",
       "passed": true,
       "expected": "Human sees R/G difference; dog does not",
-      "actual": "human \u0394=0.2705, dog \u0394=0.1493",
+      "actual": "human \u0394=0.2705, dog \u0394=0.1606",
       "tolerance": 0.0,
-      "details": "human: L/R diff = 0.2705\ndog: L/R diff = 0.1493\ncat: L/R diff = 0.1761\nHuman > Dog*1.2: \u2713",
+      "details": "human: L/R diff = 0.2705\ndog: L/R diff = 0.1606\ncat: L/R diff = 0.1954\nHuman > Dog*1.2: \u2713",
       "stage": "e2e",
       "architecture_ref": "Architecture \u00a711d Known visual deficit reproduction",
       "code_refs": [
@@ -540,9 +613,9 @@
       "test_name": "Resolution Gradient",
       "passed": true,
       "expected": "Human center contrast exceeds human periphery and dichromat center contrast on a fine checkerboard",
-      "actual": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0171, periphery_contrast=0.0176\ncat: center_contrast=0.0171, periphery_contrast=0.0174\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
+      "actual": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0108, periphery_contrast=0.0111\ncat: center_contrast=0.0121, periphery_contrast=0.0121\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
       "tolerance": 0.0,
-      "details": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0171, periphery_contrast=0.0176\ncat: center_contrast=0.0171, periphery_contrast=0.0174\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
+      "details": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0108, periphery_contrast=0.0111\ncat: center_contrast=0.0121, periphery_contrast=0.0121\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
       "stage": "e2e",
       "architecture_ref": "Architecture \u00a711d Resolution gradient",
       "code_refs": [

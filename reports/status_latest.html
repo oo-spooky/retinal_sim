@@ -23,34 +23,23 @@ pre { background: #f6f6f6; border: 1px solid #ddd; padding: 12px 14px; border-ra
 </head>
 <body>
 <h1>retinal_sim - Status Report</h1>
-<p>Generated: 2026-04-04 16:27</p>
+<p>Generated: 2026-04-04 19:12</p>
 
 <h2>Test Status</h2>
-<div class="summary-box all-pass">544 passed, 48 warnings in 1944.33s (0:32:24)</div>
+<div class="summary-box all-pass">546 passed, 3 warnings in 1884.50s (0:31:24)</div>
 <div class="panel">
   <strong>Exact pytest command:</strong> <code>C:\Python314\python.exe -m pytest --tb=short -q --no-header</code><br>
-  <strong>Git commit:</strong> <code>37edbc822fd0e432ccb358c3a981e759f332718a</code><br>
+  <strong>Git commit:</strong> <code>a2c4a008a8d9caa4e8bab3cc833a6cd309e232c4</code><br>
   <strong>Interpretation:</strong> This section is automated test status only. It is not the same thing as architecture coverage or code review status.
 </div>
 <h3>Failure Excerpts</h3>
 <pre>============================== warnings summary ===============================
-tests/test_dichromat.py: 2 warnings
-tests/test_pipeline.py: 5 warnings
-tests/test_snellen.py: 1 warning
-tests/test_validation_report.py: 25 warnings
-  C:\Users\steve\retinal_sim\retinal_sim\optical\stage.py:85: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
-    kernels = psf_gen.gaussian_psf(wavelengths, defocus_diopters=defocus_diopters)
-
-tests/test_validation_report.py: 12 warnings
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:776: UserWarning: gaussian_psf: slit pupil geometry is not modelled — using an isotropic circular Gaussian PSF.  The cat's vertically elongated slit pupil produces an anisotropic PSF (wider horizontally than vertically) that is not captured here.  This is a known PoC limitation; implement an elliptical Gaussian for post-PoC accuracy.
-    psfs = psf_gen.gaussian_psf(WAVELENGTHS, kernel_size=31)
-
 tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_count
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:1307: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:479: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 
 tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffraction
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:747: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
+  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:749: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
     plt.tight_layout()
 
 ..\..\..\Python314\Lib\site-packages\_pytest\cacheprovider.py:475
@@ -58,7 +47,7 @@ tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffracti
     config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-544 passed, 48 warnings in 1944.33s (0:32:24)</pre>
+546 passed, 3 warnings in 1884.50s (0:31:24)</pre>
 
 <h2>Implementation Phase Status</h2>
 <div class="panel">

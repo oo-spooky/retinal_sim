@@ -54,6 +54,11 @@ def _build_optical(d: dict, species_name: str) -> object:
     params = OpticalParams(
         pupil_shape=str(d["pupil_shape"]),
         pupil_diameter_mm=float(d["pupil_diameter_mm"]),
+        pupil_height_mm=(
+            float(d["pupil_height_mm"])
+            if d.get("pupil_height_mm") is not None
+            else None
+        ),
         axial_length_mm=float(d["axial_length_mm"]),
         focal_length_mm=float(d["focal_length_mm"]),
         corneal_radius_mm=float(d["corneal_radius_mm"]),

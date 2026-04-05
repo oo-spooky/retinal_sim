@@ -9,63 +9,97 @@ from scipy.ndimage import convolve
 
 from retinal_sim.optical.psf import PSFGenerator
 
+_REFERENCE_PUPIL_DIAMETER_MM = 3.0
+
 
 @dataclass
 class OpticalParams:
     """Species-specific optical parameters."""
+
     pupil_shape: str                      # 'circular' | 'slit'
-    pupil_diameter_mm: float
-    axial_length_mm: float
-    focal_length_mm: float
-    corneal_radius_mm: float
-    lca_diopters: float                   # Longitudinal chromatic aberration range
+    pupil_diameter_mm: float             # diameter for circular, slit width for slit
+    pupil_height_mm: Optional[float] = None
+    axial_length_mm: float = 0.0
+    focal_length_mm: float = 0.0
+    corneal_radius_mm: float = 0.0
+    lca_diopters: float = 0.0            # Longitudinal chromatic aberration range
     media_transmission: Optional[Callable[[np.ndarray], np.ndarray]] = None
     zernike_coeffs: Dict[str, float] = field(default_factory=dict)
+
+    def pupil_area_mm2(self) -> float:
+        """Return pupil area in mm² using the R1 geometric approximation."""
+        width_mm = float(self.pupil_diameter_mm)
+        if self.pupil_shape == "slit":
+            height_mm = float(self.pupil_height_mm or width_mm)
+            return float(np.pi * (width_mm / 2.0) * (height_mm / 2.0))
+        return float(np.pi * (width_mm / 2.0) ** 2)
+
+    def pupil_extent_mm(self, axis: str) -> float:
+        """Return the pupil extent controlling blur along one image axis."""
+        width_mm = float(self.pupil_diameter_mm)
+        if self.pupil_shape != "slit":
+            return width_mm
+
+        height_mm = float(self.pupil_height_mm or width_mm)
+        if axis == "x":
+            return width_mm
+        if axis == "y":
+            return height_mm
+        raise ValueError(f"Unknown pupil axis {axis!r}; expected 'x' or 'y'")
+
+    def area_equivalent_diameter_mm(self) -> float:
+        """Return the diameter of a circular pupil with the same area."""
+        return float(2.0 * np.sqrt(self.pupil_area_mm2() / np.pi))
+
+    def effective_f_number(self, axis: Optional[str] = None) -> float:
+        """Return the effective f-number overall or for one axis."""
+        if axis is None:
+            pupil_extent_mm = self.area_equivalent_diameter_mm()
+        else:
+            pupil_extent_mm = self.pupil_extent_mm(axis)
+        return float(self.focal_length_mm / pupil_extent_mm)
+
+    def anisotropy_active(self) -> bool:
+        """Whether this pupil configuration should produce anisotropic blur."""
+        return (
+            self.pupil_shape == "slit"
+            and self.pupil_height_mm is not None
+            and self.pupil_height_mm > self.pupil_diameter_mm
+        )
 
 
 @dataclass
 class RetinalIrradiance:
-    """(H, W, N_λ) spectral irradiance at the retinal surface."""
+    """(H, W, N_lambda) spectral irradiance at the retinal surface."""
+
     data: np.ndarray          # float32
     wavelengths: np.ndarray   # nm
     metadata: dict = field(default_factory=dict)
 
 
 class OpticalStage:
-    """Applies the full anterior-eye optical model to a spectral image.
-
-    Convolves each wavelength band with a Gaussian PSF sized from diffraction
-    physics and (optionally) defocus, then scales by media transmission.
-
-    Args:
-        params: Species-specific optical parameters.
-    """
+    """Applies the full anterior-eye optical model to a spectral image."""
 
     def __init__(self, params: OpticalParams) -> None:
         self._params = params
-        # PSFGenerator with default pixel scale; apply() rebuilds with actual scale.
         self._psf_gen = PSFGenerator(params)
 
-    def compute_psf(self, wavelengths: np.ndarray) -> np.ndarray:
-        """Return (N_λ, K, K) PSF array for the given wavelengths (default pixel scale)."""
-        return self._psf_gen.gaussian_psf(np.asarray(wavelengths, dtype=float))
+    def compute_psf(
+        self,
+        wavelengths: np.ndarray,
+        return_metadata: bool = False,
+    ) -> np.ndarray | tuple[np.ndarray, dict]:
+        """Return PSF kernels and optional axis-aware diagnostics."""
+        return self._psf_gen.gaussian_psf(
+            np.asarray(wavelengths, dtype=float),
+            return_metadata=return_metadata,
+        )
 
     def apply(self, spectral_image: object, scene: object = None) -> RetinalIrradiance:
-        """Convolve spectral image with wavelength-dependent Gaussian PSF.
-
-        Args:
-            spectral_image: SpectralImage with .data (H, W, N_λ) float32 and
-                            .wavelengths (N_λ,) in nm.
-            scene: Optional SceneDescription; supplies pixel scale and defocus
-                   residual when available.
-
-        Returns:
-            RetinalIrradiance with PSF-blurred spectral data (float32, same shape).
-        """
-        data = np.asarray(spectral_image.data, dtype=np.float32)   # (H, W, N_λ)
+        """Convolve spectral image with wavelength-dependent Gaussian PSF."""
+        data = np.asarray(spectral_image.data, dtype=np.float32)
         wavelengths = np.asarray(spectral_image.wavelengths, dtype=float)
 
-        # Pixel scale and defocus from scene when provided.
         if (
             scene is not None
             and hasattr(scene, "mm_per_pixel")
@@ -73,7 +107,7 @@ class OpticalStage:
         ):
             pixel_scale_mm = float(scene.mm_per_pixel[0])
         else:
-            pixel_scale_mm = 0.001  # 1 µm/px fallback
+            pixel_scale_mm = 0.001
 
         defocus_diopters = (
             float(getattr(scene, "defocus_residual_diopters", 0.0))
@@ -82,25 +116,23 @@ class OpticalStage:
         )
 
         psf_gen = PSFGenerator(self._params, pixel_scale_mm_per_px=pixel_scale_mm)
-        kernels = psf_gen.gaussian_psf(wavelengths, defocus_diopters=defocus_diopters)
+        kernels, psf_metadata = psf_gen.gaussian_psf(
+            wavelengths,
+            defocus_diopters=defocus_diopters,
+            return_metadata=True,
+        )
 
-        # Media transmission: wavelength-dependent attenuation applied before convolution.
         transmission = np.ones(len(wavelengths), dtype=np.float32)
         if self._params.media_transmission is not None:
             transmission = self._params.media_transmission(wavelengths).astype(np.float32)
 
-        # NOTE (CR-11): Pupil-area throughput scaling is not yet applied.
-        # Architecture §2a requires scaling irradiance by pupil area (π·(D_p/2)²)
-        # relative to a reference area so that cross-species comparisons reflect
-        # the true light-gathering difference (e.g. dog 4 mm pupil gathers ~1.78×
-        # more light than human 3 mm pupil).  This must be added before Phase 12
-        # (species comparison); the Naka-Rushton nonlinearity means the missing
-        # scalar is not equivalent to a post-hoc correction.
+        reference_area_mm2 = float(np.pi * (_REFERENCE_PUPIL_DIAMETER_MM / 2.0) ** 2)
+        pupil_area_mm2 = self._params.pupil_area_mm2()
+        pupil_throughput_scale = float(pupil_area_mm2 / reference_area_mm2)
 
-        # Convolve each wavelength band with its PSF kernel.
         result = np.empty_like(data)
         for i in range(len(wavelengths)):
-            band = data[:, :, i] * transmission[i]
+            band = data[:, :, i] * transmission[i] * pupil_throughput_scale
             result[:, :, i] = convolve(band, kernels[i], mode="reflect").astype(np.float32)
 
         return RetinalIrradiance(
@@ -109,5 +141,18 @@ class OpticalStage:
             metadata={
                 "pixel_scale_mm": pixel_scale_mm,
                 "defocus_diopters": defocus_diopters,
+                "defocus_residual_diopters": defocus_diopters,
+                "pupil_shape": self._params.pupil_shape,
+                "pupil_area_mm2": pupil_area_mm2,
+                "reference_pupil_area_mm2": reference_area_mm2,
+                "pupil_throughput_scale": pupil_throughput_scale,
+                "effective_f_number": self._params.effective_f_number(),
+                "effective_f_number_x": self._params.effective_f_number("x"),
+                "effective_f_number_y": self._params.effective_f_number("y"),
+                "anisotropy_active": self._params.anisotropy_active(),
+                "psf_sigma_mm_x": psf_metadata["sigma_mm_x"].tolist(),
+                "psf_sigma_mm_y": psf_metadata["sigma_mm_y"].tolist(),
+                "psf_sigma_px_x": psf_metadata["sigma_px_x"].tolist(),
+                "psf_sigma_px_y": psf_metadata["sigma_px_y"].tolist(),
             },
         )

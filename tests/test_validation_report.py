@@ -244,7 +244,13 @@ class TestValidationSuiteConstruction:
     def test_run_stage_optical_count(self, suite: ValidationSuite):
         report = suite.run_stage("optical")
         assert isinstance(report, ValidationReport)
-        assert len(report.results) == 2
+        assert len(report.results) == 4
+        assert [r.test_name for r in report.results] == [
+            "MTF vs Diffraction Limit",
+            "PSF Energy Conservation",
+            "Pupil Throughput Scaling",
+            "Cat Slit Anisotropy",
+        ]
 
     def test_run_stage_retinal_count(self, suite: ValidationSuite):
         report = suite.run_stage("retinal")
@@ -259,7 +265,7 @@ class TestValidationSuiteConstruction:
     def test_run_all_count(self, suite: ValidationSuite):
         report = suite.run_all()
         assert isinstance(report, ValidationReport)
-        assert len(report.results) == 15
+        assert len(report.results) == 17
 
     def test_run_all_returns_validation_results(self, suite: ValidationSuite):
         report = suite.run_all()
@@ -271,7 +277,8 @@ class TestValidationSuiteConstruction:
         assert report.metadata["report_type"] == "full_validation_audit"
         assert report.metadata["species"] == "human"
         assert "architecture_coverage" in report.metadata
-        assert len(report.metadata["architecture_coverage"]) >= 14
+        assert len(report.metadata["architecture_coverage"]) == 17
+        assert report.metadata["stage_counts"]["optical"] == 4
 
 
 # ---------------------------------------------------------------------------
@@ -345,6 +352,22 @@ class TestValidationSuiteTests:
         assert r.passed is True
         assert r.figure is not None
 
+    def test_pupil_throughput_scaling(self, suite: ValidationSuite):
+        r = suite.test_pupil_throughput_scaling_v2()
+        assert isinstance(r, ValidationResult)
+        assert r.test_name == "Pupil Throughput Scaling"
+        assert r.passed is True
+        assert r.figure is not None
+        assert "pupil_area_mm2" in r.details
+
+    def test_cat_slit_anisotropy(self, suite: ValidationSuite):
+        r = suite.test_cat_slit_anisotropy_v2()
+        assert isinstance(r, ValidationResult)
+        assert r.test_name == "Cat Slit Anisotropy"
+        assert r.passed is True
+        assert r.figure is not None
+        assert "anisotropy_active" in r.details
+
     def test_snellen_acuity(self, suite: ValidationSuite):
         r = suite.test_snellen_acuity()
         assert isinstance(r, ValidationResult)
@@ -401,7 +424,7 @@ class TestHTMLOutput:
         assert "Environment and Reproducibility" in content
         for r in report.results:
             assert r.test_name in content
-        assert content.count("data:image/png;base64,") >= 15
+        assert content.count("data:image/png;base64,") >= len(report.results) + 2
 
     def test_report_contains_bonus_figures(self, suite: ValidationSuite):
         report = suite.run_all()
@@ -455,3 +478,7 @@ class TestHTMLOutput:
         assert '"architecture_ref"' in content
         assert '"code_refs"' in content
         assert '"pass_criterion"' in content
+        assert '"Pupil Throughput Scaling"' in content
+        assert '"Cat Slit Anisotropy"' in content
+        assert "pupil_area_mm2" in content
+        assert "anisotropy_active" in content

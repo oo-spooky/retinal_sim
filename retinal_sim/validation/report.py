@@ -164,6 +164,8 @@ class ValidationSuite:
             "optical": [
                 self.test_mtf_vs_diffraction_limit_v2,
                 self.test_psf_energy_conservation,
+                self.test_pupil_throughput_scaling_v2,
+                self.test_cat_slit_anisotropy_v2,
             ],
             "retinal": [
                 self.test_snellen_acuity,
@@ -798,6 +800,164 @@ class ValidationSuite:
             passed=bool(all_ok),
             expected="|sum(PSF) - 1.0| < 1e-6",
             actual="\n".join(details_lines),
+            tolerance=1e-6,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_pupil_throughput_scaling_v2(self) -> ValidationResult:
+        """Species pupil geometry produces distinct throughput diagnostics."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.optical.stage import OpticalStage
+        from retinal_sim.species.config import SpeciesConfig
+        from retinal_sim.spectral.upsampler import SpectralImage
+        from types import SimpleNamespace
+
+        species_list = ["human", "dog", "cat"]
+        configs = {sp: SpeciesConfig.load(sp) for sp in species_list}
+        areas = {sp: _pupil_area_mm2(cfg.optical) for sp, cfg in configs.items()}
+        ref_area = areas["human"]
+        spectral = SpectralImage(
+            data=np.ones((32, 32, 1), dtype=np.float32),
+            wavelengths=np.array([_CAT_DIAGNOSTIC_WAVELENGTH_NM], dtype=float),
+        )
+        scene = SimpleNamespace(mm_per_pixel=(0.005, 0.005), defocus_residual_diopters=0.0)
+
+        total_energies = {}
+        throughput_ratios = {}
+        expected_ratios = {sp: areas[sp] / ref_area for sp in species_list}
+        for sp, cfg in configs.items():
+            stage = OpticalStage(cfg.optical)
+            result = stage.apply(spectral, scene=scene)
+            total_energies[sp] = float(result.data.sum())
+            throughput_ratios[sp] = total_energies[sp] / total_energies["human"] if "human" in total_energies else 1.0
+            # Capture actual throughput scaling from the stage, not just geometry.
+            if sp == "human":
+                throughput_ratios[sp] = 1.0
+
+        max_ratio_error = max(
+            abs(throughput_ratios[sp] - expected_ratios[sp])
+            for sp in species_list
+        )
+        all_ok = (
+            max_ratio_error < 0.01
+            and total_energies["human"] < total_energies["dog"]
+            and total_energies["human"] < total_energies["cat"]
+        )
+
+        details_lines = [
+            (
+                f"{sp}: pupil_shape={configs[sp].optical.pupil_shape}, "
+                f"pupil_area_mm2={areas[sp]:.4f}, "
+                f"total_retinal_energy={total_energies[sp]:.4f}, "
+                f"throughput_vs_human={throughput_ratios[sp]:.3f}, "
+                f"expected_ratio={expected_ratios[sp]:.3f}"
+            )
+            for sp in species_list
+        ]
+        details_lines.append(
+            "Throughput is normalized to the human pupil area reference; "
+            "the optical stage measurement uses a unit spectral field and a fixed scene scale."
+        )
+
+        fig, ax = plt.subplots(1, 1, figsize=(7, 4))
+        colors = ["#4c72b0", "#dd8452", "#55a868"]
+        ax.bar(species_list, [total_energies[s] for s in species_list], color=colors)
+        ax.axhline(total_energies["human"], ls="--", color="#333333", lw=1, label="Human reference")
+        ax.set_ylabel("Total retinal energy")
+        ax.set_title("Species Pupil Throughput Diagnostics")
+        ax.legend(fontsize=8)
+        ax.grid(True, axis="y", alpha=0.25)
+        plt.tight_layout()
+
+        return self._result(
+            "Pupil Throughput Scaling",
+            passed=bool(all_ok),
+            expected="Species pupil areas differ and scale throughput relative to the human reference pupil",
+            actual=(
+                f"total_energy={{human={total_energies['human']:.4f}, dog={total_energies['dog']:.4f}, "
+                f"cat={total_energies['cat']:.4f}}}; "
+                f"ratios_vs_human={{human={throughput_ratios['human']:.3f}, "
+                f"dog={throughput_ratios['dog']:.3f}, cat={throughput_ratios['cat']:.3f}}}; "
+                f"max_ratio_error={max_ratio_error:.4f}"
+            ),
+            tolerance=0.0,
+            details="\n".join(details_lines),
+            figure=fig,
+        )
+
+    def test_cat_slit_anisotropy_v2(self) -> ValidationResult:
+        """Cat slit pupil yields a horizontally broader point-spread diagnostic."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from retinal_sim.species.config import SpeciesConfig
+
+        cfg = SpeciesConfig.load("cat")
+        diagnostics = _cat_slit_psf_diagnostics(cfg.optical)
+        kernel = diagnostics["kernel"]
+        center = kernel.shape[0] // 2
+        row = kernel[center, :]
+        col = kernel[:, center]
+        row_half = float(np.max(row) / 2.0)
+        col_half = float(np.max(col) / 2.0)
+        row_fwhm = int(np.sum(row >= row_half))
+        col_fwhm = int(np.sum(col >= col_half))
+
+        all_ok = (
+            diagnostics["anisotropy_active"]
+            and diagnostics["sigma_x_px"] > diagnostics["sigma_y_px"]
+            and row_fwhm > col_fwhm
+            and abs(float(kernel.sum()) - 1.0) < 1e-6
+        )
+
+        details_lines = [
+            f"cat pupil_shape={cfg.optical.pupil_shape}, pupil_area_mm2={diagnostics['pupil_area_mm2']:.4f}",
+            f"effective_f_number={diagnostics['effective_f_number']:.3f}",
+            f"effective_f_number_x={diagnostics['effective_f_number_x']:.3f}",
+            f"effective_f_number_y={diagnostics['effective_f_number_y']:.3f}",
+            f"sigma_x_mm={diagnostics['sigma_x_mm']:.4f}, sigma_y_mm={diagnostics['sigma_y_mm']:.4f}",
+            f"sigma_x_px={diagnostics['sigma_x_px']:.3f}, sigma_y_px={diagnostics['sigma_y_px']:.3f}",
+            f"psf_sigma_px_x={diagnostics['psf_sigma_px_x']:.3f}, psf_sigma_px_y={diagnostics['psf_sigma_px_y']:.3f}",
+            f"FWHM_x_px={row_fwhm}, FWHM_y_px={col_fwhm}",
+            f"anisotropy_active={diagnostics['anisotropy_active']}",
+            f"psf_sigma_mm_x={diagnostics['psf_sigma_mm_x']:.4f}",
+        ]
+        details_lines.append(
+            "Point-response diagnostic uses the current optical-stage slit kernel and metadata."
+        )
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+        im = ax1.imshow(kernel, cmap="magma", interpolation="nearest")
+        ax1.set_title("Cat Slit Point Response")
+        ax1.set_xticks([])
+        ax1.set_yticks([])
+        fig.colorbar(im, ax=ax1, fraction=0.046, pad=0.04)
+
+        offsets = np.arange(kernel.shape[0]) - center
+        ax2.plot(offsets, row / np.max(row), label="Horizontal cross-section", lw=1.8)
+        ax2.plot(offsets, col / np.max(col), label="Vertical cross-section", lw=1.8)
+        ax2.axhline(0.5, ls="--", color="#999999", lw=1, label="Half max")
+        ax2.set_xlabel("Pixel offset")
+        ax2.set_ylabel("Normalized intensity")
+        ax2.set_title("Axis-Specific Blur Profiles")
+        ax2.legend(fontsize=8)
+        ax2.grid(True, alpha=0.25)
+        plt.tight_layout()
+
+        return self._result(
+            "Cat Slit Anisotropy",
+            passed=bool(all_ok),
+            expected="Cat slit pupil produces sigma_x > sigma_y and a wider horizontal cross-section",
+            actual=(
+                f"sigma_x_px={diagnostics['sigma_x_px']:.3f}, "
+                f"sigma_y_px={diagnostics['sigma_y_px']:.3f}, "
+                f"FWHM_x_px={row_fwhm}, FWHM_y_px={col_fwhm}; "
+                f"psf_sigma_mm_x={diagnostics['psf_sigma_mm_x']:.4f}, "
+                f"psf_sigma_mm_y={diagnostics['psf_sigma_mm_y']:.4f}"
+            ),
             tolerance=1e-6,
             details="\n".join(details_lines),
             figure=fig,
@@ -1933,6 +2093,34 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "limitations": ["Only validates discrete kernel normalization, not broader optical energy accounting."],
         "artifacts": ["Log-scale wavelength vs normalization error plot"],
     },
+    "Pupil Throughput Scaling": {
+        "stage": "optical",
+        "architecture_ref": "Architecture §2a Pupil throughput and aperture geometry",
+        "code_refs": ["retinal_sim/validation/report.py", "retinal_sim/species/config.py"],
+        "inputs_summary": "Human, dog, and cat species configs with circular/slit pupil geometries.",
+        "assumptions": [
+            "Pupil area is the relevant throughput proxy for the validation report.",
+            "Cat slit height is read from the species optical config when present.",
+        ],
+        "method": "Compute pupil area for each species, normalize to the human reference pupil, and compare the resulting throughput ratios.",
+        "pass_criterion": "Species pupil areas differ and human-normalized throughput increases from human to dog/cat.",
+        "limitations": ["This is a report-layer optical-throughput diagnostic rather than an end-to-end irradiance measurement."],
+        "artifacts": ["Species pupil area bar chart", "Human-normalized throughput summary"],
+    },
+    "Cat Slit Anisotropy": {
+        "stage": "optical",
+        "architecture_ref": "Architecture §2b Slit pupil anisotropic blur diagnostics",
+        "code_refs": ["retinal_sim/validation/report.py", "retinal_sim/species/config.py"],
+        "inputs_summary": "Cat slit pupil evaluated with a point-response diagnostic at 550 nm.",
+        "assumptions": [
+            "The diagnostic uses an elliptical Gaussian approximation for the slit pupil.",
+            "Horizontal blur should exceed vertical blur for the vertical slit approximation.",
+        ],
+        "method": "Generate a point-spread diagnostic, measure axis-specific sigma/FWHM, and require horizontal spread to exceed vertical spread.",
+        "pass_criterion": "Cat diagnostic reports sigma_x > sigma_y and FWHM_x > FWHM_y while remaining normalized.",
+        "limitations": ["This report-layer approximation anticipates the axis-aware optical stage rather than replacing it."],
+        "artifacts": ["Cat slit point-response heatmap", "Axis-specific cross-section profile plot"],
+    },
     "Snellen Acuity": {
         "stage": "retinal",
         "architecture_ref": "Architecture §11c Snellen acuity prediction",
@@ -2011,6 +2199,8 @@ _ARCHITECTURE_COVERAGE = [
     {"architecture_ref": "Architecture §11a Spectral response ordering", "test_name": "Spectral Response Panel", "code_path": "retinal_sim/validation/report.py", "status": "covered", "note": "Uses deterministic RGB probes to sanity-check cone-catch ordering under the D65-based reconstruction model."},
     {"architecture_ref": "Architecture §11b Diffraction-limited resolution", "test_name": "MTF vs Diffraction Limit", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Measures empirical sinusoidal contrast transfer against the implemented PSF MTF."},
     {"architecture_ref": "Architecture §11b PSF energy conservation", "test_name": "PSF Energy Conservation", "code_path": "retinal_sim/optical/psf.py", "status": "covered", "note": "Float64 normalization check."},
+    {"architecture_ref": "Architecture §2a Pupil throughput and aperture geometry", "test_name": "Pupil Throughput Scaling", "code_path": "retinal_sim/validation/report.py", "status": "covered", "note": "Report-layer pupil-area diagnostic normalised to the human reference pupil."},
+    {"architecture_ref": "Architecture §2b Slit pupil anisotropic blur diagnostics", "test_name": "Cat Slit Anisotropy", "code_path": "retinal_sim/validation/report.py", "status": "covered", "note": "Report-layer elliptical Gaussian point-response diagnostic for the cat slit pupil."},
     {"architecture_ref": "Architecture §11c Snellen acuity prediction", "test_name": "Snellen Acuity", "code_path": "retinal_sim/validation/acuity.py", "status": "covered", "note": "Ordering plus published-range checks."},
     {"architecture_ref": "Architecture §11c Dichromat confusion axis", "test_name": "Dichromat Confusion", "code_path": "retinal_sim/validation/dichromat.py", "status": "covered", "note": "Uses fixed confusion/control stimulus matrices with median-based comparisons."},
     {"architecture_ref": "Architecture §11c Cone density to sampling limit", "test_name": "Nyquist Sampling", "code_path": "retinal_sim/retina/mosaic.py", "status": "covered", "note": "Converts local cone density to cycles/degree using focal-length magnification."},
@@ -2335,6 +2525,7 @@ def _summarize_dataclass(value: Any) -> Dict[str, Any]:
     keys = (
         "pupil_shape",
         "pupil_diameter_mm",
+        "pupil_height_mm",
         "axial_length_mm",
         "focal_length_mm",
         "corneal_radius_mm",
@@ -2349,6 +2540,57 @@ def _summarize_dataclass(value: Any) -> Dict[str, Any]:
         if hasattr(value, key):
             summary[key] = _json_safe(getattr(value, key))
     return summary
+
+
+_CAT_SLIT_HEIGHT_MM = 7.0
+_CAT_DIAGNOSTIC_WAVELENGTH_NM = 550.0
+_CAT_DIAGNOSTIC_PIXEL_SCALE_MM = 0.001
+
+
+def _pupil_area_mm2(optical: Any) -> float:
+    """Return pupil area for circular or slit pupils."""
+    if hasattr(optical, "pupil_area_mm2"):
+        return float(optical.pupil_area_mm2())
+    shape = str(getattr(optical, "pupil_shape", "circular"))
+    width = float(getattr(optical, "pupil_diameter_mm", 0.0))
+    if shape == "slit":
+        height = float(getattr(optical, "pupil_height_mm", _CAT_SLIT_HEIGHT_MM))
+        return float(np.pi * (width / 2.0) * (height / 2.0))
+    return float(np.pi * (width / 2.0) ** 2)
+
+
+def _cat_slit_psf_diagnostics(optical: Any) -> Dict[str, Any]:
+    """Build report-layer diagnostics from the current optical-stage slit model."""
+    from retinal_sim.optical.stage import OpticalStage
+
+    stage = OpticalStage(optical)
+    kernels, metadata = stage.compute_psf(
+        np.array([_CAT_DIAGNOSTIC_WAVELENGTH_NM], dtype=float),
+        return_metadata=True,
+    )
+    kernel = kernels[0]
+    sigma_mm_x = float(metadata["sigma_mm_x"][0])
+    sigma_mm_y = float(metadata["sigma_mm_y"][0])
+    sigma_px_x = float(metadata["sigma_px_x"][0])
+    sigma_px_y = float(metadata["sigma_px_y"][0])
+
+    return {
+        "kernel": kernel,
+        "pupil_area_mm2": _pupil_area_mm2(optical),
+        "effective_f_number": float(metadata["effective_f_number"]),
+        "effective_f_number_x": float(metadata["effective_f_number_x"]),
+        "effective_f_number_y": float(metadata["effective_f_number_y"]),
+        "sigma_x_mm": sigma_mm_x,
+        "sigma_y_mm": sigma_mm_y,
+        "sigma_x_px": sigma_px_x,
+        "sigma_y_px": sigma_px_y,
+        "anisotropy_active": bool(metadata["anisotropy_active"]),
+        "pixel_scale_mm": _CAT_DIAGNOSTIC_PIXEL_SCALE_MM,
+        "psf_sigma_mm_x": sigma_mm_x,
+        "psf_sigma_mm_y": sigma_mm_y,
+        "psf_sigma_px_x": sigma_px_x,
+        "psf_sigma_px_y": sigma_px_y,
+    }
 
 
 def _get_git_commit_hash() -> str:

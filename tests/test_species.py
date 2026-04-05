@@ -73,6 +73,16 @@ class TestOpticalParams:
         cfg = SpeciesConfig.load(species)
         assert cfg.optical.lca_diopters > 0
 
+    def test_cat_slit_height_present(self):
+        cfg = SpeciesConfig.load("cat")
+        assert cfg.optical.pupil_height_mm is not None
+        assert cfg.optical.pupil_height_mm > cfg.optical.pupil_diameter_mm
+
+    @pytest.mark.parametrize("species", ["human", "dog"])
+    def test_circular_species_have_no_slit_height(self, species):
+        cfg = SpeciesConfig.load(species)
+        assert cfg.optical.pupil_height_mm is None
+
 
 # ---------------------------------------------------------------------------
 # Retinal params — structure

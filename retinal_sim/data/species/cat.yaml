@@ -3,6 +3,7 @@ name: cat
 optical:
   pupil_shape: slit               # vertical slit pupil → anisotropic PSF
   pupil_diameter_mm: 2.0          # slit width in photopic
+  pupil_height_mm: 7.0            # slit height in photopic
   axial_length_mm: 22.5
   focal_length_mm: 18.5
   corneal_radius_mm: 8.5
