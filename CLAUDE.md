@@ -1,104 +1,73 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
-## Session workflow
+## Start Here
 
-Check `PROGRESS.md` for current implementation status before starting work.
-Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before touching any phase.
-Check `CODEREVIEW.md` for open review findings and address any open items before starting new phase work.
-Read the Codex-authored architecture audit and remediation roadmap before any structural or scientific-claim work — these are the source of truth for the R-phase remediation effort (R1–R6) and were implemented entirely by Codex without Claude involvement, so they will not appear in Claude's git memory:
-- `reports/architecture_audit_2026-04-04.md` — baseline audit, the yardstick for remediation progress.
-- `reports/remediation_roadmap_2026-04-04.md` — the R1–R6 phase plan, milestones M1/M2/M3, and work packages A–D.
-- `AGENTS.md` — Codex's project context; mirrors much of this file but is the authoritative brief for Codex sessions, so keep the two in sync when workflow rules change.
-Any newer dated artifacts under `reports/*.md` from later Codex sessions should be read the same way: assume Codex has already implemented what they describe and treat them as required reading, not optional history.
-Update `PROGRESS.md` after completing any phase.
-Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
-Use `pytest -m "not slow"` for the fast local loop, `pytest tests/test_<phase>.py -v` for a phase-specific loop, and `pytest` for the full gate.
-**Before closing a session, run all tests and generate a status report at `reports/status_latest.html`. The status page must clearly separate automated test status, implementation progress, architecture/validation status, documentation drift warnings, and open `CODEREVIEW.md` items.**
+- Read `docs/llm_coordination.md` for the shared Codex/Claude workflow.
+- Read `TOUCHLOG.md` on entry and append one end-of-session entry on exit.
+- Check `PROGRESS.md` for the current repo status, `CODEREVIEW.md` for open findings, and `SCRATCHPAD.md` for unresolved short-lived notes.
+- For structural, scientific-claim, or report-language work, also read `retinal_sim_architecture.md`, `docs/reporting_transparency.md`, `reports/architecture_audit_2026-04-04.md`, and `reports/remediation_roadmap_2026-04-04.md`.
+- `AGENTS.md` remains the Codex-facing technical brief. Keep shared workflow changes in `docs/llm_coordination.md` rather than re-duplicating them here.
+
+## Claude-Specific Workflow
+
+- Use `pytest -m "not slow"` for the fast local loop, `pytest tests/test_<phase>.py -v` for phase-specific work, and `pytest` for the full gate.
+- Before closing a substantial session, run `python scripts/status_report.py` so `reports/status_latest.html` reflects current automated test status, implementation snapshot, doc drift warnings, and open review items.
+- When validation or audit logic changes, also regenerate `reports/validation_report.html` and its JSON companion if available. Report content must expose pass criteria, assumptions, limitations, and code provenance.
+- Before declaring a session ready to close, commit all changes and push to the remote with `git push`.
+
+## Codex CLI From Claude
+
+- `codex` CLI (v0.118.0) is installed. Config: `~/.codex/config.toml` with model `gpt-5.4`.
+- Project context for Codex lives in `AGENTS.md`; Codex reads it automatically.
+- ChatGPT-auth model support verified here: `gpt-5.4` works. `o3`, `o4-mini`, `gpt-4.1`, and `codex-mini-latest` do not.
+
+### Review
+
 ```bash
-python scripts/status_report.py
-```
-**When validation or audit logic changes, also generate the full validation audit artifact (`reports/validation_report.html`, with JSON companion if available). User-facing report content must expose pass criteria, assumptions, limitations, and code provenance rather than summary-only claims.**
-**Before confirming a session is ready to close: commit all changes, then push to the remote.**
-```bash
-git push
-```
-
-## Codex CLI workflow
-
-`codex` CLI (v0.118.0) is installed. Config: `~/.codex/config.toml` (model: `gpt-5.4`).
-Project context for Codex is in `AGENTS.md` (repo root) — Codex reads this automatically.
-
-**Model:** `gpt-5.4` (works with ChatGPT Plus auth). Models `o3`, `o4-mini`, `gpt-4.1`, and `codex-mini-latest` do NOT work with ChatGPT auth.
-
-**1. Code review** — read-only sandbox is fine, no special flags needed:
-```bash
-codex review --uncommitted                    # review working tree changes
-codex review --base master                    # review branch vs master
-codex review --commit HEAD                    # review last commit
+codex review --uncommitted
+codex review --base master
+codex review --commit HEAD
 ```
 
-**2. Background implementation** — needs sandbox bypass on Windows to run tests/write files:
+### Background implementation
+
 ```bash
 codex exec "<task prompt>" --dangerously-bypass-approvals-and-sandbox
 ```
 
-**3. Read-only tasks** (listing files, reading code, analysis) — `--full-auto` is sufficient:
+### Read-only analysis
+
 ```bash
 codex exec "<analysis prompt>" --full-auto
 ```
 
-**Windows sandbox note:** The `read-only` and `workspace-write` sandbox modes block most shell commands on Windows. For tasks that need to run pytest or write code, use `--dangerously-bypass-approvals-and-sandbox`. For read-only analysis, `--full-auto` works.
+- Windows sandbox note: `read-only` and `workspace-write` modes block most shell commands on Windows. Use `--dangerously-bypass-approvals-and-sandbox` for tasks that need tests or file writes. Use `--full-auto` for read-only analysis.
+- Claude handles architecture decisions and orchestration; Codex handles implementation detail and review.
 
-Claude handles architecture decisions and orchestration; Codex handles implementation detail and review.
+## Review Sessions
 
----
+When running as Opus in a review session:
 
-## Code review sessions (Opus)
+- Audit the codebase against `retinal_sim_architecture.md`.
+- Run the relevant tests.
+- Write findings to `CODEREVIEW.md` using this format:
 
-When running as Opus in a review session: audit the codebase against `retinal_sim_architecture.md`, run all tests, and write findings to `CODEREVIEW.md` using this format per item:
-
+```text
 - **File:** path/to/file.py
 - **Function:** function_name
 - **Issue:** what's wrong
 - **Fix:** what the fix should be
-
-Move resolved items to the Resolved section rather than deleting them.
-
-## Commands
-
-```bash
-pip install -e ".[dev]"          # install (editable + test deps)
-pytest -m "not slow"             # fast local loop
-pytest tests/test_retina.py -v   # single test file
-pytest                           # full gate
 ```
 
-## Architecture
+- Move resolved findings into `docs/archive/CODEREVIEW_RESOLVED_2026-04.md` or the latest resolved archive, rather than leaving them in `CODEREVIEW.md`.
 
-The pipeline is a linear chain of five stages, each consuming the previous stage's output dataclass:
+## Repo Notes
 
-```
-RGB image
-  → SpectralImage (H, W, N_λ)          spectral/upsampler.py
-  → RetinalIrradiance (H, W, N_λ)      optical/stage.py
-  → PhotoreceptorMosaic + MosaicActivation  retina/stage.py
-  → rendered figures                    output/
-```
-
-`pipeline.py::RetinalSimulator` orchestrates these stages. `species/config.py::SpeciesConfig` loads all species-specific parameters (optical + retinal) from `data/species/{human,dog,cat}.yaml` and is the single place to change per-species constants.
-
-**Implementation status:** Phases 1-13 are complete (see `PROGRESS.md`). Current work is comprehensive code review, architecture audit, and report/documentation transparency improvements.
-
-## Key design decisions
-
-- **PoC patch size**: 2° centered on area centralis. Scale to 5–10° later.
-- **Mosaic generation**: jittered grid (not Poisson disk) for speed. Upgrade path noted in `retina/mosaic.py`.
-- **PSF**: Gaussian placeholder first (`optical/psf.py::gaussian_psf`), then diffraction-limited FFT (`diffraction_psf`). Chromatic aberration deferred.
-- **Spectral upsampling**: Smits (1999) first, Mallett-Yuksel later. Either can be bypassed entirely if a hyperspectral input is provided.
-- **Each stage is independently validatable** — see architecture §11 for the full validation matrix and `tests/test_validation_report.py` for the reporting artifact contract. The repo now has dedicated tests through Phase 13; do not describe later test files as stubs.
-
-## Species constants
-
-Peak wavelengths (nm) live in `retina/opsin.py::LAMBDA_MAX`. Optical params (pupil, focal length, axial length) are in `optical/stage.py::OpticalParams`. Cat uses a vertical slit pupil → anisotropic PSF; human and dog use circular pupils.
+- The pipeline is a linear chain of five stages: RGB image -> `SpectralImage` -> `RetinalIrradiance` -> `PhotoreceptorMosaic` plus `MosaicActivation` -> rendered figures.
+- `pipeline.py::RetinalSimulator` orchestrates the stages. `species/config.py::SpeciesConfig` is the single place to load per-species constants from `data/species/{human,dog,cat}.yaml`.
+- Phases 1-13 are complete. Current work is code review, architecture audit follow-through, reporting transparency, and documentation discipline.
+- The proof-of-concept patch size is 2 degrees centered on area centralis.
+- Each stage is independently validatable. See section 11 of `retinal_sim_architecture.md` and `tests/test_validation_report.py` for the reporting artifact contract.
+- Peak wavelengths live in `retina/opsin.py::LAMBDA_MAX`. Optical params (pupil, focal length, axial length) live in `optical/stage.py::OpticalParams`.
