@@ -20,7 +20,6 @@ TestHTMLOutput
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -38,9 +37,25 @@ def workspace_path(*parts: str) -> Path:
     return base.joinpath(*parts)
 
 
+def _write_and_read_report_output(
+    report: ValidationReport,
+    filename: str,
+    writer: str,
+) -> str:
+    path = workspace_path(filename)
+    getattr(report, writer)(str(path))
+    return path.read_text(encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def cleanup_figures():
+    yield
+    import matplotlib.pyplot as plt
+    plt.close("all")
 
 @pytest.fixture(scope="module")
 def suite() -> ValidationSuite:
@@ -79,6 +94,38 @@ def sample_result_with_figure() -> ValidationResult:
         details="Has a figure",
         figure=fig,
     )
+
+
+@pytest.fixture(scope="module")
+def retinal_report(suite: ValidationSuite) -> ValidationReport:
+    return suite.run_stage("retinal")
+
+
+@pytest.fixture(scope="module")
+def full_report_bundle(suite: ValidationSuite) -> dict[str, object]:
+    report = suite.run_all()
+    html = _write_and_read_report_output(report, "full_report.html", "save_html")
+    json_text = _write_and_read_report_output(report, "report_results.json", "save_json")
+    return {
+        "report": report,
+        "html": html,
+        "json": json_text,
+    }
+
+
+@pytest.fixture(scope="module")
+def full_report(full_report_bundle: dict[str, object]) -> ValidationReport:
+    return full_report_bundle["report"]  # type: ignore[return-value]
+
+
+@pytest.fixture(scope="module")
+def full_report_html(full_report_bundle: dict[str, object]) -> str:
+    return full_report_bundle["html"]  # type: ignore[return-value]
+
+
+@pytest.fixture(scope="module")
+def full_report_json(full_report_bundle: dict[str, object]) -> str:
+    return full_report_bundle["json"]  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +269,7 @@ class TestValidationReport:
 # TestValidationSuiteConstruction
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 class TestValidationSuiteConstruction:
     def test_init(self, suite: ValidationSuite):
         assert suite._seed == 42
@@ -254,8 +302,8 @@ class TestValidationSuiteConstruction:
             "Media Transmission Diagnostics",
         ]
 
-    def test_run_stage_retinal_count(self, suite: ValidationSuite):
-        report = suite.run_stage("retinal")
+    def test_run_stage_retinal_count(self, retinal_report: ValidationReport):
+        report = retinal_report
         assert isinstance(report, ValidationReport)
         assert len(report.results) == 4
 
@@ -264,18 +312,18 @@ class TestValidationSuiteConstruction:
         assert isinstance(report, ValidationReport)
         assert len(report.results) == 2
 
-    def test_run_all_count(self, suite: ValidationSuite):
-        report = suite.run_all()
+    def test_run_all_count(self, full_report: ValidationReport):
+        report = full_report
         assert isinstance(report, ValidationReport)
         assert len(report.results) == 19
 
-    def test_run_all_returns_validation_results(self, suite: ValidationSuite):
-        report = suite.run_all()
+    def test_run_all_returns_validation_results(self, full_report: ValidationReport):
+        report = full_report
         for r in report.results:
             assert isinstance(r, ValidationResult)
 
-    def test_run_all_metadata_contains_provenance(self, suite: ValidationSuite):
-        report = suite.run_all()
+    def test_run_all_metadata_contains_provenance(self, full_report: ValidationReport):
+        report = full_report
         assert report.metadata["report_type"] == "full_validation_audit"
         assert report.metadata["species"] == "human"
         assert "architecture_coverage" in report.metadata
@@ -287,6 +335,7 @@ class TestValidationSuiteConstruction:
 # TestValidationSuiteTests — individual test methods
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 class TestValidationSuiteTests:
     def test_angular_subtense(self, suite: ValidationSuite):
         r = suite.test_angular_subtense()
@@ -429,70 +478,50 @@ class TestValidationSuiteTests:
 # TestHTMLOutput — end-to-end HTML report
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 class TestHTMLOutput:
-    def test_full_report_html(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("full_report.html")
-        report.save_html(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_full_report_html(self, full_report: ValidationReport, full_report_html: str):
+        content = full_report_html
         assert "<!DOCTYPE html>" in content
         assert "Full Validation Audit Report" in content
         assert "Summary" in content
         assert "Architecture Coverage Matrix" in content
         assert "Environment and Reproducibility" in content
-        for r in report.results:
+        for r in full_report.results:
             assert r.test_name in content
-        assert content.count("data:image/png;base64,") >= len(report.results) + 2
+        assert content.count("data:image/png;base64,") >= len(full_report.results) + 2
 
-    def test_report_contains_bonus_figures(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("report_bonus.html")
-        report.save_html(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_report_contains_bonus_figures(self, full_report_html: str):
+        content = full_report_html
         assert "Govardovskii Nomogram" in content
         assert "Photoreceptor Mosaics" in content
 
-    def test_report_pass_fail_badges(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("report_badges.html")
-        report.save_html(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_report_pass_fail_badges(self, full_report_html: str):
+        content = full_report_html
         assert "PASS" in content
 
-    def test_report_summary_table(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("report_table.html")
-        report.save_html(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_report_summary_table(self, full_report_html: str):
+        content = full_report_html
         assert "<table>" in content
         assert "<thead>" in content
         assert "Architecture" in content
 
-    def test_all_figures_have_alt_text(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("report_alt.html")
-        report.save_html(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_all_figures_have_alt_text(self, full_report_html: str):
+        content = full_report_html
         import re
         img_tags = re.findall(r"<img\s[^>]*>", content)
         for tag in img_tags:
             assert 'alt="' in tag
 
-    def test_report_contains_transparency_sections(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("report_transparency.html")
-        report.save_html(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_report_contains_transparency_sections(self, full_report_html: str):
+        content = full_report_html
         assert "Pass criterion" in content
         assert "Assumptions" in content
         assert "Limitations" in content
         assert "Code references" in content
 
-    def test_report_json_contains_result_metadata(self, suite: ValidationSuite):
-        report = suite.run_all()
-        path = workspace_path("report_results.json")
-        report.save_json(str(path))
-        content = path.read_text(encoding="utf-8")
+    def test_report_json_contains_result_metadata(self, full_report_json: str):
+        content = full_report_json
         assert '"architecture_ref"' in content
         assert '"code_refs"' in content
         assert '"pass_criterion"' in content

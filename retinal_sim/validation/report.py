@@ -2437,10 +2437,12 @@ def _fig_to_data_uri(fig) -> str:
     """Convert a matplotlib figure to a base64 data URI."""
     import matplotlib.pyplot as plt
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return "data:image/png;base64," + base64.b64encode(buf.read()).decode()
+    try:
+        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    finally:
+        buf.close()
+        plt.close(fig)
 
 
 def _escape(s: str) -> str:
@@ -2781,6 +2783,11 @@ def _result_card_html(result: ValidationResult) -> str:
             uri = _fig_to_data_uri(result.figure)
             fig_html = f'<div class="test-figure"><img src="{uri}" alt="{_escape(result.test_name)}"></div>'
         except Exception:
+            try:
+                import matplotlib.pyplot as plt
+                plt.close(result.figure)
+            except Exception:
+                pass
             fig_html = '<p><em>Figure generation failed.</em></p>'
 
     return f"""
@@ -2824,17 +2831,33 @@ def _build_report_html(report: ValidationReport) -> str:
     cards_html = "".join(_result_card_html(r) for r in report.results)
 
     bonus_html = ""
+    nomo_fig = None
     try:
         nomo_fig = _make_nomogram_figure()
         nomo_uri = _fig_to_data_uri(nomo_fig)
+        nomo_fig = None
         bonus_html += f'<h3>Govardovskii Nomogram</h3><div class="bonus-section"><img src="{nomo_uri}" alt="Nomogram"></div>'
     except Exception:
+        if nomo_fig is not None:
+            try:
+                import matplotlib.pyplot as plt
+                plt.close(nomo_fig)
+            except Exception:
+                pass
         bonus_html += '<p><em>Nomogram figure failed.</em></p>'
+    mosaic_fig = None
     try:
         mosaic_fig = _make_mosaic_figures()
         mosaic_uri = _fig_to_data_uri(mosaic_fig)
+        mosaic_fig = None
         bonus_html += f'<h3>Photoreceptor Mosaics</h3><div class="bonus-section"><img src="{mosaic_uri}" alt="Mosaics"></div>'
     except Exception:
+        if mosaic_fig is not None:
+            try:
+                import matplotlib.pyplot as plt
+                plt.close(mosaic_fig)
+            except Exception:
+                pass
         bonus_html += '<p><em>Mosaic figure failed.</em></p>'
 
     table_html = "<table><thead><tr><th>#</th><th>Test</th><th>Result</th><th>Architecture</th><th>Observed</th></tr></thead><tbody>"

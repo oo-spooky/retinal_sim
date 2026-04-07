@@ -2,12 +2,12 @@
   "metadata": {
     "title": "retinal_sim validation audit report",
     "report_type": "full_validation_audit",
-    "generated_at": "2026-04-04T18:40:52",
+    "generated_at": "2026-04-06T20:50:09",
     "stage_scope": "all",
-    "repo_commit": "a2c4a008a8d9caa4e8bab3cc833a6cd309e232c4",
+    "repo_commit": "d2c88fd1da1371c577189a4ac6c016ca221334cc",
     "species": "human",
     "seed": 42,
-    "patch_extent_deg": 1.0,
+    "patch_extent_deg": 2.0,
     "stimulus_scale": 0.01,
     "light_level": "photopic",
     "environment": {
@@ -22,7 +22,8 @@
         "pupil_height_mm": null,
         "axial_length_mm": 24.0,
         "focal_length_mm": 22.3,
-        "corneal_radius_mm": 7.8
+        "corneal_radius_mm": 7.8,
+        "lca_diopters": 2.0
       },
       "retinal": {
         "patch_extent_deg": 2.0
@@ -111,6 +112,20 @@
         "note": "Report-layer elliptical Gaussian point-response diagnostic for the cat slit pupil."
       },
       {
+        "architecture_ref": "Architecture \u00a72b Longitudinal chromatic aberration",
+        "test_name": "Wavelength-Dependent Blur",
+        "code_path": "retinal_sim/optical/psf.py",
+        "status": "covered",
+        "note": "Checks signed LCA offsets and minimum blur near the 555 nm reference focus."
+      },
+      {
+        "architecture_ref": "Architecture \u00a72c Vitreous and media transmission",
+        "test_name": "Media Transmission Diagnostics",
+        "code_path": "retinal_sim/optical/media.py",
+        "status": "covered",
+        "note": "Samples species media transmission tables and visualizes delivered spectra."
+      },
+      {
         "architecture_ref": "Architecture \u00a711c Snellen acuity prediction",
         "test_name": "Snellen Acuity",
         "code_path": "retinal_sim/validation/acuity.py",
@@ -156,12 +171,12 @@
     "stage_counts": {
       "scene": 4,
       "spectral": 3,
-      "optical": 4,
+      "optical": 6,
       "retinal": 4,
       "e2e": 2
     }
   },
-  "summary": "PASSED: 17/17 implemented validation checks passed",
+  "summary": "PASSED: 19/19 implemented validation checks passed",
   "results": [
     {
       "test_name": "Angular Subtense",
@@ -362,10 +377,10 @@
     {
       "test_name": "MTF vs Diffraction Limit",
       "passed": true,
-      "expected": "Measured sinusoidal contrast transfer matches predicted MTF within 0.08",
-      "actual": "Max |measured-predicted| = 0.0720",
-      "tolerance": 0.08,
-      "details": "5 cpd: measured=0.9909, predicted=0.9909, |\u0394|=0.0000 \u2713\n10 cpd: measured=0.9642, predicted=0.9642, |\u0394|=0.0000 \u2713\n20 cpd: measured=0.8659, predicted=0.8659, |\u0394|=0.0000 \u2713\n30 cpd: measured=0.8021, predicted=0.7301, |\u0394|=0.0720 \u2713",
+      "expected": "Measured sinusoidal contrast transfer matches predicted MTF within 0.081",
+      "actual": "Max |measured-predicted| = 0.0804",
+      "tolerance": 0.081,
+      "details": "5 cpd: measured=0.9897, predicted=0.9897, |\u0394|=0.0000 \u2713\n10 cpd: measured=0.9597, predicted=0.9597, |\u0394|=0.0000 \u2713\n20 cpd: measured=0.8495, predicted=0.8495, |\u0394|=0.0000 \u2713\n30 cpd: measured=0.7787, predicted=0.6983, |\u0394|=0.0804 \u2713",
       "stage": "optical",
       "architecture_ref": "Architecture \u00a711b Diffraction-limited resolution",
       "code_refs": [
@@ -391,9 +406,9 @@
       "test_name": "PSF Energy Conservation",
       "passed": true,
       "expected": "|sum(PSF) - 1.0| < 1e-6",
-      "actual": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 4.44e-16 \u2713\ncat: max |sum-1| = 2.22e-16 \u2713",
+      "actual": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 2.22e-16 \u2713\ncat: max |sum-1| = 2.22e-16 \u2713",
       "tolerance": 1e-06,
-      "details": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 4.44e-16 \u2713\ncat: max |sum-1| = 2.22e-16 \u2713",
+      "details": "human: max |sum-1| = 2.22e-16 \u2713\ndog: max |sum-1| = 2.22e-16 \u2713\ncat: max |sum-1| = 2.22e-16 \u2713",
       "stage": "optical",
       "architecture_ref": "Architecture \u00a711b PSF energy conservation",
       "code_refs": [
@@ -446,9 +461,9 @@
       "test_name": "Cat Slit Anisotropy",
       "passed": true,
       "expected": "Cat slit pupil produces sigma_x > sigma_y and a wider horizontal cross-section",
-      "actual": "sigma_x_px=2.137, sigma_y_px=0.610, FWHM_x_px=5, FWHM_y_px=1; psf_sigma_mm_x=0.0021, psf_sigma_mm_y=0.0006",
+      "actual": "sigma_x_px=2.149, sigma_y_px=1.011, FWHM_x_px=5, FWHM_y_px=3; psf_sigma_mm_x=0.0021, psf_sigma_mm_y=0.0010",
       "tolerance": 1e-06,
-      "details": "cat pupil_shape=slit, pupil_area_mm2=10.9956\neffective_f_number=4.944\neffective_f_number_x=9.250\neffective_f_number_y=2.643\nsigma_x_mm=0.0021, sigma_y_mm=0.0006\nsigma_x_px=2.137, sigma_y_px=0.610\npsf_sigma_px_x=2.137, psf_sigma_px_y=0.610\nFWHM_x_px=5, FWHM_y_px=1\nanisotropy_active=True\npsf_sigma_mm_x=0.0021\nPoint-response diagnostic uses the current optical-stage slit kernel and metadata.",
+      "details": "cat pupil_shape=slit, pupil_area_mm2=10.9956\neffective_f_number=4.944\neffective_f_number_x=9.250\neffective_f_number_y=2.643\nsigma_x_mm=0.0021, sigma_y_mm=0.0010\nsigma_x_px=2.149, sigma_y_px=1.011\npsf_sigma_px_x=2.149, psf_sigma_px_y=1.011\nFWHM_x_px=5, FWHM_y_px=3\nanisotropy_active=True\npsf_sigma_mm_x=0.0021\nPoint-response diagnostic uses the current optical-stage slit kernel and metadata.",
       "stage": "optical",
       "architecture_ref": "Architecture \u00a72b Slit pupil anisotropic blur diagnostics",
       "code_refs": [
@@ -468,6 +483,66 @@
       "artifacts": [
         "Cat slit point-response heatmap",
         "Axis-specific cross-section profile plot"
+      ],
+      "has_figure": true
+    },
+    {
+      "test_name": "Wavelength-Dependent Blur",
+      "passed": true,
+      "expected": "Short and long wavelengths carry opposite-signed LCA offsets and the smallest PSF width occurs near 555 nm",
+      "actual": "human: lca_400=+1.000D, lca_555=+0.000D, lca_700=-1.000D, min_sigma_at=555nm \u2713\ndog: lca_400=+0.750D, lca_555=+0.000D, lca_700=-0.750D, min_sigma_at=555nm \u2713\ncat: lca_400=+0.750D, lca_555=+0.000D, lca_700=-0.750D, min_sigma_at=550nm \u2713",
+      "tolerance": 0.05,
+      "details": "human: lca_400=+1.000D, lca_555=+0.000D, lca_700=-1.000D, min_sigma_at=555nm \u2713\ndog: lca_400=+0.750D, lca_555=+0.000D, lca_700=-0.750D, min_sigma_at=555nm \u2713\ncat: lca_400=+0.750D, lca_555=+0.000D, lca_700=-0.750D, min_sigma_at=550nm \u2713",
+      "stage": "optical",
+      "architecture_ref": "Architecture \u00a72b Longitudinal chromatic aberration",
+      "code_refs": [
+        "retinal_sim/optical/psf.py",
+        "retinal_sim/optical/stage.py",
+        "retinal_sim/species/config.py"
+      ],
+      "inputs_summary": "Canonical wavelength grid evaluated for all three species using the current Gaussian-plus-LCA optical model.",
+      "assumptions": [
+        "R2 models LCA as a signed wavelength-dependent defocus offset around a 555 nm reference focus.",
+        "The smallest blur should occur near the reference wavelength when scene defocus is zero."
+      ],
+      "method": "Sample per-wavelength LCA offsets and PSF widths from the optical-stage metadata and verify sign/order behavior.",
+      "pass_criterion": "Offsets are positive in the short wavelengths, negative in the long wavelengths, and minimum PSF width occurs near 555 nm for each species.",
+      "limitations": [
+        "This validates the implemented R2 operational model, not a full empirical aberration fit."
+      ],
+      "artifacts": [
+        "Wavelength vs LCA offset plot",
+        "Wavelength vs PSF sigma plot"
+      ],
+      "has_figure": true
+    },
+    {
+      "test_name": "Media Transmission Diagnostics",
+      "passed": true,
+      "expected": "Each species attenuates short wavelengths more than long wavelengths and the sampled transmission curves are species-specific",
+      "actual": "human: blue_mean=0.424, red_mean=0.990, source=C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\human_reference.csv \u2713\ndog: blue_mean=0.742, red_mean=0.991, source=C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\dog_reference.csv \u2713\ncat: blue_mean=0.792, red_mean=0.993, source=C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\cat_reference.csv \u2713\nSpecies transmission curves are distinct: \u2713",
+      "tolerance": 0.0,
+      "details": "human: blue_mean=0.424, red_mean=0.990, source=C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\human_reference.csv \u2713\ndog: blue_mean=0.742, red_mean=0.991, source=C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\dog_reference.csv \u2713\ncat: blue_mean=0.792, red_mean=0.993, source=C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\cat_reference.csv \u2713\nSpecies transmission curves are distinct: \u2713",
+      "stage": "optical",
+      "architecture_ref": "Architecture \u00a72c Vitreous and media transmission",
+      "code_refs": [
+        "retinal_sim/optical/media.py",
+        "retinal_sim/species/config.py",
+        "retinal_sim/optical/stage.py"
+      ],
+      "inputs_summary": "Species ocular-media transmission tables sampled on the canonical wavelength grid and applied to a unit spectrum.",
+      "assumptions": [
+        "R2 uses fixed species reference transmission curves rather than age- or state-dependent media variants.",
+        "Short-wavelength attenuation should exceed long-wavelength attenuation for each species."
+      ],
+      "method": "Sample the configured transmission curves, compare short-vs-long wavelength attenuation, and visualize the delivered spectra.",
+      "pass_criterion": "Each species transmits less blue than red and the sampled transmission curves differ across species.",
+      "limitations": [
+        "Does not model scatter or age-dependent lens brunescence in R2."
+      ],
+      "artifacts": [
+        "Species transmission curve plot",
+        "Delivered-spectrum plot after ocular media"
       ],
       "has_figure": true
     },
@@ -504,9 +579,9 @@
       "test_name": "Dichromat Confusion",
       "passed": true,
       "expected": "Species-specific confusion medians are suppressed relative to controls, and human exceeds cat on the cat confusion set",
-      "actual": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0298, cat-conf=0.1108, control=0.3219\ncat medians: dog-conf=0.0434, cat-conf=0.0140, control=0.2125\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
+      "actual": "human medians: dog-conf=0.0374, cat-conf=0.1191, control=0.3653\ndog medians: dog-conf=0.0301, cat-conf=0.0972, control=0.3275\ncat medians: dog-conf=0.0498, cat-conf=0.0140, control=0.2164\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
       "tolerance": 0.01,
-      "details": "human medians: dog-conf=0.0493, cat-conf=0.1518, control=0.3397\ndog medians: dog-conf=0.0298, cat-conf=0.1108, control=0.3219\ncat medians: dog-conf=0.0434, cat-conf=0.0140, control=0.2125\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
+      "details": "human medians: dog-conf=0.0374, cat-conf=0.1191, control=0.3653\ndog medians: dog-conf=0.0301, cat-conf=0.0972, control=0.3275\ncat medians: dog-conf=0.0498, cat-conf=0.0140, control=0.2164\nDog confusion median < dog control median: \u2713\nCat confusion median < cat control median: \u2713\nHuman > cat on cat confusion set: \u2713\nDog control median > 0.05: \u2713\nCat control median > 0.05: \u2713",
       "stage": "retinal",
       "architecture_ref": "Architecture \u00a711c Dichromat confusion axis",
       "code_refs": [
@@ -585,9 +660,9 @@
       "test_name": "Color Deficit Reproduction",
       "passed": true,
       "expected": "Human sees R/G difference; dog does not",
-      "actual": "human \u0394=0.2705, dog \u0394=0.1606",
+      "actual": "human \u0394=0.2634, dog \u0394=0.1602",
       "tolerance": 0.0,
-      "details": "human: L/R diff = 0.2705\ndog: L/R diff = 0.1606\ncat: L/R diff = 0.1954\nHuman > Dog*1.2: \u2713",
+      "details": "human: L/R diff = 0.2634\ndog: L/R diff = 0.1602\ncat: L/R diff = 0.1961\nHuman > Dog*1.2: \u2713",
       "stage": "e2e",
       "architecture_ref": "Architecture \u00a711d Known visual deficit reproduction",
       "code_refs": [
@@ -613,9 +688,9 @@
       "test_name": "Resolution Gradient",
       "passed": true,
       "expected": "Human center contrast exceeds human periphery and dichromat center contrast on a fine checkerboard",
-      "actual": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0108, periphery_contrast=0.0111\ncat: center_contrast=0.0121, periphery_contrast=0.0121\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
+      "actual": "human: center_contrast=0.0143, periphery_contrast=0.0122\ndog: center_contrast=0.0062, periphery_contrast=0.0063\ncat: center_contrast=0.0038, periphery_contrast=0.0037\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
       "tolerance": 0.0,
-      "details": "human: center_contrast=0.0223, periphery_contrast=0.0199\ndog: center_contrast=0.0108, periphery_contrast=0.0111\ncat: center_contrast=0.0121, periphery_contrast=0.0121\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
+      "details": "human: center_contrast=0.0143, periphery_contrast=0.0122\ndog: center_contrast=0.0062, periphery_contrast=0.0063\ncat: center_contrast=0.0038, periphery_contrast=0.0037\nHuman center > human periphery: \u2713\nHuman center > dog center: \u2713\nHuman center > cat center: \u2713",
       "stage": "e2e",
       "architecture_ref": "Architecture \u00a711d Resolution gradient",
       "code_refs": [

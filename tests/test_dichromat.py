@@ -62,6 +62,17 @@ def blue_yellow():
     return blue, yellow
 
 
+@pytest.fixture(scope="module")
+def stimulus_matrix_all_species():
+    """Shared fixed stimulus panel across human, dog, and cat."""
+    return evaluate_stimulus_matrix(
+        ["human", "dog", "cat"],
+        seed=0,
+        n_seeds=1,
+        image_size_px=32,
+    )
+
+
 # ===========================================================================
 # TestIshiharaPattern
 # ===========================================================================
@@ -261,6 +272,7 @@ class TestFindConfusionPair:
 # TestDichromatDiscriminability
 # ===========================================================================
 
+@pytest.mark.slow
 class TestDichromatDiscriminability:
     """Integration tests: full pipeline discriminability for human and dog."""
 
@@ -391,14 +403,20 @@ class TestDichromatDiscriminability:
         else:
             assert not confused
 
-    def test_stimulus_matrix_shows_species_specific_confusion_suppression(self):
-        matrix = evaluate_stimulus_matrix(["human", "dog", "cat"], seed=0, n_seeds=1, image_size_px=32)
+    def test_stimulus_matrix_shows_species_specific_confusion_suppression(
+        self,
+        stimulus_matrix_all_species,
+    ):
+        matrix = stimulus_matrix_all_species
         assert np.median(matrix["dog"]["confusion_dog"]) < np.median(matrix["dog"]["control"])
         assert np.median(matrix["cat"]["confusion_cat"]) < np.median(matrix["cat"]["control"])
         assert np.median(matrix["human"]["confusion_cat"]) > np.median(matrix["cat"]["confusion_cat"])
 
-    def test_stimulus_matrix_controls_remain_visible_to_dichromats(self):
-        matrix = evaluate_stimulus_matrix(["dog", "cat"], seed=0, n_seeds=1, image_size_px=32)
+    def test_stimulus_matrix_controls_remain_visible_to_dichromats(
+        self,
+        stimulus_matrix_all_species,
+    ):
+        matrix = stimulus_matrix_all_species
         assert np.median(matrix["dog"]["control"]) > 0.05
         assert np.median(matrix["cat"]["control"]) > 0.05
 

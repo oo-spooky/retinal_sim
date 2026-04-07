@@ -24,3 +24,6 @@ include = ["retinal_sim*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: long-running integration or audit-oriented tests",
+]

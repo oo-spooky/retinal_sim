@@ -1,6 +1,6 @@
 # Retinal Sim — Implementation Progress
 
-_Last updated: 2026-04-03 (Phase 13 complete)_
+_Last updated: 2026-04-06 (test-suite streamlining + fresh validation artifacts)_
 
 ---
 
@@ -8,7 +8,9 @@ _Last updated: 2026-04-03 (Phase 13 complete)_
 
 - Check this file at the start of every session to orient on current status.
 - Update the status column and add notes after completing work.
-- Run `pytest` for all phases.
+- Use `pytest -m "not slow"` for the fast local loop.
+- Use `pytest tests/test_<phase>.py -v` for phase-specific work.
+- Run `pytest` for the full gate before closing substantial changes.
 
 ---
 
@@ -28,7 +30,7 @@ _Last updated: 2026-04-03 (Phase 13 complete)_
 | 10    | Dichromat confusion validation     | **COMPLETE** | 36/36 pass (`test_dichromat.py`) | Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human > D_dog for confusion pair |
 | 11    | Distance-dependent resolution test | **COMPLETE** | 75/75 pass (`test_distance.py`) | Geometry scaling, receptor count 1/d², cross-species, coverage, seed stability, edge distances |
 | 12    | Species comparison pipeline        | **COMPLETE** | 42/42 pass (`test_pipeline.py`) | RetinalSimulator orchestrator, compare_species, end-to-end color deficit validation |
-| 13    | Full validation report generator   | **COMPLETE** | 41/41 pass (`test_validation_report.py`) | ValidationSuite with 14 tests, figures for every test, self-contained HTML report |
+| 13    | Full validation report generator   | **COMPLETE** | 51/51 pass (`test_validation_report.py`) | ValidationSuite with 14 tests, figures for every test, self-contained HTML report; expensive report tests now reuse cached artifacts |
 
 ---
 
@@ -43,6 +45,11 @@ Current follow-on work is not a new implementation phase. It is an audit/reporti
 - tighten top-level docs so they match the actual repo state,
 - separate implementation status from architecture audit status,
 - and make generated reports expose assumptions, methods, thresholds, limitations, and code provenance.
+
+Recent repo-level testing workflow update:
+- Fast local loop: `pytest -m "not slow"`
+- Phase-specific loop: `pytest tests/test_<phase>.py -v`
+- Full gate: `pytest`
 
 ---
 

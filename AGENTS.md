@@ -68,8 +68,15 @@ tests/
 
 ```bash
 pip install -e ".[dev]"          # install (editable + test deps)
-pytest                           # run all tests (~60s)
+pytest                           # run full suite / full gate
 pytest tests/test_retina.py -v   # single test file
+```
+
+Recommended loops:
+```bash
+pytest -m "not slow"                     # fast local loop
+pytest tests/test_<phase>.py -v          # phase-specific loop
+pytest                                   # full gate / release confidence
 ```
 
 **Setup gotcha:** If `pip install -e ".[dev]"` fails with `BackendUnavailable`:

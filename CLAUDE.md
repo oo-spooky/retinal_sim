@@ -9,6 +9,7 @@ Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before 
 Check `CODEREVIEW.md` for open review findings and address any open items before starting new phase work.
 Update `PROGRESS.md` after completing any phase.
 Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
+Use `pytest -m "not slow"` for the fast local loop, `pytest tests/test_<phase>.py -v` for a phase-specific loop, and `pytest` for the full gate.
 **Before closing a session, run all tests and generate a status report at `reports/status_latest.html`. The status page must clearly separate automated test status, implementation progress, architecture/validation status, documentation drift warnings, and open `CODEREVIEW.md` items.**
 ```bash
 python scripts/status_report.py
@@ -64,8 +65,9 @@ Move resolved items to the Resolved section rather than deleting them.
 
 ```bash
 pip install -e ".[dev]"          # install (editable + test deps)
-pytest                           # run all tests
+pytest -m "not slow"             # fast local loop
 pytest tests/test_retina.py -v   # single test file
+pytest                           # full gate
 ```
 
 ## Architecture

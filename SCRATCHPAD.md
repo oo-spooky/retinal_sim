@@ -197,7 +197,7 @@ at their area-centralis values via `dataclasses.replace`, isolating the geometry
 test from density gradient effects.  Dog happens to pass without this fix because
 its density gradient is shallower.
 
-### Phase 11 test patterns — 75 tests, ~167 s
+### Phase 11 test patterns — 75 tests, ~72 s after cached count/mosaic reuse
 `pytest tests/test_distance.py -v`
 
 ## Codex CLI usage notes (verified 2026-04-02)
@@ -244,11 +244,15 @@ manually integrates against approximate CIE 1931 2° observer functions and
 applies the XYZ→sRGB matrix + gamma.  Threshold is generous (RMSE < 15)
 because the CIE/D65 approximation is not exact.
 
-### Phase 13 test patterns — 41 tests, ~460 s
+### Phase 13 test patterns — 51 tests, ~375 s after cached full-report reuse
 `pytest tests/test_validation_report.py -v`
 
 ---
 
 ## Test patterns
 
-Run all: `pytest` (~60s). Per-phase test files are named `test_{phase}.py` — see PROGRESS.md table.
+Fast local loop: `pytest -m "not slow"`
+
+Per-phase loop: `pytest tests/test_<phase>.py -v`
+
+Full gate: `pytest` (~9 min on the current streamlined suite)

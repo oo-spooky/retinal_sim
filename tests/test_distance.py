@@ -13,7 +13,8 @@ eccentricity-dependent density gradient.
 from __future__ import annotations
 
 import dataclasses
-from typing import Dict, Tuple
+from functools import lru_cache
+from typing import Dict
 
 import numpy as np
 import pytest
@@ -41,6 +42,9 @@ SPECIES = ["human", "dog", "cat"]
 # ---------------------------------------------------------------------------
 def _angular_width_deg(scene_width_m: float, distance_m: float) -> float:
     return float(2.0 * np.degrees(np.arctan(scene_width_m / (2.0 * distance_m))))
+
+
+LARGEST_PATCH_DEG = _angular_width_deg(OBJECT_SIZE_M, DISTANCES_M[0])
 
 
 def _uniform_density_retinal_params(retinal_params):
@@ -91,24 +95,40 @@ def _build_mosaic(species: str, patch_deg: float, seed: int = SEED):
     return mosaic, cfg
 
 
-def _distance_counts(species: str) -> Dict[float, int]:
+@lru_cache(maxsize=None)
+def _largest_patch_mosaic(species: str, seed: int = SEED):
+    """Cached standard mosaic spanning the nearest-distance retinal image."""
+    return _build_mosaic(species, LARGEST_PATCH_DEG, seed=seed)
+
+
+def _compute_distance_counts(species: str, seed: int = SEED) -> Dict[float, int]:
     """Receptor counts at each distance for *species* with uniform density."""
-    largest_patch_deg = _angular_width_deg(OBJECT_SIZE_M, DISTANCES_M[0])
-    mosaic, cfg = _build_mosaic(species, largest_patch_deg)
+    mosaic, cfg = _largest_patch_mosaic(species, seed=seed)
 
     counts: Dict[float, int] = {}
     for distance_m in DISTANCES_M:
-        scene = SceneGeometry(
-            scene_width_m=OBJECT_SIZE_M,
-            scene_height_m=OBJECT_SIZE_M,
-            viewing_distance_m=distance_m,
-        ).compute(IMAGE_SHAPE, cfg.optical)
+        scene = _scene_at_distance(species, distance_m)
         counts[distance_m] = _count_receptors_within_extent(
             mosaic, scene.retinal_width_mm, scene.retinal_height_mm,
         )
     return counts
 
 
+@lru_cache(maxsize=None)
+def _distance_counts(species: str, seed: int = SEED) -> Dict[float, int]:
+    return _compute_distance_counts(species, seed=seed)
+
+
+@lru_cache(maxsize=None)
+def _same_seed_counts_pair(species: str) -> tuple[Dict[float, int], Dict[float, int]]:
+    """Two independently computed same-seed runs for reproducibility checks."""
+    return (
+        _compute_distance_counts(species, seed=SEED),
+        _compute_distance_counts(species, seed=SEED),
+    )
+
+
+@lru_cache(maxsize=None)
 def _scene_at_distance(species: str, distance_m: float):
     """Return SceneDescription for the standard object at *distance_m*."""
     cfg = SpeciesConfig.load(species)
@@ -117,6 +137,30 @@ def _scene_at_distance(species: str, distance_m: float):
         scene_height_m=OBJECT_SIZE_M,
         viewing_distance_m=distance_m,
     ).compute(IMAGE_SHAPE, cfg.optical)
+
+
+@lru_cache(maxsize=None)
+def _seed_counts_at_distance(species: str, distance_m: float = 10.0) -> Dict[int, int]:
+    counts_by_seed: Dict[int, int] = {}
+    scene = _scene_at_distance(species, distance_m)
+    for seed in (0, 1, 2):
+        mosaic, _ = _largest_patch_mosaic(species, seed=seed)
+        counts_by_seed[seed] = _count_receptors_within_extent(
+            mosaic, scene.retinal_width_mm, scene.retinal_height_mm,
+        )
+    return counts_by_seed
+
+
+@lru_cache(maxsize=None)
+def _actual_counts_by_species(distance_m: float) -> Dict[str, int]:
+    actual_counts = {}
+    for species in SPECIES:
+        mosaic, _ = _largest_patch_mosaic(species)
+        scene = _scene_at_distance(species, distance_m)
+        actual_counts[species] = _count_receptors_within_extent(
+            mosaic, scene.retinal_width_mm, scene.retinal_height_mm,
+        )
+    return actual_counts
 
 
 # ===================================================================
@@ -228,6 +272,7 @@ class TestCrossSpeciesRetinalExtent:
                 )
 
 
+@pytest.mark.slow
 class TestDistanceDependentReceptorCount:
     """Core Phase 11 validation: receptor count ∝ 1/d² for uniform density."""
 
@@ -282,6 +327,7 @@ class TestDistanceDependentReceptorCount:
             assert c > 0, f"{species}: zero receptors at d={d}m"
 
 
+@pytest.mark.slow
 class TestReceptorCountAcrossSpecies:
     """Cross-species receptor count relationships at the same distance."""
 
@@ -305,15 +351,7 @@ class TestReceptorCountAcrossSpecies:
         # Sort by expected count — actual mosaic counts should follow the same ordering
         sorted_species = sorted(SPECIES, key=lambda s: results[s]["expected"])
 
-        # Build actual counts
-        largest_patch_deg = _angular_width_deg(OBJECT_SIZE_M, DISTANCES_M[0])
-        actual_counts = {}
-        for species in SPECIES:
-            mosaic, cfg = _build_mosaic(species, largest_patch_deg)
-            scene = _scene_at_distance(species, distance_m)
-            actual_counts[species] = _count_receptors_within_extent(
-                mosaic, scene.retinal_width_mm, scene.retinal_height_mm,
-            )
+        actual_counts = _actual_counts_by_species(distance_m)
 
         sorted_actual = [actual_counts[s] for s in sorted_species]
         for i in range(len(sorted_actual) - 1):
@@ -323,14 +361,14 @@ class TestReceptorCountAcrossSpecies:
             )
 
 
+@pytest.mark.slow
 class TestMosaicCoverageAtDistance:
     """Validate that mosaics adequately cover the retinal image area."""
 
     @pytest.mark.parametrize("species", SPECIES)
     def test_mosaic_covers_nearest_distance_fully(self, species):
         """At 1m, the mosaic should fully cover the retinal image (patch >= image)."""
-        largest_patch_deg = _angular_width_deg(OBJECT_SIZE_M, DISTANCES_M[0])
-        mosaic, cfg = _build_mosaic(species, largest_patch_deg)
+        mosaic, cfg = _largest_patch_mosaic(species)
         scene = _scene_at_distance(species, 1.0)
 
         # The mosaic patch should be at least as wide as the retinal image
@@ -350,8 +388,7 @@ class TestMosaicCoverageAtDistance:
     @pytest.mark.parametrize("species", SPECIES)
     def test_actual_density_near_expected(self, species):
         """Receptor density inside the retinal image approximates the target density."""
-        largest_patch_deg = _angular_width_deg(OBJECT_SIZE_M, DISTANCES_M[0])
-        mosaic, cfg = _build_mosaic(species, largest_patch_deg)
+        mosaic, cfg = _largest_patch_mosaic(species)
 
         # Use 10m distance — large enough count for stable measurement,
         # small enough to be well within the mosaic
@@ -373,27 +410,20 @@ class TestMosaicCoverageAtDistance:
         )
 
 
+@pytest.mark.slow
 class TestSeedStability:
     """Verify that results are reproducible and stable across seeds."""
 
     @pytest.mark.parametrize("species", SPECIES)
     def test_same_seed_same_counts(self, species):
         """Same seed should give identical counts."""
-        c1 = _distance_counts(species)
-        c2 = _distance_counts(species)
+        c1, c2 = _same_seed_counts_pair(species)
         assert c1 == c2, f"{species}: different counts with same seed"
 
     @pytest.mark.parametrize("species", SPECIES)
     def test_different_seeds_similar_counts(self, species):
         """Different seeds should give similar counts (within stochastic noise)."""
-        largest_patch_deg = _angular_width_deg(OBJECT_SIZE_M, DISTANCES_M[0])
-        counts_by_seed = {}
-        for seed in [0, 1, 2]:
-            mosaic, cfg = _build_mosaic(species, largest_patch_deg, seed=seed)
-            scene = _scene_at_distance(species, 10.0)
-            counts_by_seed[seed] = _count_receptors_within_extent(
-                mosaic, scene.retinal_width_mm, scene.retinal_height_mm,
-            )
+        counts_by_seed = _seed_counts_at_distance(species, 10.0)
 
         vals = list(counts_by_seed.values())
         mean_c = np.mean(vals)
