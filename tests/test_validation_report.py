@@ -187,6 +187,12 @@ class TestValidationResult:
         assert r.code_refs == []
         assert r.assumptions == []
         assert r.limitations == []
+        assert r.validation_category == ""
+        assert r.claim_support_level == ""
+        assert r.external_reference_summary == ""
+        assert r.external_reference_table == []
+        assert r.evidence_basis == ""
+        assert r.claim_scope_note == ""
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +209,7 @@ class TestValidationReport:
         s = report.summary()
         assert "PASSED" in s
         assert "1/1" in s
+        assert "stated scopes and assumptions" in s
 
     def test_has_fail_summary(self):
         r_pass = ValidationResult("A", True, 0, 0, 0, "")
@@ -211,6 +218,7 @@ class TestValidationReport:
         s = report.summary()
         assert "FAIL" in s
         assert "1/2" in s
+        assert "stated scopes and assumptions" in s
 
     def test_results_list(self, sample_result: ValidationResult):
         report = ValidationReport([sample_result])
@@ -334,6 +342,15 @@ class TestValidationSuiteConstruction:
         assert "architecture_coverage" in report.metadata
         assert len(report.metadata["architecture_coverage"]) == 19
         assert report.metadata["stage_counts"]["optical"] == 6
+        assert report.metadata["validation_category_counts"]["analytic correctness"] == 3
+        assert report.metadata["validation_category_counts"]["external empirical alignment"] >= 1
+        assert report.metadata["claim_support_level_counts"]["strong"] >= 1
+        assert "external_reference_tables" in report.metadata
+        assert "species_acuity_ranges" in report.metadata["external_reference_tables"]
+        assert "density_derived_nyquist_limits" in report.metadata["external_reference_tables"]
+        assert "optical_geometry_expectations" in report.metadata["external_reference_tables"]
+        assert "wavelength_transmission_assumptions" in report.metadata["external_reference_tables"]
+        assert "claim_calibration_notes" in report.metadata
 
 
 # ---------------------------------------------------------------------------
@@ -354,6 +371,10 @@ class TestValidationSuiteTests:
         assert r.pass_criterion
         assert r.assumptions
         assert r.limitations
+        assert r.validation_category == "analytic correctness"
+        assert r.claim_support_level == "strong"
+        assert r.evidence_basis
+        assert r.claim_scope_note
 
     def test_retinal_scaling(self, suite: ValidationSuite):
         r = suite.test_retinal_scaling_across_species()
@@ -439,12 +460,20 @@ class TestValidationSuiteTests:
         assert r.passed is True
         assert r.figure is not None
         assert "source=" in r.details
+        assert r.validation_category == "external empirical alignment"
+        assert r.claim_support_level == "moderate"
+        assert r.external_reference_summary
+        assert r.external_reference_table
 
     def test_snellen_acuity(self, suite: ValidationSuite):
         r = suite.test_snellen_acuity()
         assert isinstance(r, ValidationResult)
         assert r.test_name == "Snellen Acuity"
         assert r.figure is not None
+        assert r.validation_category == "external empirical alignment"
+        assert r.claim_support_level == "moderate"
+        assert r.external_reference_summary
+        assert any(row["reference_label"] == "human" for row in r.external_reference_table)
 
     def test_dichromat_confusion(self, suite: ValidationSuite):
         r = suite.test_dichromat_confusion()
@@ -457,6 +486,10 @@ class TestValidationSuiteTests:
         assert isinstance(r, ValidationResult)
         assert r.test_name == "Nyquist Sampling"
         assert r.figure is not None
+        assert r.validation_category == "external empirical alignment"
+        assert r.claim_support_level == "strong"
+        assert r.external_reference_summary
+        assert any(row["reference_label"] == "dog" for row in r.external_reference_table)
 
     def test_receptor_count(self, suite: ValidationSuite):
         r = suite.test_receptor_count()
@@ -524,18 +557,39 @@ class TestHTMLOutput:
         assert "Assumptions" in content
         assert "Limitations" in content
         assert "Code references" in content
+        assert "Validation category" in content
+        assert "Claim support level" in content
+        assert "Evidence basis" in content
+        assert "Claim scope note" in content
         assert "Scene input mode" in content
         assert "RGB-inferred" in content
         assert "Retinal Physiology Assumptions" in content
         assert "Retinal Front-End Only." in content
         assert "Naka-Rushton confidence" in content
         assert "Visual streak status" in content
+        assert "analytic correctness" in content
+        assert "model self-consistency" in content
+        assert "external empirical alignment" in content
+        assert "External Reference Evidence" in content
+        assert "Reference evidence table" in content
+
+    def test_report_is_claim_calibrated(self, full_report_html: str):
+        content = full_report_html
+        assert "not blanket claims of whole-simulator physiological or perceptual validation" in content
+        assert "A passing report supports only the implemented checks and their declared claim scopes." in content
+        assert "full physiological or perceptual validation" in content
 
     def test_report_json_contains_result_metadata(self, full_report_json: str):
         content = full_report_json
         assert '"architecture_ref"' in content
         assert '"code_refs"' in content
         assert '"pass_criterion"' in content
+        assert '"validation_category"' in content
+        assert '"claim_support_level"' in content
+        assert '"external_reference_summary"' in content
+        assert '"external_reference_table"' in content
+        assert '"evidence_basis"' in content
+        assert '"claim_scope_note"' in content
         assert '"scene_input_mode": "reflectance_under_d65"' in content
         assert '"retinal_physiology"' in content
         assert '"retinal_front_end_only"' in content
@@ -543,3 +597,6 @@ class TestHTMLOutput:
         assert '"Cat Slit Anisotropy"' in content
         assert "pupil_area_mm2" in content
         assert "anisotropy_active" in content
+        assert '"validation_category_counts"' in content
+        assert '"claim_support_level_counts"' in content
+        assert '"external_reference_tables"' in content

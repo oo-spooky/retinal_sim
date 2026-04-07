@@ -1,0 +1,20 @@
+human:
+  target_range_cpd: [45.0, 90.0]
+  nominal_cpd: 60.0
+  density_basis: "Human foveal cone packing from the project density model, compared against architecture target values."
+  source: "retinal_sim_architecture.md §11c; project density-model expectation for human fovea."
+  claim_note: "Reference band represents literature-aligned sampling expectations, not a direct behavioral acuity measurement."
+
+dog:
+  target_range_cpd: [8.0, 20.0]
+  nominal_cpd: 12.0
+  density_basis: "Dog area-centralis cone density interpreted through the hexagonal spacing approximation."
+  source: "retinal_sim_architecture.md §11c; dog area-centralis target range."
+  claim_note: "Used as an externally grounded range for density-derived retinal sampling limits."
+
+cat:
+  target_range_cpd: [8.0, 14.0]
+  nominal_cpd: 9.0
+  density_basis: "Cat area-centralis cone density interpreted through the hexagonal spacing approximation."
+  source: "retinal_sim_architecture.md §11c; cat area-centralis target range."
+  claim_note: "Reference band is approximate and should not be overread as full perceptual validation."

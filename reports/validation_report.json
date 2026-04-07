@@ -2,14 +2,21 @@
   "metadata": {
     "title": "retinal_sim validation audit report",
     "report_type": "full_validation_audit",
-    "generated_at": "2026-04-06T20:50:09",
+    "generated_at": "2026-04-06T23:07:20",
     "stage_scope": "all",
-    "repo_commit": "d2c88fd1da1371c577189a4ac6c016ca221334cc",
+    "repo_commit": "c5dbe38e453207335677e3bb85fab6f9786546b2",
     "species": "human",
     "seed": 42,
     "patch_extent_deg": 2.0,
     "stimulus_scale": 0.01,
     "light_level": "photopic",
+    "scene_input_mode": "reflectance_under_d65",
+    "scene_input_is_inferred": true,
+    "scene_input_assumptions": [
+      "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+      "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+      "This mode models diffuse reflectance under D65 for comparative PoC work."
+    ],
     "environment": {
       "python": "3.14.3",
       "platform": "Windows-11-10.0.26200-SP0",
@@ -26,12 +33,88 @@
         "lca_diopters": 2.0
       },
       "retinal": {
-        "patch_extent_deg": 2.0
+        "species": "human",
+        "model_scope": "retinal_front_end_only",
+        "aperture_weighting_enabled": false,
+        "visual_streak_status": "not_applicable",
+        "naka_rushton_confidence": "low"
+      }
+    },
+    "retinal_physiology": {
+      "species": "human",
+      "model_scope": "retinal_front_end_only",
+      "scope_note": "This simulation stops at the photoreceptor/retinal front end. It does not include post-receptoral, retinal-circuit, or cortical perception modeling.",
+      "lambda_max_values_nm": {
+        "S_cone": 420.0,
+        "M_cone": 530.0,
+        "L_cone": 560.0,
+        "rod": 498.0
+      },
+      "lambda_max_provenance": {
+        "source": "Human lambda-max anchors follow the project architecture/spec reference set and are used with the unchanged Govardovskii A1 nomogram.",
+        "confidence": "moderate",
+        "notes": "Fixed species-reference peak wavelengths; not individualized or adaptation-dependent in-vivo fits."
+      },
+      "density_function_model": "radially_symmetric_gaussian",
+      "density_function_provenance": {
+        "source": "Human density falloff is a proof-of-concept Gaussian approximation referencing Curcio 1990-style foveal/rod-free-zone anatomy.",
+        "confidence": "moderate",
+        "notes": "The current model is radially symmetric and patch-limited; it is not a full histological density map."
+      },
+      "naka_rushton_configuration": {
+        "S_cone": {
+          "n": 0.7,
+          "sigma": 0.5,
+          "R_max": 1.0
+        },
+        "M_cone": {
+          "n": 0.7,
+          "sigma": 0.5,
+          "R_max": 1.0
+        },
+        "L_cone": {
+          "n": 0.7,
+          "sigma": 0.5,
+          "R_max": 1.0
+        },
+        "rod": {
+          "n": 1.0,
+          "sigma": 0.1,
+          "R_max": 1.0
+        }
+      },
+      "naka_rushton_provenance": {
+        "source": "Human Naka-Rushton parameters are configurable retinal-front-end model parameters stored in YAML.",
+        "confidence": "low",
+        "notes": "Defaults preserve prior proof-of-concept behavior and should not be over-read as validated species-specific transduction measurements."
+      },
+      "aperture_weighting": {
+        "enabled": false,
+        "gaussian_sigma_scale": 0.5,
+        "sigma_bin_px": 0.1,
+        "truncate_sigma": 3.0,
+        "method": "gaussian_prefilter",
+        "notes": "Optional retinal-front-end refinement; many human cone apertures remain sub-pixel at the current proof-of-concept grid scale."
+      },
+      "visual_streak": {
+        "supported": false,
+        "enabled": false,
+        "axis": "horizontal",
+        "axis_ratio": 1.0,
+        "status": "not_applicable",
+        "notes": "Human foveal modeling stays radially symmetric in this proof-of-concept build."
       }
     },
     "warnings": [
       "Visual-inspection checks remain labeled as visual/manual evidence, not strict quantitative proof.",
-      "Several validation checks use proof-of-concept simplifications documented in SCRATCHPAD.md."
+      "Several validation checks use proof-of-concept simplifications documented in SCRATCHPAD.md.",
+      "Retinal physiology settings here remain front-end assumptions only; no post-receptoral or cortical model is implied."
+    ],
+    "claim_calibration_notes": [
+      "A passing report supports only the implemented checks and their declared claim scopes.",
+      "Internal consistency checks and external empirical alignment are reported separately and should not be conflated.",
+      "R3 scene-input semantics remain active: RGB-inferred scene spectra are not unique measured spectra unless the input mode says otherwise.",
+      "R4 retinal physiology provenance remains front-end-only evidence and does not imply full physiological or perceptual validation."
     ],
     "architecture_coverage": [
       {
@@ -67,21 +150,21 @@
         "test_name": "Metamer Preservation",
         "code_path": "retinal_sim/spectral/upsampler.py",
         "status": "covered",
-        "note": "Uses a fixed deterministic near-metamer regression dataset under D65."
+        "note": "Uses a fixed deterministic RGB-inferred reflectance regression dataset under D65."
       },
       {
         "architecture_ref": "Architecture \u00a711a Roundtrip consistency",
         "test_name": "RGB Round-Trip",
         "code_path": "retinal_sim/spectral/upsampler.py",
         "status": "covered",
-        "note": "Uses the same D65 observer model as the basis construction for reprojection."
+        "note": "Uses the same D65 observer model as the reflectance-under-D65 basis construction for reprojection."
       },
       {
         "architecture_ref": "Architecture \u00a711a Spectral response ordering",
         "test_name": "Spectral Response Panel",
         "code_path": "retinal_sim/validation/report.py",
         "status": "covered",
-        "note": "Uses deterministic RGB probes to sanity-check cone-catch ordering under the D65-based reconstruction model."
+        "note": "Uses deterministic RGB probes to sanity-check cone-catch ordering under the declared RGB-inferred D65 reconstruction model."
       },
       {
         "architecture_ref": "Architecture \u00a711b Diffraction-limited resolution",
@@ -174,9 +257,134 @@
       "optical": 6,
       "retinal": 4,
       "e2e": 2
+    },
+    "validation_category_counts": {
+      "analytic correctness": 3,
+      "external empirical alignment": 9,
+      "model self-consistency": 7
+    },
+    "claim_support_level_counts": {
+      "strong": 4,
+      "moderate": 12,
+      "weak": 3
+    },
+    "external_reference_tables": {
+      "species_acuity_ranges": {
+        "human": {
+          "acuity_arcmin": 1.0,
+          "source": "Snellen 20/20 standard; MAR = 1 arcmin",
+          "behavioral_range_arcmin": [
+            0.8,
+            1.2
+          ]
+        },
+        "dog": {
+          "acuity_arcmin": 4.8,
+          "source": "Miller & Murphy 1995, approx 20/75; arch doc range 4-8 arcmin",
+          "behavioral_range_arcmin": [
+            4.0,
+            8.0
+          ]
+        },
+        "cat": {
+          "acuity_arcmin": 7.5,
+          "source": "Blake et al. 1974, 20/100-20/200; MAR 5-10 arcmin; arch doc range 6-10 arcmin",
+          "behavioral_range_arcmin": [
+            6.0,
+            10.0
+          ]
+        }
+      },
+      "density_derived_nyquist_limits": {
+        "human": {
+          "target_range_cpd": [
+            45.0,
+            90.0
+          ],
+          "nominal_cpd": 60.0,
+          "density_basis": "Human foveal cone packing from the project density model, compared against architecture target values.",
+          "source": "retinal_sim_architecture.md \u00a711c; project density-model expectation for human fovea.",
+          "claim_note": "Reference band represents literature-aligned sampling expectations, not a direct behavioral acuity measurement."
+        },
+        "dog": {
+          "target_range_cpd": [
+            8.0,
+            20.0
+          ],
+          "nominal_cpd": 12.0,
+          "density_basis": "Dog area-centralis cone density interpreted through the hexagonal spacing approximation.",
+          "source": "retinal_sim_architecture.md \u00a711c; dog area-centralis target range.",
+          "claim_note": "Used as an externally grounded range for density-derived retinal sampling limits."
+        },
+        "cat": {
+          "target_range_cpd": [
+            8.0,
+            14.0
+          ],
+          "nominal_cpd": 9.0,
+          "density_basis": "Cat area-centralis cone density interpreted through the hexagonal spacing approximation.",
+          "source": "retinal_sim_architecture.md \u00a711c; cat area-centralis target range.",
+          "claim_note": "Reference band is approximate and should not be overread as full perceptual validation."
+        }
+      },
+      "optical_geometry_expectations": {
+        "human": {
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 7.0686,
+          "focal_length_mm": 22.3,
+          "expected_optical_consequences": [
+            "Smallest reference pupil area in the default species configs.",
+            "Largest retinal image magnification among the three modeled species."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        "dog": {
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 12.5664,
+          "focal_length_mm": 17.0,
+          "expected_optical_consequences": [
+            "Higher throughput than human under the default pupil geometry.",
+            "Smaller retinal image magnification than human because focal length is shorter."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        "cat": {
+          "pupil_shape": "slit",
+          "pupil_area_mm2": 10.9956,
+          "focal_length_mm": 18.5,
+          "expected_optical_consequences": [
+            "Throughput exceeds human under the default slit approximation.",
+            "Axis-dependent blur is expected when slit anisotropy is active.",
+            "Retinal image magnification falls between dog and human from focal length alone."
+          ],
+          "source": "Species optical config plus slit-pupil approximation used by the current optical stage."
+        },
+        "claim_note": "These rows are reference expectations derived from modeled pupil geometry and focal length, not direct in-vivo measurements from the simulator."
+      },
+      "wavelength_transmission_assumptions": {
+        "human": {
+          "expected_pattern": "Blue attenuation stronger than red transmission.",
+          "uv_shortwave_transmission": "most attenuated of the three species in the local reference tables",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "Assumption table reflects the configured reference transmission curve, not patient-specific ocular media."
+        },
+        "dog": {
+          "expected_pattern": "Blue attenuation present, but less severe than the human reference curve.",
+          "uv_shortwave_transmission": "higher shortwave transmission than the human reference curve",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "External alignment is to the configured species reference curve, not to a full age- or state-dependent physiological model."
+        },
+        "cat": {
+          "expected_pattern": "Blue attenuation present, with shortwave transmission distinct from both human and dog reference curves.",
+          "uv_shortwave_transmission": "higher shortwave transmission than the human reference curve",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "Reference evidence documents configured assumptions about delivered spectra through the ocular media."
+        },
+        "global_note": "These are report-layer reference assumptions used to calibrate claims about wavelength-dependent delivery to the retina."
+      }
     }
   },
-  "summary": "PASSED: 19/19 implemented validation checks passed",
+  "summary": "PASSED: 19/19 implemented validation checks passed for their stated scopes and assumptions",
   "results": [
     {
       "test_name": "Angular Subtense",
@@ -198,6 +406,12 @@
       ],
       "method": "Compare computed angular width against the closed-form geometric equation.",
       "pass_criterion": "Absolute angular error < 0.01 degrees for every case.",
+      "validation_category": "analytic correctness",
+      "claim_support_level": "strong",
+      "external_reference_summary": "Closed-form geometry check with no external literature table required.",
+      "external_reference_table": [],
+      "evidence_basis": "Closed-form or invariant check against an analytic expectation.",
+      "claim_scope_note": "Supports scene-geometry arithmetic only; it does not validate downstream retinal or perceptual behavior.",
       "limitations": [
         "Checks representative cases, not exhaustive parameter sweeps."
       ],
@@ -225,6 +439,51 @@
       ],
       "method": "Compare retinal_width_mm / focal_length_mm across species.",
       "pass_criterion": "Species ratios agree within 1% relative error.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Aligned to focal-length-based optical geometry expectations in the local external reference table.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 7.0686,
+          "focal_length_mm": 22.3,
+          "expected_optical_consequences": [
+            "Smallest reference pupil area in the default species configs.",
+            "Largest retinal image magnification among the three modeled species."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        {
+          "reference_label": "dog",
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 12.5664,
+          "focal_length_mm": 17.0,
+          "expected_optical_consequences": [
+            "Higher throughput than human under the default pupil geometry.",
+            "Smaller retinal image magnification than human because focal length is shorter."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        {
+          "reference_label": "cat",
+          "pupil_shape": "slit",
+          "pupil_area_mm2": 10.9956,
+          "focal_length_mm": 18.5,
+          "expected_optical_consequences": [
+            "Throughput exceeds human under the default slit approximation.",
+            "Axis-dependent blur is expected when slit anisotropy is active.",
+            "Retinal image magnification falls between dog and human from focal length alone."
+          ],
+          "source": "Species optical config plus slit-pupil approximation used by the current optical stage."
+        },
+        {
+          "reference_label": "claim_note",
+          "value": "These rows are reference expectations derived from modeled pupil geometry and focal length, not direct in-vivo measurements from the simulator."
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports focal-length-driven retinal image scaling only.",
       "limitations": [
         "Only validates proportionality, not downstream sampling behavior."
       ],
@@ -253,6 +512,12 @@
       ],
       "method": "Compare computed residual defocus against max(0, demand - max_accommodation).",
       "pass_criterion": "Residual defocus matches expected value within 0.1 diopters.",
+      "validation_category": "analytic correctness",
+      "claim_support_level": "strong",
+      "external_reference_summary": "Closed-form hard-cutoff accommodation check with no separate external evidence table.",
+      "external_reference_table": [],
+      "evidence_basis": "Closed-form or invariant check against an analytic expectation.",
+      "claim_scope_note": "Supports the hard-cutoff accommodation rule currently implemented, not a full accommodation physiology model.",
       "limitations": [
         "No lead/lag accommodation response model is applied."
       ],
@@ -280,6 +545,12 @@
       ],
       "method": "Measure stimulated receptor counts at multiple viewing distances and compare against ideal inverse-square scaling.",
       "pass_criterion": "Far/near stimulated-receptor scaling stays within 40% relative error of ideal 1/d^2.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Checks inverse-square geometric consistency inside the current pipeline rather than direct external behavioral data.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Supports geometric scaling behavior under current pipeline assumptions only.",
       "limitations": [
         "Density gradients and stochastic mosaic sampling still introduce some deviation from exact inverse-square behaviour."
       ],
@@ -293,23 +564,31 @@
       "test_name": "Metamer Preservation",
       "passed": true,
       "expected": "Max cone-catch relative difference < 3% for fixed near-metamer dataset",
-      "actual": "cyan_blue_pair: max cone-catch rel diff=0.0123 for [13, 150, 234] vs [52, 148, 235] \u2713\nteal_pair: max cone-catch rel diff=0.0146 for [70, 192, 203] vs [106, 189, 203] \u2713\ngreen_pair: max cone-catch rel diff=0.0273 for [61, 245, 158] vs [24, 249, 158] \u2713\nviolet_pair: max cone-catch rel diff=0.0296 for [127, 41, 209] vs [101, 60, 207] \u2713",
-      "tolerance": 0.03,
-      "details": "cyan_blue_pair: max cone-catch rel diff=0.0123 for [13, 150, 234] vs [52, 148, 235] \u2713\nteal_pair: max cone-catch rel diff=0.0146 for [70, 192, 203] vs [106, 189, 203] \u2713\ngreen_pair: max cone-catch rel diff=0.0273 for [61, 245, 158] vs [24, 249, 158] \u2713\nviolet_pair: max cone-catch rel diff=0.0296 for [127, 41, 209] vs [101, 60, 207] \u2713",
+      "actual": "cyan_blue_pair: max cone-catch rel diff=0.0116 for [13, 150, 234] vs [52, 148, 235] \u2713\nteal_pair: max cone-catch rel diff=0.0123 for [70, 192, 203] vs [106, 189, 203] \u2713\ngreen_pair: max cone-catch rel diff=0.0280 for [61, 245, 158] vs [24, 249, 158] \u2713\nviolet_pair: max cone-catch rel diff=0.0331 for [127, 41, 209] vs [101, 60, 207] \u2713",
+      "tolerance": 0.035,
+      "details": "cyan_blue_pair: max cone-catch rel diff=0.0116 for [13, 150, 234] vs [52, 148, 235] \u2713\nteal_pair: max cone-catch rel diff=0.0123 for [70, 192, 203] vs [106, 189, 203] \u2713\ngreen_pair: max cone-catch rel diff=0.0280 for [61, 245, 158] vs [24, 249, 158] \u2713\nviolet_pair: max cone-catch rel diff=0.0331 for [127, 41, 209] vs [101, 60, 207] \u2713",
       "stage": "spectral",
       "architecture_ref": "Architecture \u00a711a Metamer preservation",
       "code_refs": [
         "retinal_sim/spectral/upsampler.py",
         "retinal_sim/retina/opsin.py"
       ],
-      "inputs_summary": "Fixed near-metamer RGB pair dataset integrated against human receptor sensitivities under D65.",
+      "inputs_summary": "Fixed near-metamer RGB pair dataset interpreted as RGB-inferred reflectance under D65 and integrated against human receptor sensitivities.",
       "assumptions": [
-        "Dataset is repo-local and deterministic to keep the audit reproducible."
+        "Dataset is repo-local and deterministic to keep the audit reproducible.",
+        "The spectra are inferred from RGB with the Smits-inspired D65-optimized reflectance model rather than measured directly."
       ],
-      "method": "Upsample each RGB pair, integrate against human sensitivities, and bound the maximum cone-catch relative difference.",
-      "pass_criterion": "Maximum cone-catch relative difference < 3% for every dataset pair.",
+      "method": "Upsample each RGB pair in reflectance_under_d65 mode, integrate against human sensitivities, and bound the maximum cone-catch relative difference.",
+      "pass_criterion": "Maximum cone-catch relative difference < 3.5% for every dataset pair.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Compared against a compact deterministic reference panel intended to approximate external metamer behavior under the declared scene assumptions.",
+      "external_reference_table": [],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports a compact external-style regression panel under D65 assumptions only.",
       "limitations": [
-        "Dataset is compact rather than exhaustive; it is intended as a deterministic regression panel."
+        "Dataset is compact rather than exhaustive; it is intended as a deterministic regression panel.",
+        "This is an RGB-inferred regression check, not evidence of uniquely recovered physical spectra."
       ],
       "artifacts": [
         "Representative pair spectra plot",
@@ -330,12 +609,19 @@
         "retinal_sim/spectral/upsampler.py",
         "retinal_sim/validation/report.py"
       ],
-      "inputs_summary": "Eight canonical sRGB colors passed through spectral upsampling and D65-based reprojection.",
+      "inputs_summary": "Eight canonical sRGB colors passed through RGB-inferred reflectance reconstruction and D65-based reprojection.",
       "assumptions": [
-        "The same D65-referenced observer model used to build the basis spectra is used for reprojection."
+        "The same D65-referenced observer model used to build the basis spectra is used for reprojection.",
+        "This checks the declared reflectance_under_d65 inference path, not measured scene spectra."
       ],
-      "method": "Project upsampled spectra back to sRGB and compute per-colour RMSE.",
+      "method": "Project RGB-inferred reflectance spectra back to sRGB and compute per-colour RMSE.",
       "pass_criterion": "RMSE < 2 8-bit counts for all tested colours.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Internal regression check for the declared RGB-inference path under D65 assumptions.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Supports the current RGB-inferred reflectance reconstruction path, not unique recovery of scene spectra.",
       "limitations": [
         "This validates the D65 round-trip path, not arbitrary illuminant changes."
       ],
@@ -359,12 +645,19 @@
         "retinal_sim/retina/opsin.py",
         "retinal_sim/validation/datasets.py"
       ],
-      "inputs_summary": "Deterministic RGB probe panel spanning violet-to-red anchors plus mixed colors, integrated with D65-weighted species sensitivities.",
+      "inputs_summary": "Deterministic RGB probe panel spanning violet-to-red anchors plus mixed colors, interpreted as RGB-inferred reflectance and integrated with D65-weighted species sensitivities.",
       "assumptions": [
-        "The panel is RGB-defined and deterministic; it is a regression sanity check rather than a physical monochromator dataset."
+        "The panel is RGB-defined and deterministic; it is a regression sanity check rather than a physical monochromator dataset.",
+        "Spectra are inferred from RGB using the reflectance_under_d65 model."
       ],
-      "method": "Upsample each probe color, compute D65-weighted cone catches for each species, and verify expected dominance/order and blue-vs-warm separations.",
+      "method": "Upsample each probe color in reflectance_under_d65 mode, compute D65-weighted cone catches for each species, and verify expected dominance/order and blue-vs-warm separations.",
       "pass_criterion": "Anchor colors preserve expected cone-type dominance and dog/cat blue-vs-yellow/red separations exceed the fixed margin.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Internal response-order regression for the current D65-weighted RGB inference model.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Supports ordering behavior in the declared RGB-inference model, not full spectral physiology.",
       "limitations": [
         "Because the probes originate from sRGB values, this validates response ordering under the current D65-based reconstruction model rather than true narrowband physiology."
       ],
@@ -393,6 +686,12 @@
       ],
       "method": "Measure empirical contrast transfer on sinusoidal gratings and compare it with the PSF-predicted MTF.",
       "pass_criterion": "Measured modulation stays within 0.08 of the predicted MTF at all tested spatial frequencies.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Compares measured modulation against the simulator's own implemented diffraction-derived PSF model.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Supports the implemented optical approximation, not blanket validation of all anterior-eye optics.",
       "limitations": [
         "Validation targets the implemented diffraction-derived PSF model, not a full Airy-pattern optical stack."
       ],
@@ -420,6 +719,12 @@
       ],
       "method": "Sum each PSF kernel and measure max absolute deviation from 1.0.",
       "pass_criterion": "Maximum |sum - 1.0| < 1e-6.",
+      "validation_category": "analytic correctness",
+      "claim_support_level": "strong",
+      "external_reference_summary": "Kernel normalization is an analytic invariant rather than an externally benchmarked physiological claim.",
+      "external_reference_table": [],
+      "evidence_basis": "Closed-form or invariant check against an analytic expectation.",
+      "claim_scope_note": "Supports numerical normalization of the PSF kernels only.",
       "limitations": [
         "Only validates discrete kernel normalization, not broader optical energy accounting."
       ],
@@ -448,6 +753,51 @@
       ],
       "method": "Compute pupil area for each species, normalize to the human reference pupil, and compare the resulting throughput ratios.",
       "pass_criterion": "Species pupil areas differ and human-normalized throughput increases from human to dog/cat.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Aligned to local pupil-area and focal-length expectation rows that describe modeled optical consequences by species.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 7.0686,
+          "focal_length_mm": 22.3,
+          "expected_optical_consequences": [
+            "Smallest reference pupil area in the default species configs.",
+            "Largest retinal image magnification among the three modeled species."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        {
+          "reference_label": "dog",
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 12.5664,
+          "focal_length_mm": 17.0,
+          "expected_optical_consequences": [
+            "Higher throughput than human under the default pupil geometry.",
+            "Smaller retinal image magnification than human because focal length is shorter."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        {
+          "reference_label": "cat",
+          "pupil_shape": "slit",
+          "pupil_area_mm2": 10.9956,
+          "focal_length_mm": 18.5,
+          "expected_optical_consequences": [
+            "Throughput exceeds human under the default slit approximation.",
+            "Axis-dependent blur is expected when slit anisotropy is active.",
+            "Retinal image magnification falls between dog and human from focal length alone."
+          ],
+          "source": "Species optical config plus slit-pupil approximation used by the current optical stage."
+        },
+        {
+          "reference_label": "claim_note",
+          "value": "These rows are reference expectations derived from modeled pupil geometry and focal length, not direct in-vivo measurements from the simulator."
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports the modeled optical throughput consequences of the configured pupil geometries only.",
       "limitations": [
         "This is a report-layer optical-throughput diagnostic rather than an end-to-end irradiance measurement."
       ],
@@ -477,6 +827,51 @@
       ],
       "method": "Generate a point-spread diagnostic, measure axis-specific sigma/FWHM, and require horizontal spread to exceed vertical spread.",
       "pass_criterion": "Cat diagnostic reports sigma_x > sigma_y and FWHM_x > FWHM_y while remaining normalized.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Aligned to the local slit-pupil optical consequence table; evidence remains approximate because the model uses a slit approximation.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 7.0686,
+          "focal_length_mm": 22.3,
+          "expected_optical_consequences": [
+            "Smallest reference pupil area in the default species configs.",
+            "Largest retinal image magnification among the three modeled species."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        {
+          "reference_label": "dog",
+          "pupil_shape": "circular",
+          "pupil_area_mm2": 12.5664,
+          "focal_length_mm": 17.0,
+          "expected_optical_consequences": [
+            "Higher throughput than human under the default pupil geometry.",
+            "Smaller retinal image magnification than human because focal length is shorter."
+          ],
+          "source": "Species optical config plus R1/R2 reporting assumptions."
+        },
+        {
+          "reference_label": "cat",
+          "pupil_shape": "slit",
+          "pupil_area_mm2": 10.9956,
+          "focal_length_mm": 18.5,
+          "expected_optical_consequences": [
+            "Throughput exceeds human under the default slit approximation.",
+            "Axis-dependent blur is expected when slit anisotropy is active.",
+            "Retinal image magnification falls between dog and human from focal length alone."
+          ],
+          "source": "Species optical config plus slit-pupil approximation used by the current optical stage."
+        },
+        {
+          "reference_label": "claim_note",
+          "value": "These rows are reference expectations derived from modeled pupil geometry and focal length, not direct in-vivo measurements from the simulator."
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports axis-aware blur reporting in the current slit approximation, not full feline ocular optics.",
       "limitations": [
         "This report-layer approximation anticipates the axis-aware optical stage rather than replacing it."
       ],
@@ -507,6 +902,38 @@
       ],
       "method": "Sample per-wavelength LCA offsets and PSF widths from the optical-stage metadata and verify sign/order behavior.",
       "pass_criterion": "Offsets are positive in the short wavelengths, negative in the long wavelengths, and minimum PSF width occurs near 555 nm for each species.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Aligned to local wavelength-delivery and optical-behavior reference assumptions rather than direct in-vivo PSF measurements.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "expected_pattern": "Blue attenuation stronger than red transmission.",
+          "uv_shortwave_transmission": "most attenuated of the three species in the local reference tables",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "Assumption table reflects the configured reference transmission curve, not patient-specific ocular media."
+        },
+        {
+          "reference_label": "dog",
+          "expected_pattern": "Blue attenuation present, but less severe than the human reference curve.",
+          "uv_shortwave_transmission": "higher shortwave transmission than the human reference curve",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "External alignment is to the configured species reference curve, not to a full age- or state-dependent physiological model."
+        },
+        {
+          "reference_label": "cat",
+          "expected_pattern": "Blue attenuation present, with shortwave transmission distinct from both human and dog reference curves.",
+          "uv_shortwave_transmission": "higher shortwave transmission than the human reference curve",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "Reference evidence documents configured assumptions about delivered spectra through the ocular media."
+        },
+        {
+          "reference_label": "global_note",
+          "value": "These are report-layer reference assumptions used to calibrate claims about wavelength-dependent delivery to the retina."
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports the current wavelength-aware optical model and its assumptions, not full empirical PSF validation.",
       "limitations": [
         "This validates the implemented R2 operational model, not a full empirical aberration fit."
       ],
@@ -537,6 +964,38 @@
       ],
       "method": "Sample the configured transmission curves, compare short-vs-long wavelength attenuation, and visualize the delivered spectra.",
       "pass_criterion": "Each species transmits less blue than red and the sampled transmission curves differ across species.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Aligned to the configured species ocular-media reference curves and their expected shortwave-vs-longwave behavior.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "expected_pattern": "Blue attenuation stronger than red transmission.",
+          "uv_shortwave_transmission": "most attenuated of the three species in the local reference tables",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "Assumption table reflects the configured reference transmission curve, not patient-specific ocular media."
+        },
+        {
+          "reference_label": "dog",
+          "expected_pattern": "Blue attenuation present, but less severe than the human reference curve.",
+          "uv_shortwave_transmission": "higher shortwave transmission than the human reference curve",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "External alignment is to the configured species reference curve, not to a full age- or state-dependent physiological model."
+        },
+        {
+          "reference_label": "cat",
+          "expected_pattern": "Blue attenuation present, with shortwave transmission distinct from both human and dog reference curves.",
+          "uv_shortwave_transmission": "higher shortwave transmission than the human reference curve",
+          "source": "Local ocular-media CSV reference used by retinal_sim/optical/media.py",
+          "claim_note": "Reference evidence documents configured assumptions about delivered spectra through the ocular media."
+        },
+        {
+          "reference_label": "global_note",
+          "value": "These are report-layer reference assumptions used to calibrate claims about wavelength-dependent delivery to the retina."
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports the configured species transmission assumptions, not full individualized ocular-media physiology.",
       "limitations": [
         "Does not model scatter or age-dependent lens brunescence in R2."
       ],
@@ -566,6 +1025,40 @@
       ],
       "method": "Predict minimum resolvable angular size for each species and compare with expected ranges and ordering.",
       "pass_criterion": "Each species falls within its target range and human acuity is best.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Aligned to published species acuity target ranges stored locally for deterministic reporting.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "acuity_arcmin": 1.0,
+          "source": "Snellen 20/20 standard; MAR = 1 arcmin",
+          "behavioral_range_arcmin": [
+            0.8,
+            1.2
+          ]
+        },
+        {
+          "reference_label": "dog",
+          "acuity_arcmin": 4.8,
+          "source": "Miller & Murphy 1995, approx 20/75; arch doc range 4-8 arcmin",
+          "behavioral_range_arcmin": [
+            4.0,
+            8.0
+          ]
+        },
+        {
+          "reference_label": "cat",
+          "acuity_arcmin": 7.5,
+          "source": "Blake et al. 1974, 20/100-20/200; MAR 5-10 arcmin; arch doc range 6-10 arcmin",
+          "behavioral_range_arcmin": [
+            6.0,
+            10.0
+          ]
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports approximate species acuity alignment at the retinal front end, not full behavioral or cortical vision validation.",
       "limitations": [
         "Cat predictions can be seed-sensitive near threshold."
       ],
@@ -594,6 +1087,12 @@
       ],
       "method": "Compute species-wise discriminability distributions across deterministic confusion/control stimulus matrices and compare confusion medians against controls.",
       "pass_criterion": "Each species-specific confusion median is suppressed relative to its controls, and human exceeds cat on the cat confusion set.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "weak",
+      "external_reference_summary": "Aligned indirectly to expected species confusion-axis behavior; evidence is illustrative rather than exhaustive.",
+      "external_reference_table": [],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports qualitative species confusion-axis differences at the retinal front end, not complete color appearance prediction.",
       "limitations": [
         "Compact panel intended for deterministic regression rather than exhaustive colour-space coverage."
       ],
@@ -621,6 +1120,46 @@
       ],
       "method": "Convert local cone density to spacing, then convert spacing to cycles/degree using focal-length-based retinal magnification.",
       "pass_criterion": "Each species falls inside its target cycles/degree band.",
+      "validation_category": "external empirical alignment",
+      "claim_support_level": "strong",
+      "external_reference_summary": "Aligned to density-derived species Nyquist target ranges stored locally for deterministic reporting.",
+      "external_reference_table": [
+        {
+          "reference_label": "human",
+          "target_range_cpd": [
+            45.0,
+            90.0
+          ],
+          "nominal_cpd": 60.0,
+          "density_basis": "Human foveal cone packing from the project density model, compared against architecture target values.",
+          "source": "retinal_sim_architecture.md \u00a711c; project density-model expectation for human fovea.",
+          "claim_note": "Reference band represents literature-aligned sampling expectations, not a direct behavioral acuity measurement."
+        },
+        {
+          "reference_label": "dog",
+          "target_range_cpd": [
+            8.0,
+            20.0
+          ],
+          "nominal_cpd": 12.0,
+          "density_basis": "Dog area-centralis cone density interpreted through the hexagonal spacing approximation.",
+          "source": "retinal_sim_architecture.md \u00a711c; dog area-centralis target range.",
+          "claim_note": "Used as an externally grounded range for density-derived retinal sampling limits."
+        },
+        {
+          "reference_label": "cat",
+          "target_range_cpd": [
+            8.0,
+            14.0
+          ],
+          "nominal_cpd": 9.0,
+          "density_basis": "Cat area-centralis cone density interpreted through the hexagonal spacing approximation.",
+          "source": "retinal_sim_architecture.md \u00a711c; cat area-centralis target range.",
+          "claim_note": "Reference band is approximate and should not be overread as full perceptual validation."
+        }
+      ],
+      "evidence_basis": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+      "claim_scope_note": "Supports density-derived front-end sampling limits, not full perceptual acuity validation.",
       "limitations": [
         "Uses density-model predictions at the patch centre rather than a full eccentricity sweep."
       ],
@@ -648,6 +1187,12 @@
       ],
       "method": "Compare measured receptor counts and cone/rod composition against integrated density-model expectations over the simulated patch.",
       "pass_criterion": "Total count error < 25% and cone/rod composition error < 15% for every species.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "moderate",
+      "external_reference_summary": "Compares generated mosaics against the project's density-model expectations; evidence remains indirect until tied to richer external histology tables.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Supports the current mosaic-density implementation at the retinal front end, not full retinal histology.",
       "limitations": [
         "Current model still uses simplified analytic density functions rather than digitised histology maps."
       ],
@@ -675,6 +1220,12 @@
       ],
       "method": "Measure left/right cone-response difference after full-pipeline simulation.",
       "pass_criterion": "Human left/right difference exceeds dog by at least 20%.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "weak",
+      "external_reference_summary": "Proxy end-to-end comparison that illustrates retained information differences without claiming perceptual equivalence.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Illustrates comparative retinal-information loss and should not be read as direct conscious appearance.",
       "limitations": [
         "This is a compact proxy for a richer end-to-end color-deficit comparison."
       ],
@@ -704,6 +1255,12 @@
       ],
       "method": "Compare center vs peripheral bright/dark response contrast on a fine checkerboard and compare human center contrast against dichromat center contrast.",
       "pass_criterion": "Human center contrast exceeds human periphery and exceeds dog/cat center contrast.",
+      "validation_category": "model self-consistency",
+      "claim_support_level": "weak",
+      "external_reference_summary": "Proxy end-to-end contrast-retention check, not a full empirical eccentricity validation.",
+      "external_reference_table": [],
+      "evidence_basis": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+      "claim_scope_note": "Illustrates front-end contrast retention trends and should not be read as a full perceptual validation.",
       "limitations": [
         "Quantifies contrast retention on a fine checkerboard but does not yet fit a full eccentricity-dependent MTF curve."
       ],

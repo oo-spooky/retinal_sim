@@ -1,9 +1,12 @@
 """Deterministic validation datasets used by reports and tests."""
 from __future__ import annotations
 
-from typing import Dict, List
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Dict, List
 
 import numpy as np
+import yaml
 
 
 def _rgb_triplet(values: List[int]) -> np.ndarray:
@@ -79,6 +82,9 @@ VALIDATION_DATASET: Dict[str, object] = {
 }
 
 
+_DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "validation"
+
+
 def metamer_pairs() -> List[dict]:
     return list(VALIDATION_DATASET["metamer_pairs"])
 
@@ -101,3 +107,42 @@ def as_uint8_pair(item: dict) -> tuple[np.ndarray, np.ndarray]:
 
 def as_uint8_color(item: dict) -> np.ndarray:
     return _rgb_triplet(item["rgb"])
+
+
+@lru_cache(maxsize=1)
+def published_acuity_reference() -> Dict[str, Any]:
+    """Return species acuity reference ranges used for external alignment."""
+    with (_DATA_DIR / "published_acuity.yaml").open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+@lru_cache(maxsize=1)
+def nyquist_reference() -> Dict[str, Any]:
+    """Return local Nyquist-limit reference ranges derived from density evidence."""
+    with (_DATA_DIR / "published_nyquist.yaml").open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+@lru_cache(maxsize=1)
+def optical_geometry_reference() -> Dict[str, Any]:
+    """Return pupil and focal-length reference expectations for optical reporting."""
+    with (_DATA_DIR / "optical_geometry_reference.yaml").open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+@lru_cache(maxsize=1)
+def wavelength_transmission_reference() -> Dict[str, Any]:
+    """Return ocular-media transmission reference expectations for reporting."""
+    with (_DATA_DIR / "wavelength_transmission_reference.yaml").open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+@lru_cache(maxsize=1)
+def external_reference_tables() -> Dict[str, Dict[str, Any]]:
+    """Return all deterministic external reference tables used in R5 reports."""
+    return {
+        "species_acuity_ranges": published_acuity_reference(),
+        "density_derived_nyquist_limits": nyquist_reference(),
+        "optical_geometry_expectations": optical_geometry_reference(),
+        "wavelength_transmission_assumptions": wavelength_transmission_reference(),
+    }

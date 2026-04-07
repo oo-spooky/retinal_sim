@@ -1,0 +1,19 @@
+human:
+  expected_pattern: "Blue attenuation stronger than red transmission."
+  uv_shortwave_transmission: "most attenuated of the three species in the local reference tables"
+  source: "Local ocular-media CSV reference used by retinal_sim/optical/media.py"
+  claim_note: "Assumption table reflects the configured reference transmission curve, not patient-specific ocular media."
+
+dog:
+  expected_pattern: "Blue attenuation present, but less severe than the human reference curve."
+  uv_shortwave_transmission: "higher shortwave transmission than the human reference curve"
+  source: "Local ocular-media CSV reference used by retinal_sim/optical/media.py"
+  claim_note: "External alignment is to the configured species reference curve, not to a full age- or state-dependent physiological model."
+
+cat:
+  expected_pattern: "Blue attenuation present, with shortwave transmission distinct from both human and dog reference curves."
+  uv_shortwave_transmission: "higher shortwave transmission than the human reference curve"
+  source: "Local ocular-media CSV reference used by retinal_sim/optical/media.py"
+  claim_note: "Reference evidence documents configured assumptions about delivered spectra through the ocular media."
+
+global_note: "These are report-layer reference assumptions used to calibrate claims about wavelength-dependent delivery to the retina."

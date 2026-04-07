@@ -1,0 +1,29 @@
+human:
+  pupil_shape: "circular"
+  pupil_area_mm2: 7.0686
+  focal_length_mm: 22.3
+  expected_optical_consequences:
+    - "Smallest reference pupil area in the default species configs."
+    - "Largest retinal image magnification among the three modeled species."
+  source: "Species optical config plus R1/R2 reporting assumptions."
+
+dog:
+  pupil_shape: "circular"
+  pupil_area_mm2: 12.5664
+  focal_length_mm: 17.0
+  expected_optical_consequences:
+    - "Higher throughput than human under the default pupil geometry."
+    - "Smaller retinal image magnification than human because focal length is shorter."
+  source: "Species optical config plus R1/R2 reporting assumptions."
+
+cat:
+  pupil_shape: "slit"
+  pupil_area_mm2: 10.9956
+  focal_length_mm: 18.5
+  expected_optical_consequences:
+    - "Throughput exceeds human under the default slit approximation."
+    - "Axis-dependent blur is expected when slit anisotropy is active."
+    - "Retinal image magnification falls between dog and human from focal length alone."
+  source: "Species optical config plus slit-pupil approximation used by the current optical stage."
+
+claim_note: "These rows are reference expectations derived from modeled pupil geometry and focal length, not direct in-vivo measurements from the simulator."

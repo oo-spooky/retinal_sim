@@ -31,6 +31,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from retinal_sim.validation.datasets import external_reference_tables
+
 
 @dataclass
 class ValidationResult:
@@ -48,6 +50,12 @@ class ValidationResult:
     assumptions: List[str] = field(default_factory=list)
     method: str = ""
     pass_criterion: str = ""
+    validation_category: str = ""
+    claim_support_level: str = ""
+    external_reference_summary: str = ""
+    external_reference_table: List[Dict[str, Any]] = field(default_factory=list)
+    evidence_basis: str = ""
+    claim_scope_note: str = ""
     limitations: List[str] = field(default_factory=list)
     artifacts: List[str] = field(default_factory=list)
     figure: Optional[object] = field(default=None, repr=False)
@@ -70,8 +78,14 @@ class ValidationReport:
         passed = sum(1 for r in self.results if r.passed)
         failed = total - passed
         if failed == 0:
-            return f"PASSED: {passed}/{total} implemented validation checks passed"
-        return f"FAILED: {failed}/{total} implemented validation checks failed"
+            return (
+                f"PASSED: {passed}/{total} implemented validation checks passed "
+                "for their stated scopes and assumptions"
+            )
+        return (
+            f"FAILED: {failed}/{total} implemented validation checks failed "
+            "for their stated scopes and assumptions"
+        )
 
     def save_html(self, path: str) -> None:
         """Write a self-contained HTML report with embedded figures."""
@@ -103,6 +117,12 @@ class ValidationReport:
                         "assumptions": result.assumptions,
                         "method": result.method,
                         "pass_criterion": result.pass_criterion,
+                        "validation_category": result.validation_category,
+                        "claim_support_level": result.claim_support_level,
+                        "external_reference_summary": result.external_reference_summary,
+                        "external_reference_table": result.external_reference_table,
+                        "evidence_basis": result.evidence_basis,
+                        "claim_scope_note": result.claim_scope_note,
                         "limitations": result.limitations,
                         "artifacts": result.artifacts,
                         "has_figure": result.figure is not None,
@@ -202,10 +222,14 @@ class ValidationSuite:
         input_meta = scene_input_metadata(input_mode)
         retinal = getattr(config, "retinal", None)
         retinal_physiology = _retinal_physiology_metadata(retinal)
+        result_specs = self._all_result_specs()
+        refs = external_reference_tables()
         stage_counts = {
-            stage: len([result for result in self._all_result_specs().values() if result["stage"] == stage])
+            stage: len([result for result in result_specs.values() if result["stage"] == stage])
             for stage in ("scene", "spectral", "optical", "retinal", "e2e")
         }
+        validation_category_counts = _count_spec_field(result_specs, "validation_category")
+        claim_support_level_counts = _count_spec_field(result_specs, "claim_support_level")
         return {
             "title": "retinal_sim validation audit report",
             "report_type": report_type,
@@ -235,8 +259,17 @@ class ValidationSuite:
                 "Several validation checks use proof-of-concept simplifications documented in SCRATCHPAD.md.",
                 "Retinal physiology settings here remain front-end assumptions only; no post-receptoral or cortical model is implied.",
             ],
+            "claim_calibration_notes": [
+                "A passing report supports only the implemented checks and their declared claim scopes.",
+                "Internal consistency checks and external empirical alignment are reported separately and should not be conflated.",
+                "R3 scene-input semantics remain active: RGB-inferred scene spectra are not unique measured spectra unless the input mode says otherwise.",
+                "R4 retinal physiology provenance remains front-end-only evidence and does not imply full physiological or perceptual validation.",
+            ],
             "architecture_coverage": self._architecture_coverage_rows(),
             "stage_counts": stage_counts,
+            "validation_category_counts": validation_category_counts,
+            "claim_support_level_counts": claim_support_level_counts,
+            "external_reference_tables": refs,
         }
 
     def _result(
@@ -265,6 +298,12 @@ class ValidationSuite:
             assumptions=list(spec["assumptions"]),
             method=spec["method"],
             pass_criterion=spec["pass_criterion"],
+            validation_category=spec["validation_category"],
+            claim_support_level=spec["claim_support_level"],
+            external_reference_summary=spec.get("external_reference_summary", ""),
+            external_reference_table=_json_safe(spec.get("external_reference_table", [])),
+            evidence_basis=spec.get("evidence_basis", ""),
+            claim_scope_note=spec.get("claim_scope_note", ""),
             limitations=list(spec["limitations"]),
             artifacts=list(spec["artifacts"]),
             figure=figure,
@@ -2358,6 +2397,138 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+_EXTERNAL_REFERENCE_TABLES = external_reference_tables()
+
+_VALIDATION_CATEGORY_BY_TEST = {
+    "Angular Subtense": "analytic correctness",
+    "Accommodation Defocus": "analytic correctness",
+    "PSF Energy Conservation": "analytic correctness",
+    "RGB Round-Trip": "model self-consistency",
+    "Spectral Response Panel": "model self-consistency",
+    "MTF vs Diffraction Limit": "model self-consistency",
+    "Distance-Dependent Receptor Sampling": "model self-consistency",
+    "Receptor Count": "model self-consistency",
+    "Color Deficit Reproduction": "model self-consistency",
+    "Resolution Gradient": "model self-consistency",
+    "Retinal Scaling Across Species": "external empirical alignment",
+    "Metamer Preservation": "external empirical alignment",
+    "Pupil Throughput Scaling": "external empirical alignment",
+    "Cat Slit Anisotropy": "external empirical alignment",
+    "Wavelength-Dependent Blur": "external empirical alignment",
+    "Media Transmission Diagnostics": "external empirical alignment",
+    "Snellen Acuity": "external empirical alignment",
+    "Dichromat Confusion": "external empirical alignment",
+    "Nyquist Sampling": "external empirical alignment",
+}
+
+_CLAIM_SUPPORT_LEVEL_BY_TEST = {
+    "Angular Subtense": "strong",
+    "Accommodation Defocus": "strong",
+    "PSF Energy Conservation": "strong",
+    "RGB Round-Trip": "moderate",
+    "Spectral Response Panel": "moderate",
+    "MTF vs Diffraction Limit": "moderate",
+    "Distance-Dependent Receptor Sampling": "moderate",
+    "Receptor Count": "moderate",
+    "Color Deficit Reproduction": "weak",
+    "Resolution Gradient": "weak",
+    "Retinal Scaling Across Species": "moderate",
+    "Metamer Preservation": "moderate",
+    "Pupil Throughput Scaling": "moderate",
+    "Cat Slit Anisotropy": "moderate",
+    "Wavelength-Dependent Blur": "moderate",
+    "Media Transmission Diagnostics": "moderate",
+    "Snellen Acuity": "moderate",
+    "Dichromat Confusion": "weak",
+    "Nyquist Sampling": "strong",
+}
+
+_EXTERNAL_REFERENCE_KEY_BY_TEST = {
+    "Retinal Scaling Across Species": "optical_geometry_expectations",
+    "Pupil Throughput Scaling": "optical_geometry_expectations",
+    "Cat Slit Anisotropy": "optical_geometry_expectations",
+    "Wavelength-Dependent Blur": "wavelength_transmission_assumptions",
+    "Media Transmission Diagnostics": "wavelength_transmission_assumptions",
+    "Snellen Acuity": "species_acuity_ranges",
+    "Nyquist Sampling": "density_derived_nyquist_limits",
+}
+
+_EXTERNAL_REFERENCE_SUMMARY_BY_TEST = {
+    "Angular Subtense": "Closed-form geometry check with no external literature table required.",
+    "Accommodation Defocus": "Closed-form hard-cutoff accommodation check with no separate external evidence table.",
+    "PSF Energy Conservation": "Kernel normalization is an analytic invariant rather than an externally benchmarked physiological claim.",
+    "RGB Round-Trip": "Internal regression check for the declared RGB-inference path under D65 assumptions.",
+    "Spectral Response Panel": "Internal response-order regression for the current D65-weighted RGB inference model.",
+    "MTF vs Diffraction Limit": "Compares measured modulation against the simulator's own implemented diffraction-derived PSF model.",
+    "Distance-Dependent Receptor Sampling": "Checks inverse-square geometric consistency inside the current pipeline rather than direct external behavioral data.",
+    "Receptor Count": "Compares generated mosaics against the project's density-model expectations; evidence remains indirect until tied to richer external histology tables.",
+    "Color Deficit Reproduction": "Proxy end-to-end comparison that illustrates retained information differences without claiming perceptual equivalence.",
+    "Resolution Gradient": "Proxy end-to-end contrast-retention check, not a full empirical eccentricity validation.",
+    "Retinal Scaling Across Species": "Aligned to focal-length-based optical geometry expectations in the local external reference table.",
+    "Metamer Preservation": "Compared against a compact deterministic reference panel intended to approximate external metamer behavior under the declared scene assumptions.",
+    "Pupil Throughput Scaling": "Aligned to local pupil-area and focal-length expectation rows that describe modeled optical consequences by species.",
+    "Cat Slit Anisotropy": "Aligned to the local slit-pupil optical consequence table; evidence remains approximate because the model uses a slit approximation.",
+    "Wavelength-Dependent Blur": "Aligned to local wavelength-delivery and optical-behavior reference assumptions rather than direct in-vivo PSF measurements.",
+    "Media Transmission Diagnostics": "Aligned to the configured species ocular-media reference curves and their expected shortwave-vs-longwave behavior.",
+    "Snellen Acuity": "Aligned to published species acuity target ranges stored locally for deterministic reporting.",
+    "Dichromat Confusion": "Aligned indirectly to expected species confusion-axis behavior; evidence is illustrative rather than exhaustive.",
+    "Nyquist Sampling": "Aligned to density-derived species Nyquist target ranges stored locally for deterministic reporting.",
+}
+
+_EVIDENCE_BASIS_BY_TEST = {
+    "analytic correctness": "Closed-form or invariant check against an analytic expectation.",
+    "model self-consistency": "Internal regression or consistency check within the simulator's declared implementation and assumptions.",
+    "external empirical alignment": "Comparison against a local deterministic reference table representing published or externally grounded expectations.",
+}
+
+_CLAIM_SCOPE_NOTE_BY_TEST = {
+    "Angular Subtense": "Supports scene-geometry arithmetic only; it does not validate downstream retinal or perceptual behavior.",
+    "Accommodation Defocus": "Supports the hard-cutoff accommodation rule currently implemented, not a full accommodation physiology model.",
+    "PSF Energy Conservation": "Supports numerical normalization of the PSF kernels only.",
+    "RGB Round-Trip": "Supports the current RGB-inferred reflectance reconstruction path, not unique recovery of scene spectra.",
+    "Spectral Response Panel": "Supports ordering behavior in the declared RGB-inference model, not full spectral physiology.",
+    "MTF vs Diffraction Limit": "Supports the implemented optical approximation, not blanket validation of all anterior-eye optics.",
+    "Distance-Dependent Receptor Sampling": "Supports geometric scaling behavior under current pipeline assumptions only.",
+    "Receptor Count": "Supports the current mosaic-density implementation at the retinal front end, not full retinal histology.",
+    "Color Deficit Reproduction": "Illustrates comparative retinal-information loss and should not be read as direct conscious appearance.",
+    "Resolution Gradient": "Illustrates front-end contrast retention trends and should not be read as a full perceptual validation.",
+    "Retinal Scaling Across Species": "Supports focal-length-driven retinal image scaling only.",
+    "Metamer Preservation": "Supports a compact external-style regression panel under D65 assumptions only.",
+    "Pupil Throughput Scaling": "Supports the modeled optical throughput consequences of the configured pupil geometries only.",
+    "Cat Slit Anisotropy": "Supports axis-aware blur reporting in the current slit approximation, not full feline ocular optics.",
+    "Wavelength-Dependent Blur": "Supports the current wavelength-aware optical model and its assumptions, not full empirical PSF validation.",
+    "Media Transmission Diagnostics": "Supports the configured species transmission assumptions, not full individualized ocular-media physiology.",
+    "Snellen Acuity": "Supports approximate species acuity alignment at the retinal front end, not full behavioral or cortical vision validation.",
+    "Dichromat Confusion": "Supports qualitative species confusion-axis differences at the retinal front end, not complete color appearance prediction.",
+    "Nyquist Sampling": "Supports density-derived front-end sampling limits, not full perceptual acuity validation.",
+}
+
+
+def _reference_rows(key: str) -> List[Dict[str, Any]]:
+    table = _EXTERNAL_REFERENCE_TABLES.get(key, {})
+    rows: List[Dict[str, Any]] = []
+    for label, value in table.items():
+        if isinstance(value, dict):
+            row = {"reference_label": label}
+            row.update(value)
+            rows.append(row)
+        else:
+            rows.append({"reference_label": label, "value": value})
+    return rows
+
+
+for _test_name, _spec in _RESULT_SPECS.items():
+    _category = _VALIDATION_CATEGORY_BY_TEST[_test_name]
+    _spec["validation_category"] = _category
+    _spec["claim_support_level"] = _CLAIM_SUPPORT_LEVEL_BY_TEST[_test_name]
+    _spec["external_reference_summary"] = _EXTERNAL_REFERENCE_SUMMARY_BY_TEST[_test_name]
+    _spec["evidence_basis"] = _EVIDENCE_BASIS_BY_TEST[_category]
+    _spec["claim_scope_note"] = _CLAIM_SCOPE_NOTE_BY_TEST[_test_name]
+    _reference_key = _EXTERNAL_REFERENCE_KEY_BY_TEST.get(_test_name)
+    _spec["external_reference_table"] = (
+        _reference_rows(_reference_key) if _reference_key else []
+    )
+
 _ARCHITECTURE_COVERAGE = [
     {"architecture_ref": "Architecture §11e Angular subtense correctness", "test_name": "Angular Subtense", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Analytic geometric equality check."},
     {"architecture_ref": "Architecture §11e Retinal image scaling across species", "test_name": "Retinal Scaling Across Species", "code_path": "retinal_sim/scene/geometry.py", "status": "covered", "note": "Checks focal-length proportionality."},
@@ -2643,12 +2814,19 @@ h3 { margin-bottom: 0.4em; }
 .pill-covered { background: #d4edda; color: #155724; }
 .pill-partial { background: #fff3cd; color: #856404; }
 .pill-gap { background: #f8d7da; color: #721c24; }
+.pill-category-analytic { background: #dbeafe; color: #1d4ed8; }
+.pill-category-self { background: #ede9fe; color: #6d28d9; }
+.pill-category-external { background: #dcfce7; color: #166534; }
+.pill-support-strong { background: #d1fae5; color: #065f46; }
+.pill-support-moderate { background: #fef3c7; color: #92400e; }
+.pill-support-weak { background: #fee2e2; color: #991b1b; }
 .test-card {
     border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin: 16px 0;
     background: #fafafa;
 }
 .test-card.passed { border-left: 4px solid #28a745; }
 .test-card.failed { border-left: 4px solid #dc3545; }
+.badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px 0; }
 .test-title { font-size: 1.05em; font-weight: bold; margin: 0 0 8px 0; }
 .test-badge {
     display: inline-block; padding: 2px 8px; border-radius: 3px;
@@ -2670,6 +2848,8 @@ pre {
 .test-figure { margin: 10px 0; }
 .test-figure img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; }
 .bonus-section img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; margin: 8px 0; }
+.split-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.reference-table { margin: 16px 0; }
 table { border-collapse: collapse; width: 100%; margin: 10px 0; }
 th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 0.92em; }
 th { background: #f4f4f4; }
@@ -2690,6 +2870,14 @@ def _json_safe(value: Any) -> Any:
     if hasattr(value, "__dict__"):
         return {str(k): _json_safe(v) for k, v in vars(value).items()}
     return str(value)
+
+
+def _count_spec_field(specs: Dict[str, Dict[str, Any]], field_name: str) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for spec in specs.values():
+        value = str(spec.get(field_name, "")).strip() or "unspecified"
+        counts[value] = counts.get(value, 0) + 1
+    return counts
 
 
 def _summarize_dataclass(value: Any) -> Dict[str, Any]:
@@ -2836,6 +3024,14 @@ def _metadata_table_html(metadata: Dict[str, Any]) -> str:
             "Visual streak status",
             retinal.get("visual_streak", {}).get("status", "unknown"),
         ),
+        (
+            "Validation categories",
+            _counts_summary_text(metadata.get("validation_category_counts", {})),
+        ),
+        (
+            "Claim support levels",
+            _counts_summary_text(metadata.get("claim_support_level_counts", {})),
+        ),
     ]
     return "<div class=\"meta-grid\">" + "".join(
         f"<div class=\"meta-label\">{_escape(label)}</div><div>{_escape(str(value))}</div>"
@@ -2894,6 +3090,101 @@ def _coverage_badge(status: str) -> str:
     return f'<span class="pill {cls}">{_escape(status)}</span>'
 
 
+def _category_badge(value: str) -> str:
+    classes = {
+        "analytic correctness": "pill-category-analytic",
+        "model self-consistency": "pill-category-self",
+        "external empirical alignment": "pill-category-external",
+    }
+    cls = classes.get(value, "pill-partial")
+    return f'<span class="pill {cls}">{_escape(value)}</span>'
+
+
+def _support_badge(value: str) -> str:
+    classes = {
+        "strong": "pill-support-strong",
+        "moderate": "pill-support-moderate",
+        "weak": "pill-support-weak",
+    }
+    cls = classes.get(value, "pill-partial")
+    return f'<span class="pill {cls}">{_escape(value)}</span>'
+
+
+def _counts_summary_text(counts: Dict[str, int]) -> str:
+    if not counts:
+        return "none"
+    return ", ".join(f"{key}: {counts[key]}" for key in sorted(counts))
+
+
+def _category_summary_html(metadata: Dict[str, Any]) -> str:
+    rows = ""
+    for label, count in sorted(metadata.get("validation_category_counts", {}).items()):
+        rows += (
+            "<tr>"
+            f"<td>{_category_badge(label)}</td>"
+            f"<td>{count}</td>"
+            "</tr>"
+        )
+    return (
+        "<table><thead><tr><th>Validation category</th><th>Result count</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+
+
+def _support_summary_html(metadata: Dict[str, Any]) -> str:
+    rows = ""
+    for label, count in sorted(metadata.get("claim_support_level_counts", {}).items()):
+        rows += (
+            "<tr>"
+            f"<td>{_support_badge(label)}</td>"
+            f"<td>{count}</td>"
+            "</tr>"
+        )
+    return (
+        "<table><thead><tr><th>Claim support level</th><th>Result count</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+
+
+def _claim_calibration_html(metadata: Dict[str, Any]) -> str:
+    notes = metadata.get("claim_calibration_notes", [])
+    return (
+        "<div class=\"section-note\">"
+        "<strong>Claim calibration:</strong>"
+        f"{_list_html(list(notes))}"
+        "</div>"
+    )
+
+
+def _external_reference_tables_html(metadata: Dict[str, Any]) -> str:
+    sections = []
+    for table_name, table in metadata.get("external_reference_tables", {}).items():
+        rows = _reference_rows(table_name)
+        if not rows:
+            continue
+        columns = []
+        for row in rows:
+            for key in row:
+                if key not in columns:
+                    columns.append(key)
+        header_html = "".join(f"<th>{_escape(column.replace('_', ' '))}</th>" for column in columns)
+        body_html = ""
+        for row in rows:
+            body_html += "<tr>" + "".join(
+                f"<td>{_escape(str(_json_safe(row.get(column, ''))))}</td>" for column in columns
+            ) + "</tr>"
+        sections.append(
+            "<div class=\"reference-table\">"
+            f"<h3>{_escape(table_name.replace('_', ' '))}</h3>"
+            "<p><em>Reference evidence table. These rows describe external or configured expectations, not measured simulator outputs.</em></p>"
+            f"<table><thead><tr>{header_html}</tr></thead><tbody>{body_html}</tbody></table>"
+            "</div>"
+        )
+    if not sections:
+        return "<div class=\"section-note\"><em>No external reference evidence tables recorded.</em></div>"
+    return "".join(sections)
+
+
 def _coverage_matrix_html(metadata: Dict[str, Any]) -> str:
     rows_html = ""
     for row in metadata.get("architecture_coverage", []):
@@ -2937,6 +3228,10 @@ def _result_card_html(result: ValidationResult) -> str:
     return f"""
 <div class="test-card {cls}">
   <p class="test-title">{_escape(result.test_name)} {badge}</p>
+  <div class="badge-row">
+    {_category_badge(result.validation_category)}
+    {_support_badge(result.claim_support_level)}
+  </div>
   <div class="meta-grid">
     <div class="meta-label">Stage</div><div>{_escape(result.stage)}</div>
     <div class="meta-label">Architecture reference</div><div>{_escape(result.architecture_ref)}</div>
@@ -2944,9 +3239,15 @@ def _result_card_html(result: ValidationResult) -> str:
     <div class="meta-label">Observed outcome</div><div>{_escape(str(result.actual))}</div>
     <div class="meta-label">Tolerance</div><div>{_escape(str(result.tolerance))}</div>
     <div class="meta-label">Pass criterion</div><div>{_escape(result.pass_criterion)}</div>
+    <div class="meta-label">Validation category</div><div>{_escape(result.validation_category)}</div>
+    <div class="meta-label">Claim support level</div><div>{_escape(result.claim_support_level)}</div>
+    <div class="meta-label">Evidence basis</div><div>{_escape(result.evidence_basis)}</div>
+    <div class="meta-label">External evidence summary</div><div>{_escape(result.external_reference_summary or "None")}</div>
+    <div class="meta-label">Claim scope note</div><div>{_escape(result.claim_scope_note)}</div>
     <div class="meta-label">Inputs summary</div><div>{_escape(result.inputs_summary)}</div>
     <div class="meta-label">Method</div><div>{_escape(result.method)}</div>
     <div class="meta-label">Code references</div><div>{_list_html(result.code_refs)}</div>
+    <div class="meta-label">External reference table</div><div>{_list_html([row.get("reference_label", "") for row in result.external_reference_table])}</div>
     <div class="meta-label">Assumptions</div><div>{_list_html(result.assumptions)}</div>
     <div class="meta-label">Limitations</div><div>{_list_html(result.limitations)}</div>
     <div class="meta-label">Artifacts</div><div>{_list_html(result.artifacts)}</div>
@@ -2967,9 +3268,9 @@ def _build_report_html(report: ValidationReport) -> str:
 
     box_cls = "all-pass" if ok else "has-fail"
     summary_text = (
-        f"{passed}/{total} implemented validation checks passed under the current test harness"
+        f"{passed}/{total} implemented validation checks passed under the current test harness for their stated scopes and assumptions"
         if ok else
-        f"{failed}/{total} implemented validation checks failed under the current test harness"
+        f"{failed}/{total} implemented validation checks failed under the current test harness for their stated scopes and assumptions"
     )
 
     cards_html = "".join(_result_card_html(r) for r in report.results)
@@ -3020,6 +3321,10 @@ def _build_report_html(report: ValidationReport) -> str:
     metadata_html = _metadata_table_html(report.metadata)
     retinal_physiology_html = _retinal_physiology_html(report.metadata)
     coverage_html = _coverage_matrix_html(report.metadata)
+    category_summary_html = _category_summary_html(report.metadata)
+    support_summary_html = _support_summary_html(report.metadata)
+    external_reference_tables_html = _external_reference_tables_html(report.metadata)
+    claim_calibration_html = _claim_calibration_html(report.metadata)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -3036,19 +3341,44 @@ def _build_report_html(report: ValidationReport) -> str:
 <div class="section-note">
   This audit report shows the implemented validation checks, the exact pass criteria used,
   the observed outcomes, the assumptions and limitations attached to each check, and the code paths
-  that produced the result. Statements here are evidence-backed for the current proof-of-concept build,
-  not blanket claims of full physiological completeness.
+  that produced the result. Statements here are evidence-backed for specific implemented checks in the
+  current proof-of-concept build, not blanket claims of whole-simulator physiological or perceptual validation.
 </div>
 
 <h2>Summary</h2>
 <div class="summary-box {box_cls}">{_escape(summary_text)}</div>
+{claim_calibration_html}
 {table_html}
+
+<h2>Validation Framing</h2>
+<div class="split-summary">
+  <div>
+    <h3>Validation Categories</h3>
+    {category_summary_html}
+  </div>
+  <div>
+    <h3>Claim Support Levels</h3>
+    {support_summary_html}
+  </div>
+</div>
+<div class="section-note">
+  <strong>Legend:</strong> analytic correctness = closed-form or invariant checks;
+  model self-consistency = internal implementation/regression checks;
+  external empirical alignment = checks compared against local deterministic reference evidence.
+</div>
 
 <h2>Environment and Reproducibility</h2>
 {metadata_html}
 
 <h2>Retinal Physiology Assumptions</h2>
 {retinal_physiology_html}
+
+<h2>External Reference Evidence</h2>
+<div class="section-note">
+  The tables below are explicit reference evidence used to calibrate R5 claims.
+  They are reference expectations, not measured simulator outputs.
+</div>
+{external_reference_tables_html}
 
 <h2>Known Limitations / Deferred Architecture Items</h2>
 <div class="warning-list">{warnings_html}</div>
