@@ -34,3 +34,33 @@ retinal:
     S_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
     L_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
     rod:    {n: 1.0, sigma: 0.1, R_max: 1.0}
+
+  provenance:
+    lambda_max:
+      source: Cat lambda-max anchors follow the project architecture/spec reference set and are used with the unchanged Govardovskii A1 nomogram.
+      confidence: moderate
+      notes: Fixed dichromat reference wavelengths; not individualized or adaptation-dependent sensitivity estimates.
+    density_functions:
+      source: Cat density falloff is a proof-of-concept Gaussian approximation referencing Steinberg 1973-style area-centralis and rod-density trends.
+      confidence: moderate
+      notes: The current model is radially symmetric by default even though cats have a stronger horizontal visual streak in vivo.
+    naka_rushton:
+      source: Cat Naka-Rushton parameters are configurable retinal-front-end model parameters stored in YAML.
+      confidence: low
+      notes: Defaults preserve prior proof-of-concept behavior and are not claimed as externally validated cat transduction fits.
+
+  aperture_weighting:
+    enabled: false
+    gaussian_sigma_scale: 0.5
+    sigma_bin_px: 0.1
+    truncate_sigma: 3.0
+    method: gaussian_prefilter
+    notes: Optional retinal-front-end refinement; receptor apertures are approximated on the current irradiance grid rather than integrated in continuous space.
+
+  visual_streak:
+    supported: true
+    enabled: false
+    axis: horizontal
+    axis_ratio: 2.0
+    status: deferred
+    notes: Cat mosaic anisotropy remains disabled by default because the current proof-of-concept density model is still a symmetric Gaussian fit rather than a dedicated visual-streak map.

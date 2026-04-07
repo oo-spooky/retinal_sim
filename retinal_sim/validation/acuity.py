@@ -210,7 +210,10 @@ class AcuityValidator:
         rgb = snellen_scene_rgb(angular_size_arcmin, patch_arcmin, _IMG_PX, orientation)
 
         # 2. Spectral upsampling.
-        spectral = self._upsampler.upsample(rgb)
+        spectral = self._upsampler.upsample(
+            rgb,
+            input_mode="reflectance_under_d65",
+        )
 
         # 3. Optical stage (PSF).
         optical = OpticalStage(self._cfg.optical)

@@ -1,6 +1,8 @@
 """Phase 7 tests: RetinalStage spectral integration + Naka-Rushton transduction."""
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
 import pytest
 
@@ -37,6 +39,20 @@ def _make_spectral_irradiance(
         data=data,
         wavelengths=WL.astype(float),
         metadata={"pixel_scale_mm": 0.005},
+    )
+
+
+def _make_custom_mosaic(
+    positions_mm: list[tuple[float, float]],
+    apertures_um: list[float],
+    receptor_type: str = "L_cone",
+) -> PhotoreceptorMosaic:
+    n = len(positions_mm)
+    return PhotoreceptorMosaic(
+        positions=np.asarray(positions_mm, dtype=np.float32),
+        types=np.array([receptor_type] * n, dtype="U10"),
+        apertures=np.asarray(apertures_um, dtype=np.float32),
+        sensitivities=np.ones((n, N_WL), dtype=np.float32),
     )
 
 
@@ -149,6 +165,19 @@ class TestComputeResponseOutput:
         result = human_stage.compute_response(human_mosaic, irr)
         assert result.metadata["n_receptors"] == human_mosaic.n_receptors
 
+    @pytest.mark.parametrize("species", ["human", "dog", "cat"])
+    def test_retinal_physiology_metadata_present(self, species: str) -> None:
+        cfg = SpeciesConfig.load(species)
+        stage = RetinalStage(cfg.retinal, cfg.optical)
+        mosaic = stage.generate_mosaic(seed=0)
+        result = stage.compute_response(mosaic, _make_irradiance(0.01))
+        physiology = result.metadata["retinal_physiology"]
+        assert physiology["model_scope"] == "retinal_front_end_only"
+        assert physiology["lambda_max_provenance"]["confidence"]
+        assert physiology["density_function_provenance"]["confidence"]
+        assert physiology["naka_rushton_provenance"]["confidence"]
+        assert physiology["aperture_weighting"]["enabled"] is False
+
 
 # ---------------------------------------------------------------------------
 # TestResponseBounds
@@ -220,6 +249,27 @@ class TestMonotonicity:
         irr = _make_irradiance(0.005)
         result = human_stage.compute_response(human_mosaic, irr)
         assert result.metadata["mean_response"] < 0.99
+
+    def test_naka_rushton_parameters_are_configurable(
+        self, human_mosaic: PhotoreceptorMosaic
+    ) -> None:
+        cfg = SpeciesConfig.load("human")
+        default_stage = RetinalStage(cfg.retinal, cfg.optical)
+        limited_params = {
+            rtype: {**params, "R_max": 0.5}
+            for rtype, params in cfg.retinal.naka_rushton_params.items()
+        }
+        limited_stage = RetinalStage(
+            dataclasses.replace(cfg.retinal, naka_rushton_params=limited_params),
+            cfg.optical,
+        )
+
+        irr = _make_irradiance(0.01)
+        default_result = default_stage.compute_response(human_mosaic, irr)
+        limited_result = limited_stage.compute_response(human_mosaic, irr)
+
+        assert float(limited_result.responses.max()) <= 0.500001
+        assert limited_result.metadata["mean_response"] < default_result.metadata["mean_response"]
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +449,87 @@ class TestWavelengthMismatch:
         assert result.responses.shape == (human_mosaic.n_receptors,)
         assert np.all(np.isfinite(result.responses))
         assert np.all(result.responses >= 0.0)
+
+
+class TestApertureWeighting:
+    def test_disabled_matches_default_behavior(self) -> None:
+        cfg = SpeciesConfig.load("human")
+        default_stage = RetinalStage(cfg.retinal, cfg.optical)
+        disabled_stage = RetinalStage(
+            dataclasses.replace(
+                cfg.retinal,
+                aperture_weighting=dataclasses.replace(
+                    cfg.retinal.aperture_weighting,
+                    enabled=False,
+                ),
+            ),
+            cfg.optical,
+        )
+        mosaic = default_stage.generate_mosaic(seed=9)
+        irr = _make_irradiance(0.01)
+
+        default_result = default_stage.compute_response(mosaic, irr)
+        disabled_result = disabled_stage.compute_response(mosaic, irr)
+
+        np.testing.assert_allclose(default_result.responses, disabled_result.responses)
+        assert disabled_result.metadata["aperture_weighting_enabled"] is False
+
+    def test_enabled_produces_controlled_change(self) -> None:
+        cfg = SpeciesConfig.load("human")
+        custom_nr = {"L_cone": {"n": 1.0, "sigma": 0.25, "R_max": 1.0}}
+        base_retinal = dataclasses.replace(cfg.retinal, naka_rushton_params=custom_nr)
+        weighted_retinal = dataclasses.replace(
+            base_retinal,
+            aperture_weighting=dataclasses.replace(
+                base_retinal.aperture_weighting,
+                enabled=True,
+            ),
+        )
+        unweighted_stage = RetinalStage(base_retinal, cfg.optical)
+        weighted_stage = RetinalStage(weighted_retinal, cfg.optical)
+
+        data = np.zeros((5, 5, N_WL), dtype=np.float32)
+        data[2, 2, :] = 1.0
+        irr = RetinalIrradiance(
+            data=data,
+            wavelengths=WL.astype(float),
+            metadata={
+                "pixel_scale_mm": 0.005,
+                "media_transmission_applied": True,
+            },
+        )
+        mosaic = _make_custom_mosaic(
+            positions_mm=[(0.0, 0.0), (0.005, 0.0)],
+            apertures_um=[10.0, 10.0],
+        )
+
+        off_result = unweighted_stage.compute_response(mosaic, irr)
+        on_result = weighted_stage.compute_response(mosaic, irr)
+
+        assert on_result.metadata["aperture_weighting_enabled"] is True
+        assert on_result.responses[0] < off_result.responses[0]
+        assert on_result.responses[1] > off_result.responses[1]
+        assert on_result.metadata["retinal_physiology"]["aperture_weighting"]["sigma_px_mean"] > 0.0
+
+    @pytest.mark.parametrize("species", ["human", "dog", "cat"])
+    def test_enabled_supported_for_all_species(self, species: str) -> None:
+        cfg = SpeciesConfig.load(species)
+        stage = RetinalStage(
+            dataclasses.replace(
+                cfg.retinal,
+                aperture_weighting=dataclasses.replace(
+                    cfg.retinal.aperture_weighting,
+                    enabled=True,
+                ),
+            ),
+            cfg.optical,
+        )
+        mosaic = stage.generate_mosaic(seed=1)
+        irr = _make_irradiance(0.01, H=128, W=128)
+        result = stage.compute_response(mosaic, irr)
+        assert np.all(np.isfinite(result.responses))
+        assert result.metadata["aperture_weighting_enabled"] is True
+        assert result.metadata["retinal_physiology"]["aperture_weighting"]["method"] == "gaussian_prefilter"
 
 
 # ---------------------------------------------------------------------------

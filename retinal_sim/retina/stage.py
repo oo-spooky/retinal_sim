@@ -5,11 +5,94 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy.ndimage import gaussian_filter
 
 from retinal_sim.constants import WAVELENGTHS as _CANONICAL_WAVELENGTHS
 from retinal_sim.optical.media import sample_media_transmission
 from retinal_sim.retina.mosaic import MosaicGenerator, PhotoreceptorMosaic
 from retinal_sim.retina.transduction import NAKA_RUSHTON_DEFAULTS, naka_rushton
+
+
+@dataclass(frozen=True)
+class ProvenanceNote:
+    """Short provenance note for a retinal model component."""
+
+    source: str = "unspecified"
+    confidence: str = "unspecified"
+    notes: str = ""
+
+    def as_dict(self) -> dict:
+        return {
+            "source": self.source,
+            "confidence": self.confidence,
+            "notes": self.notes,
+        }
+
+
+@dataclass(frozen=True)
+class RetinalPhysiologyProvenance:
+    """Provenance for the retinal-front-end assumptions exposed to users."""
+
+    lambda_max: ProvenanceNote = field(default_factory=ProvenanceNote)
+    density_functions: ProvenanceNote = field(default_factory=ProvenanceNote)
+    naka_rushton: ProvenanceNote = field(default_factory=ProvenanceNote)
+
+    def as_dict(self) -> dict:
+        return {
+            "lambda_max": self.lambda_max.as_dict(),
+            "density_functions": self.density_functions.as_dict(),
+            "naka_rushton": self.naka_rushton.as_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class ApertureSamplingParams:
+    """Configuration for optional receptor aperture weighting."""
+
+    enabled: bool = False
+    gaussian_sigma_scale: float = 0.5
+    sigma_bin_px: float = 0.1
+    truncate_sigma: float = 3.0
+    method: str = "gaussian_prefilter"
+    notes: str = (
+        "Optional Gaussian aperture weighting approximates inner-segment acceptance "
+        "by prefiltering the irradiance grid before bilinear sampling. At current "
+        "proof-of-concept pixel scales many receptor apertures remain sub-pixel, "
+        "so this is a controlled retinal-front-end approximation rather than a full "
+        "continuous-space integration."
+    )
+
+    def as_dict(self) -> dict:
+        return {
+            "enabled": self.enabled,
+            "gaussian_sigma_scale": self.gaussian_sigma_scale,
+            "sigma_bin_px": self.sigma_bin_px,
+            "truncate_sigma": self.truncate_sigma,
+            "method": self.method,
+            "notes": self.notes,
+        }
+
+
+@dataclass(frozen=True)
+class VisualStreakConfig:
+    """Optional future hook for dog/cat mosaic anisotropy."""
+
+    supported: bool = False
+    enabled: bool = False
+    axis: str = "horizontal"
+    axis_ratio: float = 1.0
+    status: str = "not_applicable"
+    notes: str = ""
+
+    def as_dict(self) -> dict:
+        return {
+            "supported": self.supported,
+            "enabled": self.enabled,
+            "axis": self.axis,
+            "axis_ratio": self.axis_ratio,
+            "status": self.status,
+            "notes": self.notes,
+        }
 
 
 @dataclass
@@ -22,8 +105,46 @@ class RetinalParams:
     rod_density_fn: Callable[[float, float], float]
     cone_ratio_fn: Callable[[float], Dict[str, float]]
     naka_rushton_params: Dict[str, Dict[str, float]]
+    species_name: str = ""
+    provenance: RetinalPhysiologyProvenance = field(
+        default_factory=RetinalPhysiologyProvenance
+    )
+    aperture_weighting: ApertureSamplingParams = field(
+        default_factory=ApertureSamplingParams
+    )
+    visual_streak: VisualStreakConfig = field(default_factory=VisualStreakConfig)
     patch_center_mm: Tuple[float, float] = (0.0, 0.0)
     patch_extent_deg: float = 2.0
+
+    def physiology_metadata(self) -> dict:
+        """Return report-safe metadata describing the retinal front-end model."""
+        lambda_max_values = dict(self.cone_peak_wavelengths)
+        lambda_max_values["rod"] = float(self.rod_peak_wavelength)
+        density_model = (
+            "anisotropic_gaussian_hook"
+            if self.visual_streak.enabled and self.visual_streak.supported
+            else "radially_symmetric_gaussian"
+        )
+        return {
+            "species": self.species_name,
+            "model_scope": "retinal_front_end_only",
+            "scope_note": (
+                "This simulation stops at the photoreceptor/retinal front end. "
+                "It does not include post-receptoral, retinal-circuit, or cortical "
+                "perception modeling."
+            ),
+            "lambda_max_values_nm": lambda_max_values,
+            "lambda_max_provenance": self.provenance.lambda_max.as_dict(),
+            "density_function_model": density_model,
+            "density_function_provenance": self.provenance.density_functions.as_dict(),
+            "naka_rushton_configuration": {
+                rtype: {key: float(value) for key, value in params.items()}
+                for rtype, params in self.naka_rushton_params.items()
+            },
+            "naka_rushton_provenance": self.provenance.naka_rushton.as_dict(),
+            "aperture_weighting": self.aperture_weighting.as_dict(),
+            "visual_streak": self.visual_streak.as_dict(),
+        }
 
 
 @dataclass
@@ -77,10 +198,11 @@ class RetinalStage:
           2. Spectral integration:  excitation_i = Σ_λ S_i(λ)·E_i(λ)·Δλ
           3. Naka-Rushton:          response_i = NR(excitation_i; R_max, n, σ)
 
-        NOTE: Aperture-function weighting (Gaussian inner-segment acceptance
-        cone, σ ≈ aperture_diameter/2) is deferred to a later phase.  At PoC
-        pixel scales the PSF already dominates aperture-induced blur, so
-        bilinear interpolation is a good approximation.
+        When ``RetinalParams.aperture_weighting.enabled`` is True, the spatial
+        sampling step is upgraded from pure bilinear interpolation to a Gaussian
+        prefilter approximation with per-receptor σ derived from the receptor
+        aperture. This keeps the default path backward-compatible while making
+        the refinement opt-in and explicit.
 
         Args:
             mosaic:              PhotoreceptorMosaic from generate_mosaic().
@@ -153,15 +275,38 @@ class RetinalStage:
         dr = (row_f_c - r0.astype(float))[:, np.newaxis]  # (N, 1)
         dc = (col_f_c - c0.astype(float))[:, np.newaxis]  # (N, 1)
 
-        # Sampled irradiance at each receptor position: (N, N_λ)
-        sampled = (
-            irr_data[r0, c0] * (1.0 - dr) * (1.0 - dc)
-            + irr_data[r0, c1] * dc * (1.0 - dr)
-            + irr_data[r1, c0] * (1.0 - dc) * dr
-            + irr_data[r1, c1] * dc * dr
-        )
-        # Zero out receptors that fall outside the image footprint.
-        sampled[oob] = 0.0
+        runtime_aperture_meta = {
+            "enabled": False,
+            "method": "bilinear_only",
+            "sigma_px_min": 0.0,
+            "sigma_px_mean": 0.0,
+            "sigma_px_max": 0.0,
+            "approximation_note": self._rp.aperture_weighting.notes,
+        }
+        if self._rp.aperture_weighting.enabled:
+            sampled, runtime_aperture_meta = self._sample_with_aperture_weighting(
+                irr_data=irr_data,
+                row_f=row_f,
+                col_f=col_f,
+                oob=oob,
+                apertures_um=mosaic.apertures,
+                mm_per_px=mm_per_px,
+            )
+        else:
+            sampled = (
+                irr_data[r0, c0] * (1.0 - dr) * (1.0 - dc)
+                + irr_data[r0, c1] * dc * (1.0 - dr)
+                + irr_data[r1, c0] * (1.0 - dc) * dr
+                + irr_data[r1, c1] * dc * dr
+            )
+            sampled[oob] = 0.0
+
+        physiology_meta = self._rp.physiology_metadata()
+        physiology_meta["aperture_weighting"] = {
+            **physiology_meta["aperture_weighting"],
+            **runtime_aperture_meta,
+            "pixel_scale_mm": mm_per_px,
+        }
 
         # ------------------------------------------------------------------
         # 4. Spectral integration:  excitation_i = Σ_λ S_i(λ)·E_i(λ)·Δλ
@@ -204,6 +349,13 @@ class RetinalStage:
                     retinal_irradiance.metadata.get("media_transmission_applied", False)
                     or getattr(self._op, "media_transmission", None) is not None
                 ),
+                "aperture_weighting_enabled": bool(
+                    physiology_meta["aperture_weighting"]["enabled"]
+                ),
+                "aperture_sampling_method": physiology_meta["aperture_weighting"]["method"],
+                "visual_streak_enabled": bool(physiology_meta["visual_streak"]["enabled"]),
+                "visual_streak_status": physiology_meta["visual_streak"]["status"],
+                "retinal_physiology": physiology_meta,
             },
         )
 
@@ -237,3 +389,94 @@ class RetinalStage:
                 target_wl, stage_wl, sensitivities[i], left=0.0, right=0.0
             )
         return result
+
+    def _sample_with_aperture_weighting(
+        self,
+        *,
+        irr_data: np.ndarray,
+        row_f: np.ndarray,
+        col_f: np.ndarray,
+        oob: np.ndarray,
+        apertures_um: np.ndarray,
+        mm_per_px: float,
+    ) -> tuple[np.ndarray, dict]:
+        """Approximate per-receptor aperture integration with Gaussian prefilters.
+
+        The full continuous-space integral would convolve the retinal irradiance
+        with each receptor's acceptance profile at its own aperture. For the
+        current proof-of-concept grid sizes, a cached Gaussian-prefilter
+        approximation is a stable compromise: receptors are grouped by binned
+        σ values in pixels, each grouped irradiance stack is spatially blurred,
+        and then standard bilinear sampling is applied at the receptor centers.
+        """
+        config = self._rp.aperture_weighting
+        sigma_px = (
+            np.asarray(apertures_um, dtype=np.float32)
+            * 1e-3
+            * float(config.gaussian_sigma_scale)
+            / max(mm_per_px, 1e-12)
+        )
+        sigma_px = np.maximum(sigma_px, 0.0)
+        sigma_bin_px = max(float(config.sigma_bin_px), 1e-6)
+        sigma_bins = np.round(sigma_px / sigma_bin_px) * sigma_bin_px
+
+        sampled = np.zeros((len(row_f), irr_data.shape[2]), dtype=np.float32)
+        valid = ~oob
+        if np.any(valid):
+            for sigma_value in np.unique(sigma_bins[valid]):
+                mask = valid & np.isclose(sigma_bins, sigma_value)
+                if not np.any(mask):
+                    continue
+
+                if sigma_value <= 1e-8:
+                    working = irr_data
+                else:
+                    working = gaussian_filter(
+                        irr_data,
+                        sigma=(float(sigma_value), float(sigma_value), 0.0),
+                        mode="constant",
+                        cval=0.0,
+                        truncate=float(config.truncate_sigma),
+                    ).astype(np.float32)
+                sampled[mask] = self._bilinear_sample(working, row_f[mask], col_f[mask])
+
+        sampled[oob] = 0.0
+        valid_sigma = sigma_px[valid]
+        sigma_stats = {
+            "enabled": True,
+            "method": config.method,
+            "sigma_px_min": float(valid_sigma.min()) if valid_sigma.size else 0.0,
+            "sigma_px_mean": float(valid_sigma.mean()) if valid_sigma.size else 0.0,
+            "sigma_px_max": float(valid_sigma.max()) if valid_sigma.size else 0.0,
+            "sigma_bin_px": float(config.sigma_bin_px),
+            "gaussian_sigma_scale": float(config.gaussian_sigma_scale),
+            "truncate_sigma": float(config.truncate_sigma),
+            "approximation_note": config.notes,
+        }
+        return sampled, sigma_stats
+
+    def _bilinear_sample(
+        self,
+        irr_data: np.ndarray,
+        row_f: np.ndarray,
+        col_f: np.ndarray,
+    ) -> np.ndarray:
+        """Sample one irradiance stack at floating-point coordinates."""
+        h, w, _ = irr_data.shape
+        col_f_c = np.clip(col_f, 0.0, w - 1)
+        row_f_c = np.clip(row_f, 0.0, h - 1)
+
+        r0 = np.floor(row_f_c).astype(np.intp)
+        c0 = np.floor(col_f_c).astype(np.intp)
+        r1 = np.minimum(r0 + 1, h - 1)
+        c1 = np.minimum(c0 + 1, w - 1)
+
+        dr = (row_f_c - r0.astype(float))[:, np.newaxis]
+        dc = (col_f_c - c0.astype(float))[:, np.newaxis]
+
+        return (
+            irr_data[r0, c0] * (1.0 - dr) * (1.0 - dc)
+            + irr_data[r0, c1] * dc * (1.0 - dr)
+            + irr_data[r1, c0] * (1.0 - dc) * dr
+            + irr_data[r1, c1] * dc * dr
+        ).astype(np.float32)

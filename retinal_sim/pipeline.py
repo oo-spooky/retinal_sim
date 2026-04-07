@@ -16,6 +16,7 @@ Usage::
 from __future__ import annotations
 
 import dataclasses
+import warnings
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
@@ -26,7 +27,14 @@ from retinal_sim.retina.mosaic import MosaicGenerator, PhotoreceptorMosaic
 from retinal_sim.retina.stage import MosaicActivation, RetinalStage
 from retinal_sim.scene.geometry import SceneGeometry, SceneDescription
 from retinal_sim.species.config import SpeciesConfig
-from retinal_sim.spectral.upsampler import SpectralImage, SpectralUpsampler
+from retinal_sim.spectral.upsampler import (
+    DEFAULT_SCENE_INPUT_MODE,
+    RGB_SCENE_INPUT_MODES,
+    SpectralImage,
+    SpectralUpsampler,
+    normalize_scene_input_mode,
+    scene_input_metadata,
+)
 from retinal_sim.constants import WAVELENGTHS
 from retinal_sim.validation.metrics import (
     compute_simulation_summary_metrics,
@@ -82,6 +90,7 @@ class RetinalSimulator:
 
         # Shared spectral upsampler (stateless, species-independent).
         self._upsampler = SpectralUpsampler()
+        self._default_input_mode = DEFAULT_SCENE_INPUT_MODE
 
     @property
     def species_name(self) -> str:
@@ -93,27 +102,34 @@ class RetinalSimulator:
 
     def simulate(
         self,
-        input_image: np.ndarray,
+        input_image: Union[np.ndarray, SpectralImage],
         scene_width_m: Optional[float] = None,
         viewing_distance_m: float = float("inf"),
         seed: Optional[int] = None,
+        input_mode: Optional[str] = None,
     ) -> SimulationResult:
         """Run the full pipeline on a single image for this simulator's species.
 
         Args:
-            input_image: (H, W, 3) uint8 RGB image.
+            input_image: RGB image for RGB modes, or SpectralImage for
+                ``measured_spectrum``.
             scene_width_m: Physical width of the scene (metres). If None, the
                 image is treated as spanning exactly the patch extent.
             viewing_distance_m: Eye-to-scene distance (metres).
             seed: Mosaic random seed override (defaults to self._seed).
+            input_mode: One of ``reflectance_under_d65``, ``display_rgb``, or
+                ``measured_spectrum``. If omitted for RGB input, defaults to
+                ``reflectance_under_d65`` with a compatibility warning.
 
         Returns:
             SimulationResult with all intermediate outputs.
         """
         seed = seed if seed is not None else self._seed
-        H, W = input_image.shape[:2]
+        mode = self._resolve_input_mode(input_image, input_mode)
+        H, W = self._input_shape(input_image)
         optical = self._cfg.optical
         retinal = self._cfg.retinal
+        scene_meta = scene_input_metadata(mode)
 
         # --- Scene geometry ---
         if scene_width_m is not None:
@@ -124,13 +140,18 @@ class RetinalSimulator:
             # the full patch extent.
             scene = self._default_scene(H, W, optical)
 
-        # --- Spectral upsampling ---
-        spectral = self._upsampler.upsample(input_image)
+        # --- Spectral construction / bypass ---
+        if mode == "measured_spectrum":
+            spectral = self._copy_spectral_image(input_image)
+        else:
+            spectral = self._upsampler.upsample(input_image, input_mode=mode)
         spectral.data = (spectral.data * self._stimulus_scale).astype(np.float32)
+        spectral.metadata.update(scene_meta)
 
         # --- Optical stage ---
         optical_stage = OpticalStage(optical)
         irradiance = optical_stage.apply(spectral, scene=scene)
+        irradiance.metadata.update(scene_meta)
 
         # Embed pixel scale for RetinalStage fallback.
         if hasattr(scene, "mm_per_pixel") and scene.mm_per_pixel:
@@ -142,6 +163,7 @@ class RetinalSimulator:
         retinal_params = dataclasses.replace(
             retinal, patch_extent_deg=self._patch_extent_deg,
         )
+        retinal_meta = {"retinal_physiology": retinal_params.physiology_metadata()}
         retinal_stage = RetinalStage(retinal_params, optical)
         mosaic = retinal_stage.generate_mosaic(seed=seed)
         activation = retinal_stage.compute_response(mosaic, irradiance, scene)
@@ -158,9 +180,13 @@ class RetinalSimulator:
             mosaic=mosaic,
             activation=activation,
             species_name=self._cfg.name,
+            metadata={**scene_meta, **retinal_meta},
             artifacts=artifacts,
         )
-        summary_metrics = compute_simulation_summary_metrics(temp_result, input_image)
+        summary_metrics = compute_simulation_summary_metrics(
+            temp_result,
+            spectral.data if isinstance(input_image, SpectralImage) else input_image,
+        )
 
         return SimulationResult(
             scene=scene,
@@ -169,17 +195,19 @@ class RetinalSimulator:
             mosaic=mosaic,
             activation=activation,
             species_name=self._cfg.name,
+            metadata={**scene_meta, **retinal_meta},
             artifacts=artifacts,
             summary_metrics=summary_metrics,
         )
 
     def compare_species(
         self,
-        input_image: np.ndarray,
+        input_image: Union[np.ndarray, SpectralImage],
         species_list: List[str],
         scene_width_m: Optional[float] = None,
         viewing_distance_m: float = float("inf"),
         seed: Optional[int] = None,
+        input_mode: Optional[str] = None,
     ) -> Dict[str, SimulationResult]:
         """Run the same image through multiple species pipelines.
 
@@ -187,11 +215,12 @@ class RetinalSimulator:
         stimulus_scale, patch_extent_deg, and seed.
 
         Args:
-            input_image: (H, W, 3) uint8 RGB image.
+            input_image: RGB image or SpectralImage.
             species_list: List of species names.
             scene_width_m: Physical width of the scene (metres).
             viewing_distance_m: Eye-to-scene distance (metres).
             seed: Mosaic random seed override.
+            input_mode: Explicit scene-spectrum semantics.
 
         Returns:
             Dict mapping species name → SimulationResult.
@@ -208,6 +237,7 @@ class RetinalSimulator:
             results[sp] = sim.simulate(
                 input_image, scene_width_m, viewing_distance_m,
                 seed=seed,
+                input_mode=input_mode,
             )
         return results
 
@@ -251,7 +281,7 @@ class RetinalSimulator:
         self,
         scene: SceneDescription,
         mosaic: PhotoreceptorMosaic,
-        input_image: np.ndarray,
+        input_image: Union[np.ndarray, SpectralImage],
     ) -> dict:
         """Build lightweight derived artifacts used by validation and demos."""
         class _ResultLike:
@@ -260,11 +290,69 @@ class RetinalSimulator:
                 self.mosaic = mosaic_obj
 
         result_like = _ResultLike(scene, mosaic)
-        rows, cols = receptor_pixel_coordinates(result_like, input_image.shape[:2])
-        stimulated_mask = stimulated_receptor_mask(result_like, input_image.shape[:2])
+        image_shape = self._input_shape(input_image)
+        rows, cols = receptor_pixel_coordinates(result_like, image_shape)
+        stimulated_mask = stimulated_receptor_mask(result_like, image_shape)
         return {
-            "input_shape": tuple(int(v) for v in input_image.shape),
+            "input_shape": tuple(int(v) for v in image_shape),
             "receptor_rows": rows,
             "receptor_cols": cols,
             "stimulated_receptor_mask": stimulated_mask,
         }
+
+    def _resolve_input_mode(
+        self,
+        input_image: Union[np.ndarray, SpectralImage],
+        input_mode: Optional[str],
+    ) -> str:
+        """Validate input type against explicit scene semantics."""
+        is_spectral = isinstance(input_image, SpectralImage)
+        if input_mode is None:
+            if is_spectral:
+                raise ValueError(
+                    "SpectralImage input requires input_mode='measured_spectrum'; "
+                    "implicit defaults apply only to RGB ndarray input."
+                )
+            warnings.warn(
+                "RetinalSimulator.simulate() defaulting RGB input to "
+                "'reflectance_under_d65'. Pass input_mode explicitly to avoid "
+                "this compatibility fallback.",
+                FutureWarning,
+                stacklevel=3,
+            )
+            return self._default_input_mode
+
+        mode = normalize_scene_input_mode(input_mode)
+        if mode == "measured_spectrum" and not is_spectral:
+            raise ValueError(
+                "input_mode='measured_spectrum' requires a SpectralImage input."
+            )
+        if mode in RGB_SCENE_INPUT_MODES and is_spectral:
+            raise ValueError(
+                f"input_mode={mode!r} requires an RGB ndarray input, not SpectralImage."
+            )
+        return mode
+
+    def _input_shape(
+        self,
+        input_image: Union[np.ndarray, SpectralImage],
+    ) -> tuple[int, int]:
+        """Return image height/width for RGB or measured spectral inputs."""
+        if isinstance(input_image, SpectralImage):
+            return tuple(int(v) for v in input_image.data.shape[:2])
+        return tuple(int(v) for v in np.asarray(input_image).shape[:2])
+
+    def _copy_spectral_image(
+        self,
+        spectral_image: Union[np.ndarray, SpectralImage],
+    ) -> SpectralImage:
+        """Return a detached SpectralImage copy for measured-spectrum runs."""
+        if not isinstance(spectral_image, SpectralImage):
+            raise ValueError(
+                "Expected SpectralImage input for input_mode='measured_spectrum'."
+            )
+        return SpectralImage(
+            data=np.asarray(spectral_image.data, dtype=np.float32).copy(),
+            wavelengths=np.asarray(spectral_image.wavelengths, dtype=np.float64).copy(),
+            metadata=dict(getattr(spectral_image, "metadata", {})),
+        )

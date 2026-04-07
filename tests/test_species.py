@@ -164,6 +164,25 @@ class TestRetinalStructure:
         expected = set(cfg.retinal.cone_types) | {"rod"}
         assert set(cfg.retinal.naka_rushton_params.keys()) == expected
 
+    @pytest.mark.parametrize("species", SPECIES)
+    def test_retinal_provenance_fields_present(self, species):
+        cfg = SpeciesConfig.load(species)
+        physiology = cfg.retinal.physiology_metadata()
+        assert physiology["lambda_max_provenance"]["source"]
+        assert physiology["density_function_provenance"]["source"]
+        assert physiology["naka_rushton_provenance"]["confidence"]
+        assert physiology["model_scope"] == "retinal_front_end_only"
+
+    def test_visual_streak_metadata_defaults(self):
+        human = SpeciesConfig.load("human")
+        dog = SpeciesConfig.load("dog")
+        cat = SpeciesConfig.load("cat")
+        assert human.retinal.visual_streak.status == "not_applicable"
+        assert dog.retinal.visual_streak.status == "deferred"
+        assert cat.retinal.visual_streak.status == "deferred"
+        assert dog.retinal.visual_streak.supported is True
+        assert cat.retinal.visual_streak.supported is True
+
 
 # ---------------------------------------------------------------------------
 # Density functions

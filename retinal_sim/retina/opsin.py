@@ -177,6 +177,45 @@ LAMBDA_MAX: Dict[str, Dict[str, float]] = {
     "cat":   {"S_cone": 450.0,                   "L_cone": 553.0, "rod": 501.0},
 }
 
+LAMBDA_MAX_PROVENANCE: Dict[str, Dict[str, str]] = {
+    "human": {
+        "source": (
+            "Species λ_max anchors follow the retinal-front-end values documented in "
+            "the architecture/spec set and are applied through the unchanged "
+            "Govardovskii A1 nomogram."
+        ),
+        "confidence": "moderate",
+        "notes": (
+            "These are fixed species-reference peak wavelengths rather than "
+            "individualized or adaptation-dependent measurements."
+        ),
+    },
+    "dog": {
+        "source": (
+            "Dog λ_max anchors follow the retinal-front-end values documented in "
+            "the architecture/spec set and are applied through the unchanged "
+            "Govardovskii A1 nomogram."
+        ),
+        "confidence": "moderate",
+        "notes": (
+            "These anchors represent a dichromat reference model and should not be "
+            "read as a full in-vivo spectral-sensitivity validation."
+        ),
+    },
+    "cat": {
+        "source": (
+            "Cat λ_max anchors follow the retinal-front-end values documented in "
+            "the architecture/spec set and are applied through the unchanged "
+            "Govardovskii A1 nomogram."
+        ),
+        "confidence": "moderate",
+        "notes": (
+            "These anchors represent a species-reference dichromat template, not an "
+            "individualized or state-dependent sensitivity estimate."
+        ),
+    },
+}
+
 
 def build_sensitivity_curves(
     species: str,

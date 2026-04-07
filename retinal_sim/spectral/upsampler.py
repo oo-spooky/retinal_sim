@@ -1,7 +1,7 @@
-"""Spectral upsampling: RGB → spectral radiance estimate."""
+"""Scene-spectrum handling for RGB-inferred and measured spectral inputs."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from scipy.optimize import lsq_linear
@@ -14,6 +14,12 @@ class SpectralImage:
     """(H, W, N_λ) spectral radiance array with wavelength axis."""
     data: np.ndarray       # float32, shape (H, W, N_λ)
     wavelengths: np.ndarray  # nm, shape (N_λ,)
+    metadata: dict = field(default_factory=dict)
+
+
+DEFAULT_SCENE_INPUT_MODE = "reflectance_under_d65"
+RGB_SCENE_INPUT_MODES = frozenset({"reflectance_under_d65", "display_rgb"})
+SCENE_INPUT_MODES = frozenset(set(RGB_SCENE_INPUT_MODES) | {"measured_spectrum"})
 
 
 # ---------------------------------------------------------------------------
@@ -81,18 +87,70 @@ _SRGB_TO_XYZ = np.array([
 ])
 
 
-class SpectralUpsampler:
-    """Converts RGB images to spectral radiance estimates.
+def _gaussian_primary(center_nm: float, sigma_nm: float) -> np.ndarray:
+    wl = _CANONICAL_WAVELENGTHS.astype(np.float64)
+    primary = np.exp(-0.5 * ((wl - center_nm) / sigma_nm) ** 2)
+    peak = float(np.max(primary))
+    return primary / peak if peak > 0.0 else primary
 
-    Uses the Smits (1999) greedy-peel decomposition algorithm with seven
-    basis spectra (white, cyan, magenta, yellow, red, green, blue).  Rather
-    than using the original paper's hand-tuned 11-knot tables, the basis
-    spectra are computed at initialisation by solving a constrained
-    least-squares problem: each basis spectrum is the minimum-norm
-    reflectance in [0, 1] that, when integrated against the CIE 1931 2°
-    observer under D65 illumination, reproduces the target sRGB colour.
-    This guarantees RGB roundtrip RMSE < 0.001 (far below the §11a
-    criterion of 0.02) for all sRGB gamut colours.
+
+_REFERENCE_DISPLAY_PRIMARIES = {
+    "red": _gaussian_primary(610.0, 18.0),
+    "green": _gaussian_primary(545.0, 18.0),
+    "blue": _gaussian_primary(460.0, 16.0),
+}
+
+
+def normalize_scene_input_mode(input_mode: str) -> str:
+    """Validate and normalize a scene input mode string."""
+    if input_mode not in SCENE_INPUT_MODES:
+        valid = ", ".join(sorted(SCENE_INPUT_MODES))
+        raise ValueError(f"Unknown input_mode={input_mode!r}; expected one of {valid}")
+    return input_mode
+
+
+def scene_input_metadata(input_mode: str) -> dict[str, object]:
+    """Return declared semantics/provenance for a scene input mode."""
+    mode = normalize_scene_input_mode(input_mode)
+    if mode == "reflectance_under_d65":
+        assumptions = [
+            "RGB is interpreted as a display-referred color that is reconstructed into a "
+            "Smits-inspired D65-optimized reflectance spectrum.",
+            "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+            "This mode models diffuse reflectance under D65 for comparative PoC work.",
+        ]
+    elif mode == "display_rgb":
+        assumptions = [
+            "RGB is interpreted as drive values for a fixed built-in reference display model.",
+            "Spectra are emitted by repo-local reference RGB primary SPDs rather than by a calibrated device.",
+            "This mode is inferred from RGB and does not represent a measured display spectrum.",
+        ]
+    else:
+        assumptions = [
+            "Caller provided a measured spectral image directly.",
+            "No RGB-to-spectrum inference is applied in this mode.",
+        ]
+    return {
+        "scene_input_mode": mode,
+        "scene_input_is_inferred": mode != "measured_spectrum",
+        "scene_input_assumptions": assumptions,
+    }
+
+
+class SpectralUpsampler:
+    """Converts RGB imagery into explicitly-declared spectral scene models.
+
+    ``reflectance_under_d65`` uses a Smits-inspired greedy-peel decomposition
+    with seven basis spectra (white, cyan, magenta, yellow, red, green, blue).
+    Rather than using the original paper's hand-tuned 11-knot tables, the
+    basis spectra are computed at initialisation by solving a constrained
+    least-squares problem: each basis spectrum is the minimum-norm reflectance
+    in [0, 1] that, when integrated against the CIE 1931 2° observer under D65
+    illumination, reproduces the target sRGB colour.
+
+    ``display_rgb`` uses a fixed built-in reference display model made from
+    repo-local RGB primary emission spectra. It is a declared PoC assumption,
+    not a calibrated device model.
 
     Args:
         method: ``'smits'`` (default).  ``'mallett_yuksel'`` raises
@@ -124,46 +182,46 @@ class SpectralUpsampler:
                 dtype=np.float64,
             )
         self._basis: dict[str, np.ndarray] = self._compute_basis()
+        self._display_primaries = self._build_reference_display_primaries()
 
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
 
-    def upsample(self, rgb_image: np.ndarray) -> SpectralImage:
-        """Convert ``(H, W, 3)`` uint8 or float32 [0, 1] RGB to SpectralImage.
+    def upsample(
+        self,
+        rgb_image: np.ndarray,
+        input_mode: str = DEFAULT_SCENE_INPUT_MODE,
+    ) -> SpectralImage:
+        """Convert ``(H, W, 3)`` RGB into a declared spectral scene model.
 
         Args:
             rgb_image: ``(H, W, 3)`` array.  uint8 values are divided by 255.
+            input_mode: One of ``reflectance_under_d65`` or ``display_rgb``.
 
         Returns:
             :class:`SpectralImage` with ``float32`` data of shape
             ``(H, W, N_λ)``.
         """
-        img = np.asarray(rgb_image)
-        if np.issubdtype(img.dtype, np.unsignedinteger):
-            rgb = img.astype(np.float64) / 255.0
-        else:
-            rgb = img.astype(np.float64)
-        rgb = np.clip(rgb, 0.0, 1.0)
-
-        # sRGB → linear: IEC 61966-2-1 piecewise transfer function.
-        # The _SRGB_TO_XYZ matrix and the Smits decomposition operate in
-        # linear light; feeding gamma-compressed values produces physically
-        # incorrect spectral shapes.
-        rgb = np.where(
-            rgb <= 0.04045,
-            rgb / 12.92,
-            ((rgb + 0.055) / 1.055) ** 2.4,
-        )
-
-        if rgb.ndim != 3 or rgb.shape[2] != 3:
-            raise ValueError(f"Expected (H, W, 3) array, got shape {rgb.shape}")
-
+        mode = normalize_scene_input_mode(input_mode)
+        if mode not in RGB_SCENE_INPUT_MODES:
+            raise ValueError(
+                f"SpectralUpsampler.upsample() only accepts RGB input modes {sorted(RGB_SCENE_INPUT_MODES)}, "
+                f"got {mode!r}"
+            )
+        rgb = self._coerce_rgb(rgb_image)
         H, W, _ = rgb.shape
         flat = rgb.reshape(-1, 3)
-        spec_flat = self._smits_decompose(flat)          # (H*W, N_λ)
+        if mode == "reflectance_under_d65":
+            spec_flat = self._smits_decompose(flat)
+        else:
+            spec_flat = self._display_decompose(flat)
         data = spec_flat.reshape(H, W, len(self.wavelengths)).astype(np.float32)
-        return SpectralImage(data=data, wavelengths=self.wavelengths.copy())
+        return SpectralImage(
+            data=data,
+            wavelengths=self.wavelengths.copy(),
+            metadata=dict(scene_input_metadata(mode)),
+        )
 
     def spectral_to_xyz(self, spectra: np.ndarray) -> np.ndarray:
         """Project spectra on this instance's wavelength grid to CIE XYZ.
@@ -208,10 +266,10 @@ class SpectralUpsampler:
     # ------------------------------------------------------------------
 
     def _compute_basis(self) -> dict[str, np.ndarray]:
-        """Compute per-colour basis spectra optimised for the D65 roundtrip.
+        """Compute basis spectra for the D65 reflectance roundtrip.
 
-        For each of the seven Smits basis colours, finds the reflectance
-        spectrum S ∈ [0, 1]^{N_λ} with minimum L² norm such that
+        For each of the seven Smits-inspired basis colours, finds the
+        reflectance spectrum S ∈ [0, 1]^{N_λ} with minimum L² norm such that
 
             k · (D65 · S · CMF) · dλ  =  XYZ_target
 
@@ -254,6 +312,40 @@ class SpectralUpsampler:
             basis[name] = result.x
         return basis
 
+    def _build_reference_display_primaries(self) -> np.ndarray:
+        """Return repo-local reference display primary SPDs on this grid."""
+        if np.array_equal(self.wavelengths, _CANONICAL_WAVELENGTHS):
+            return np.stack(
+                [
+                    _REFERENCE_DISPLAY_PRIMARIES["red"],
+                    _REFERENCE_DISPLAY_PRIMARIES["green"],
+                    _REFERENCE_DISPLAY_PRIMARIES["blue"],
+                ],
+                axis=0,
+            )
+
+        from scipy.interpolate import interp1d
+
+        ref_wl = _CANONICAL_WAVELENGTHS.astype(np.float64)
+
+        def _interp(arr: np.ndarray) -> np.ndarray:
+            return interp1d(
+                ref_wl,
+                arr,
+                kind="linear",
+                bounds_error=False,
+                fill_value=(arr[0], arr[-1]),
+            )(self.wavelengths)
+
+        return np.stack(
+            [
+                _interp(_REFERENCE_DISPLAY_PRIMARIES["red"]),
+                _interp(_REFERENCE_DISPLAY_PRIMARIES["green"]),
+                _interp(_REFERENCE_DISPLAY_PRIMARIES["blue"]),
+            ],
+            axis=0,
+        )
+
     def _observer_and_illuminant(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Return CIE 1931 CMFs and D65 SPD on ``self.wavelengths``."""
         wl = self.wavelengths
@@ -276,7 +368,7 @@ class SpectralUpsampler:
         return _interp(_CIE_X), _interp(_CIE_Y), _interp(_CIE_Z), _interp(_D65)
 
     def _smits_decompose(self, rgb: np.ndarray) -> np.ndarray:
-        """Vectorised Smits (1999) RGB-to-spectrum decomposition.
+        """Vectorised Smits-inspired RGB-to-reflectance decomposition.
 
         Subtracts the minimum channel as the achromatic (white) component,
         then routes each pixel to one of three chromatic paths based on
@@ -339,3 +431,23 @@ class SpectralUpsampler:
             spec[idx] += gi[:, None] * b["green"]
 
         return spec
+
+    def _display_decompose(self, rgb: np.ndarray) -> np.ndarray:
+        """Convert linear RGB drive values into reference-display emission."""
+        return rgb @ self._display_primaries
+
+    def _coerce_rgb(self, rgb_image: np.ndarray) -> np.ndarray:
+        """Validate an RGB image and return linear-light float64 RGB."""
+        img = np.asarray(rgb_image)
+        if np.issubdtype(img.dtype, np.unsignedinteger):
+            rgb = img.astype(np.float64) / 255.0
+        else:
+            rgb = img.astype(np.float64)
+        rgb = np.clip(rgb, 0.0, 1.0)
+        if rgb.ndim != 3 or rgb.shape[2] != 3:
+            raise ValueError(f"Expected (H, W, 3) array, got shape {rgb.shape}")
+        return np.where(
+            rgb <= 0.04045,
+            rgb / 12.92,
+            ((rgb + 0.055) / 1.055) ** 2.4,
+        )

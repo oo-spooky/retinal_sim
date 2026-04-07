@@ -33,3 +33,33 @@ retinal:
     S_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
     L_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
     rod:    {n: 1.0, sigma: 0.1, R_max: 1.0}
+
+  provenance:
+    lambda_max:
+      source: Dog lambda-max anchors follow the project architecture/spec reference set and are used with the unchanged Govardovskii A1 nomogram.
+      confidence: moderate
+      notes: Fixed dichromat reference wavelengths; not a full in-vivo sensitivity validation.
+    density_functions:
+      source: Dog density falloff is a proof-of-concept Gaussian approximation referencing Mowat 2008-style area-centralis and rod-density trends.
+      confidence: moderate
+      notes: The current model is radially symmetric by default even though dogs may have a weak visual streak.
+    naka_rushton:
+      source: Dog Naka-Rushton parameters are configurable retinal-front-end model parameters stored in YAML.
+      confidence: low
+      notes: Defaults preserve prior proof-of-concept behavior and are not presented as externally fitted dog phototransduction parameters.
+
+  aperture_weighting:
+    enabled: false
+    gaussian_sigma_scale: 0.5
+    sigma_bin_px: 0.1
+    truncate_sigma: 3.0
+    method: gaussian_prefilter
+    notes: Optional retinal-front-end refinement; receptor apertures are approximated on the current irradiance grid rather than integrated in continuous space.
+
+  visual_streak:
+    supported: true
+    enabled: false
+    axis: horizontal
+    axis_ratio: 1.5
+    status: deferred
+    notes: Dog mosaic anisotropy remains disabled by default to preserve the current radially symmetric proof of concept, but the config hook is present for future visual-streak fits.

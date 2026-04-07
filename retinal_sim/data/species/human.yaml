@@ -37,3 +37,33 @@ retinal:
     M_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
     L_cone: {n: 0.7, sigma: 0.5, R_max: 1.0}
     rod:    {n: 1.0, sigma: 0.1, R_max: 1.0}
+
+  provenance:
+    lambda_max:
+      source: Human lambda-max anchors follow the project architecture/spec reference set and are used with the unchanged Govardovskii A1 nomogram.
+      confidence: moderate
+      notes: Fixed species-reference peak wavelengths; not individualized or adaptation-dependent in-vivo fits.
+    density_functions:
+      source: Human density falloff is a proof-of-concept Gaussian approximation referencing Curcio 1990-style foveal/rod-free-zone anatomy.
+      confidence: moderate
+      notes: The current model is radially symmetric and patch-limited; it is not a full histological density map.
+    naka_rushton:
+      source: Human Naka-Rushton parameters are configurable retinal-front-end model parameters stored in YAML.
+      confidence: low
+      notes: Defaults preserve prior proof-of-concept behavior and should not be over-read as validated species-specific transduction measurements.
+
+  aperture_weighting:
+    enabled: false
+    gaussian_sigma_scale: 0.5
+    sigma_bin_px: 0.1
+    truncate_sigma: 3.0
+    method: gaussian_prefilter
+    notes: Optional retinal-front-end refinement; many human cone apertures remain sub-pixel at the current proof-of-concept grid scale.
+
+  visual_streak:
+    supported: false
+    enabled: false
+    axis: horizontal
+    axis_ratio: 1.0
+    status: not_applicable
+    notes: Human foveal modeling stays radially symmetric in this proof-of-concept build.

@@ -162,7 +162,10 @@ def find_confusion_pair(
 
     # --- Spectral responses ------------------------------------------------
     # Upsample a (N, 1, 3) pseudo-image; squeeze to (N, N_λ).
-    spectral = upsampler.upsample(candidates[:, np.newaxis, :])
+    spectral = upsampler.upsample(
+        candidates[:, np.newaxis, :],
+        input_mode="reflectance_under_d65",
+    )
     spectra = spectral.data[:, 0, :].astype(float)  # (N, N_λ)
 
     def _responses(curves: dict[str, np.ndarray]) -> dict[str, np.ndarray]:

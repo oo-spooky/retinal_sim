@@ -326,6 +326,11 @@ class TestValidationSuiteConstruction:
         report = full_report
         assert report.metadata["report_type"] == "full_validation_audit"
         assert report.metadata["species"] == "human"
+        assert report.metadata["scene_input_mode"] == "reflectance_under_d65"
+        assert report.metadata["scene_input_is_inferred"] is True
+        assert report.metadata["retinal_physiology"]["model_scope"] == "retinal_front_end_only"
+        assert report.metadata["retinal_physiology"]["naka_rushton_provenance"]["confidence"] == "low"
+        assert report.metadata["retinal_physiology"]["aperture_weighting"]["enabled"] is False
         assert "architecture_coverage" in report.metadata
         assert len(report.metadata["architecture_coverage"]) == 19
         assert report.metadata["stage_counts"]["optical"] == 6
@@ -519,12 +524,21 @@ class TestHTMLOutput:
         assert "Assumptions" in content
         assert "Limitations" in content
         assert "Code references" in content
+        assert "Scene input mode" in content
+        assert "RGB-inferred" in content
+        assert "Retinal Physiology Assumptions" in content
+        assert "Retinal Front-End Only." in content
+        assert "Naka-Rushton confidence" in content
+        assert "Visual streak status" in content
 
     def test_report_json_contains_result_metadata(self, full_report_json: str):
         content = full_report_json
         assert '"architecture_ref"' in content
         assert '"code_refs"' in content
         assert '"pass_criterion"' in content
+        assert '"scene_input_mode": "reflectance_under_d65"' in content
+        assert '"retinal_physiology"' in content
+        assert '"retinal_front_end_only"' in content
         assert '"Pupil Throughput Scaling"' in content
         assert '"Cat Slit Anisotropy"' in content
         assert "pupil_area_mm2" in content

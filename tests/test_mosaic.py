@@ -299,3 +299,13 @@ class TestTypes:
         known = {"S_cone", "M_cone", "L_cone", "rod"}
         actual = set(human_mosaic.types)
         assert actual <= known, f"Unknown types: {actual - known}"
+
+    def test_visual_streak_hook_disabled_by_default_for_dog_and_cat(self):
+        dog_cfg = SpeciesConfig.load("dog")
+        cat_cfg = SpeciesConfig.load("cat")
+        assert dog_cfg.retinal.visual_streak.supported is True
+        assert cat_cfg.retinal.visual_streak.supported is True
+        assert dog_cfg.retinal.visual_streak.enabled is False
+        assert cat_cfg.retinal.visual_streak.enabled is False
+        assert dog_cfg.retinal.visual_streak.status == "deferred"
+        assert cat_cfg.retinal.visual_streak.status == "deferred"

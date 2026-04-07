@@ -240,7 +240,10 @@ class DichromatValidator:
         # half-saturation constant.  Without scaling, unit-reflectance inputs
         # produce excitations >> σ (≈ 0.5), saturating all responses to R_max
         # and eliminating chromatic discriminability.
-        spectral = self._upsampler.upsample(rgb_image)
+        spectral = self._upsampler.upsample(
+            rgb_image,
+            input_mode="reflectance_under_d65",
+        )
         spectral.data = (spectral.data * self._stimulus_scale).astype(np.float32)
 
         # 2. Optical stage.

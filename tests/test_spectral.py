@@ -128,7 +128,7 @@ def _batch_roundtrip(rgb_colors: np.ndarray, upsampler: SpectralUpsampler) -> np
         Compare against ``_srgb_to_linear(rgb_colors)`` for the roundtrip check.
     """
     img = rgb_colors.reshape(1, -1, 3).astype(np.float32)
-    si = upsampler.upsample(img)
+    si = upsampler.upsample(img, input_mode="reflectance_under_d65")
     reconstructed = np.zeros_like(rgb_colors)
     for i in range(len(rgb_colors)):
         spec = si.data[0, i, :].astype(np.float64)
@@ -166,6 +166,18 @@ class TestSpectralUpsamplerInit:
         with pytest.raises(NotImplementedError):
             SpectralUpsampler(method="bogus")
 
+    def test_unknown_input_mode_raises(self):
+        up = SpectralUpsampler()
+        img = np.ones((1, 1, 3), dtype=np.float32)
+        with pytest.raises(ValueError, match="Unknown input_mode"):
+            up.upsample(img, input_mode="bogus")
+
+    def test_measured_spectrum_mode_rejected_for_rgb_upsampler(self):
+        up = SpectralUpsampler()
+        img = np.ones((1, 1, 3), dtype=np.float32)
+        with pytest.raises(ValueError, match="only accepts RGB input modes"):
+            up.upsample(img, input_mode="measured_spectrum")
+
 
 class TestSpectralUpsamplerShape:
     def setup_method(self):
@@ -173,38 +185,38 @@ class TestSpectralUpsamplerShape:
 
     def test_output_type(self):
         img = np.ones((2, 3, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert isinstance(result, SpectralImage)
 
     def test_output_shape_small(self):
         img = np.ones((1, 1, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert result.data.shape == (1, 1, 69)
 
     def test_output_shape_general(self):
         img = np.ones((4, 7, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert result.data.shape == (4, 7, 69)
 
     def test_data_dtype_float32(self):
         img = np.ones((2, 2, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert result.data.dtype == np.float32
 
     def test_wavelengths_dtype_float64(self):
         img = np.ones((2, 2, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert result.wavelengths.dtype == np.float64
 
     def test_wavelengths_match_upsampler(self):
         img = np.ones((1, 1, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         np.testing.assert_array_equal(result.wavelengths, self.up.wavelengths)
 
     def test_wrong_channels_raises(self):
         img = np.ones((2, 2, 4), dtype=np.float32)
         with pytest.raises(ValueError):
-            self.up.upsample(img)
+            self.up.upsample(img, input_mode="reflectance_under_d65")
 
 
 class TestSpectralUpsamplerUint8:
@@ -214,21 +226,21 @@ class TestSpectralUpsamplerUint8:
     def test_uint8_white_matches_float_white(self):
         img_float = np.ones((1, 1, 3), dtype=np.float32)
         img_uint8 = np.full((1, 1, 3), 255, dtype=np.uint8)
-        result_f = self.up.upsample(img_float)
-        result_u = self.up.upsample(img_uint8)
+        result_f = self.up.upsample(img_float, input_mode="reflectance_under_d65")
+        result_u = self.up.upsample(img_uint8, input_mode="reflectance_under_d65")
         np.testing.assert_allclose(result_f.data, result_u.data, atol=1e-5)
 
     def test_uint8_black_is_zero(self):
         img = np.zeros((2, 2, 3), dtype=np.uint8)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         np.testing.assert_array_equal(result.data, 0.0)
 
     def test_uint8_gray(self):
         v = 128
         img_u = np.full((1, 1, 3), v, dtype=np.uint8)
         img_f = np.full((1, 1, 3), v / 255.0, dtype=np.float32)
-        r_u = self.up.upsample(img_u)
-        r_f = self.up.upsample(img_f)
+        r_u = self.up.upsample(img_u, input_mode="reflectance_under_d65")
+        r_f = self.up.upsample(img_f, input_mode="reflectance_under_d65")
         np.testing.assert_allclose(r_u.data, r_f.data, atol=1e-4)
 
 
@@ -238,12 +250,12 @@ class TestSpectralUpsamplerValues:
 
     def test_black_is_zero(self):
         img = np.zeros((3, 3, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert np.all(result.data == 0.0)
 
     def test_white_is_approximately_flat(self):
         img = np.ones((1, 1, 3), dtype=np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         spec = result.data[0, 0, :]
         # White spectrum should be close to 1.0 everywhere (Smits white basis ≈ 1)
         assert np.all(spec > 0.99)
@@ -252,21 +264,21 @@ class TestSpectralUpsamplerValues:
     def test_non_negative(self):
         rng = np.random.default_rng(42)
         img = rng.random((5, 5, 3)).astype(np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert np.all(result.data >= 0.0)
 
     def test_output_bounded(self):
         # Smits basis values are all ≤ 1, so output should be ≤ 1 for inputs in [0,1]
         rng = np.random.default_rng(99)
         img = rng.random((5, 5, 3)).astype(np.float32)
-        result = self.up.upsample(img)
+        result = self.up.upsample(img, input_mode="reflectance_under_d65")
         assert np.all(result.data <= 1.1)  # small tolerance for basis overshoot at 460nm
 
     def test_gray_is_scaled_white(self):
         white = np.ones((1, 1, 3), dtype=np.float32)
         gray = np.full((1, 1, 3), 0.5, dtype=np.float32)
-        r_white = self.up.upsample(white).data[0, 0, :]
-        r_gray = self.up.upsample(gray).data[0, 0, :]
+        r_white = self.up.upsample(white, input_mode="reflectance_under_d65").data[0, 0, :]
+        r_gray = self.up.upsample(gray, input_mode="reflectance_under_d65").data[0, 0, :]
         # sRGB 0.5 linearises to ≈ 0.2140 (IEC 61966-2-1), so the spectrum
         # should scale by that linear factor, not by 0.5.
         expected_scale = float(_srgb_to_linear(np.array([0.5]))[0])
@@ -281,7 +293,7 @@ class TestSpectralUpsamplerPhysics:
 
     def _upsample_color(self, r, g, b):
         img = np.array([[[r, g, b]]], dtype=np.float32)
-        return self.up.upsample(img).data[0, 0, :]  # (N_λ,)
+        return self.up.upsample(img, input_mode="reflectance_under_d65").data[0, 0, :]  # (N_λ,)
 
     def _wl_idx(self, nm):
         """Index of wavelength nm in the upsampler's grid."""
@@ -332,6 +344,19 @@ class TestSpectralUpsamplerPhysics:
         s1 = self._upsample_color(v1, v1, v1)
         s2 = self._upsample_color(v2, v2, v2)
         np.testing.assert_allclose(s2, (lin2 / lin1) * s1, atol=1e-5)
+
+    def test_display_rgb_differs_from_reflectance_under_d65(self):
+        img = np.array([[[0.85, 0.35, 0.15]]], dtype=np.float32)
+        reflectance = self.up.upsample(img, input_mode="reflectance_under_d65").data[0, 0, :]
+        display = self.up.upsample(img, input_mode="display_rgb").data[0, 0, :]
+        assert not np.allclose(reflectance, display)
+
+    def test_display_rgb_metadata_declares_reference_display(self):
+        img = np.array([[[0.2, 0.4, 0.8]]], dtype=np.float32)
+        result = self.up.upsample(img, input_mode="display_rgb")
+        assert result.metadata["scene_input_mode"] == "display_rgb"
+        assert result.metadata["scene_input_is_inferred"] is True
+        assert any("reference display" in item for item in result.metadata["scene_input_assumptions"])
 
 
 class TestRoundtrip:
