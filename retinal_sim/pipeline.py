@@ -22,6 +22,11 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 
+from retinal_sim.output.diagnostics import (
+    build_comparative_renderings,
+    build_photoreceptor_activation_diagnostics,
+    build_retinal_irradiance_diagnostics,
+)
 from retinal_sim.optical.stage import OpticalStage, RetinalIrradiance
 from retinal_sim.retina.mosaic import MosaicGenerator, PhotoreceptorMosaic
 from retinal_sim.retina.stage import MosaicActivation, RetinalStage
@@ -170,7 +175,10 @@ class RetinalSimulator:
 
         artifacts = self._build_artifacts(
             scene=scene,
+            spectral_image=spectral,
+            retinal_irradiance=irradiance,
             mosaic=mosaic,
+            activation=activation,
             input_image=input_image,
         )
         temp_result = SimulationResult(
@@ -280,7 +288,10 @@ class RetinalSimulator:
     def _build_artifacts(
         self,
         scene: SceneDescription,
+        spectral_image: SpectralImage,
+        retinal_irradiance: RetinalIrradiance,
         mosaic: PhotoreceptorMosaic,
+        activation: MosaicActivation,
         input_image: Union[np.ndarray, SpectralImage],
     ) -> dict:
         """Build lightweight derived artifacts used by validation and demos."""
@@ -298,6 +309,23 @@ class RetinalSimulator:
             "receptor_rows": rows,
             "receptor_cols": cols,
             "stimulated_receptor_mask": stimulated_mask,
+            "retinal_irradiance_diagnostics": build_retinal_irradiance_diagnostics(
+                spectral_image=spectral_image,
+                retinal_irradiance=retinal_irradiance,
+            ),
+            "photoreceptor_activation_diagnostics": build_photoreceptor_activation_diagnostics(
+                scene=scene,
+                mosaic=mosaic,
+                activation=activation,
+                receptor_rows=rows,
+                receptor_cols=cols,
+                stimulated_mask=stimulated_mask,
+                input_shape=image_shape,
+            ),
+            "comparative_renderings": build_comparative_renderings(
+                activation=activation,
+                input_shape=image_shape,
+            ),
         }
 
     def _resolve_input_mode(

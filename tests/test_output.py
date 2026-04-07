@@ -1,11 +1,20 @@
 """Phase 8 tests: Voronoi visualization and mosaic reconstruction."""
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
+from retinal_sim.optical.stage import RetinalIrradiance
 from retinal_sim.retina.mosaic import PhotoreceptorMosaic
 from retinal_sim.retina.stage import MosaicActivation
+from retinal_sim.spectral.upsampler import SpectralImage
+from retinal_sim.output.diagnostics import (
+    build_comparative_renderings,
+    build_photoreceptor_activation_diagnostics,
+    build_retinal_irradiance_diagnostics,
+)
 from retinal_sim.output.voronoi import render_voronoi, _TYPE_BASE_COLOR
 from retinal_sim.output.reconstruction import render_reconstructed
 from retinal_sim.output.comparison import render_comparison, render_mosaic_map
@@ -299,3 +308,71 @@ class TestRenderMosaicMap:
         fig = render_mosaic_map(act.mosaic, output_size=(200, 200))
         assert fig is not None
         plt.close(fig)
+
+
+class TestDiagnosticBuilders:
+    def test_build_retinal_irradiance_diagnostics_has_structured_groups(self):
+        wavelengths = np.linspace(380.0, 720.0, N_WL, dtype=np.float64)
+        y, x = np.mgrid[0:6, 0:6]
+        base = (x + y)[..., np.newaxis].astype(np.float32)
+        spectral = SpectralImage(
+            data=np.repeat(base + 0.5, N_WL, axis=2),
+            wavelengths=wavelengths,
+        )
+        irradiance = RetinalIrradiance(
+            data=np.repeat(base + 1.0, N_WL, axis=2),
+            wavelengths=wavelengths,
+            metadata={
+                "pupil_area_mm2": 7.0,
+                "pupil_throughput_scale": 1.0,
+                "effective_f_number": 7.4,
+                "anisotropy_active": False,
+                "media_transmission_source": "unit-test",
+                "psf_sigma_px_x": [1.0] * N_WL,
+                "psf_sigma_px_y": [1.0] * N_WL,
+            },
+        )
+        diagnostics = build_retinal_irradiance_diagnostics(spectral, irradiance)
+
+        assert diagnostics["family_label"] == "retinal irradiance diagnostics"
+        assert "delivered_spectrum_summary" in diagnostics
+        assert "selected_wavelength_slices" in diagnostics
+        assert len(diagnostics["selected_wavelength_slices"]) == 3
+        assert diagnostics["band_composite"]["image_data"].shape == (6, 6, 3)
+        assert diagnostics["optical_stage_summary"]["media_transmission_source"] == "unit-test"
+
+    def test_build_photoreceptor_activation_diagnostics_has_response_summary(self):
+        activation = _make_activation(
+            n=12,
+            types=["L_cone", "M_cone", "S_cone", "rod"] * 3,
+            response_value=0.5,
+        )
+        diagnostics = build_photoreceptor_activation_diagnostics(
+            scene=SimpleNamespace(
+                scene_covers_patch_fraction=0.75,
+                retinal_width_mm=1.2,
+                retinal_height_mm=1.0,
+            ),
+            mosaic=activation.mosaic,
+            activation=activation,
+            receptor_rows=np.arange(12, dtype=int) % 6,
+            receptor_cols=np.arange(12, dtype=int) % 6,
+            stimulated_mask=np.array([True] * 8 + [False] * 4),
+            input_shape=(6, 6),
+        )
+
+        assert diagnostics["family_label"] == "photoreceptor activation diagnostics"
+        assert diagnostics["overall_summary"]["n_receptors"] == 12
+        assert len(diagnostics["response_summary_by_type"]) == 4
+        assert diagnostics["sampling_footprint_summary"]["stimulated_receptor_count"] == 8
+        assert diagnostics["mosaic_footprint_overlay"]["image_data"].shape == (6, 6, 3)
+
+    def test_build_comparative_renderings_are_claim_calibrated(self):
+        activation = _make_activation(n=20, seed=3)
+        diagnostics = build_comparative_renderings(activation, input_shape=(24, 24))
+
+        assert diagnostics["family_label"] == "comparative renderings"
+        assert "not direct perceptual" in diagnostics["scope_note"]
+        labels = [item["label"] for item in diagnostics["items"]]
+        assert "Retinal-information rendering" in labels
+        assert any("Comparative rendering" in label for label in labels)

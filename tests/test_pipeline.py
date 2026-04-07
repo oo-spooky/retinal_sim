@@ -493,8 +493,32 @@ class TestSimulateSingleSpecies:
     def test_simulate_populates_artifacts_and_summary_metrics(self, human_result: SimulationResult):
         assert "stimulated_receptor_mask" in human_result.artifacts
         assert human_result.artifacts["stimulated_receptor_mask"].shape == (human_result.mosaic.n_receptors,)
+        assert "retinal_irradiance_diagnostics" in human_result.artifacts
+        assert "photoreceptor_activation_diagnostics" in human_result.artifacts
+        assert "comparative_renderings" in human_result.artifacts
         assert "stimulated_receptor_count" in human_result.summary_metrics
         assert human_result.summary_metrics["stimulated_receptor_count"] > 0
+
+    def test_simulate_artifact_groups_expose_structured_traceability(self, human_result: SimulationResult):
+        irradiance = human_result.artifacts["retinal_irradiance_diagnostics"]
+        activation = human_result.artifacts["photoreceptor_activation_diagnostics"]
+        renderings = human_result.artifacts["comparative_renderings"]
+
+        assert irradiance["family_label"] == "retinal irradiance diagnostics"
+        assert "delivered_spectrum_summary" in irradiance
+        assert "optical_stage_summary" in irradiance
+        assert irradiance["optical_stage_summary"]["pupil_throughput_scale"] > 0.0
+
+        assert activation["family_label"] == "photoreceptor activation diagnostics"
+        assert activation["overall_summary"]["n_receptors"] == human_result.mosaic.n_receptors
+        assert activation["sampling_footprint_summary"]["stimulated_receptor_count"] > 0
+        assert activation["response_summary_by_type"]
+
+        assert renderings["family_label"] == "comparative renderings"
+        assert "not direct perceptual" in renderings["scope_note"]
+        labels = [item["label"] for item in renderings["items"]]
+        assert "Retinal-information rendering" in labels
+        assert any("Comparative rendering" in label for label in labels)
 
     def test_simulate_projected_scene_reduces_stimulated_receptors(self, human_sim: RetinalSimulator):
         image = _random_image(seed=12)

@@ -230,6 +230,7 @@ class ValidationSuite:
         }
         validation_category_counts = _count_spec_field(result_specs, "validation_category")
         claim_support_level_counts = _count_spec_field(result_specs, "claim_support_level")
+        simulation_output_example = self._representative_simulation_output_example()
         return {
             "title": "retinal_sim validation audit report",
             "report_type": report_type,
@@ -270,6 +271,32 @@ class ValidationSuite:
             "validation_category_counts": validation_category_counts,
             "claim_support_level_counts": claim_support_level_counts,
             "external_reference_tables": refs,
+            "simulation_output_example": simulation_output_example,
+        }
+
+    def _representative_simulation_output_example(self) -> Dict[str, Any]:
+        """Run one deterministic sample simulation for R6 output-family reporting."""
+        image = np.zeros((24, 24, 3), dtype=np.uint8)
+        image[:, :8] = [210, 40, 40]
+        image[:, 8:16] = [60, 170, 80]
+        image[:, 16:] = [40, 80, 210]
+        image[8:16, 8:16] = [220, 220, 220]
+        try:
+            result = self._sim.simulate(
+                image,
+                seed=self._seed,
+                input_mode="reflectance_under_d65",
+            )
+        except Exception as exc:
+            return {"error": str(exc)}
+
+        return {
+            "description": (
+                "Representative deterministic RGB probe used to expose retinal irradiance, "
+                "photoreceptor activation, and comparative rendering artifact families."
+            ),
+            "artifacts": result.artifacts,
+            "summary_metrics": result.summary_metrics,
         }
 
     def _result(
@@ -743,7 +770,7 @@ class ValidationSuite:
         ax2.set_ylim(-0.1, 1.3)
         ax2.set_xticks([i + 0.5 for i in range(n)])
         ax2.set_xticklabels(names, fontsize=7, rotation=45)
-        ax2.set_title("Input (left) vs Reconstructed (right)")
+        ax2.set_title("Input (left) vs Reprojected (right)")
         ax2.set_yticks([])
         plt.tight_layout()
 
@@ -1485,7 +1512,10 @@ class ValidationSuite:
 
             recon = render_reconstructed(results[sp].activation, (128, 128))
             axes[1, i + 1].imshow(recon, cmap="gray", origin="lower", vmin=0, vmax=1)
-            axes[1, i + 1].set_title(f"{sp.capitalize()}\nReconstructed", fontsize=9)
+            axes[1, i + 1].set_title(
+                f"{sp.capitalize()}\nRetinal-information rendering",
+                fontsize=9,
+            )
             axes[1, i + 1].axis("off")
 
         fig.suptitle("Resolution Gradient: Checkerboard Stimulus", fontsize=11)
@@ -1642,7 +1672,7 @@ class ValidationSuite:
         ax2.set_ylim(-0.1, 1.3)
         ax2.set_xticks([i + 0.5 for i in range(len(test_colors))])
         ax2.set_xticklabels(names, fontsize=7, rotation=45)
-        ax2.set_title("Input (left) vs Reconstructed (right)")
+        ax2.set_title("Input (left) vs Reprojected (right)")
         ax2.set_yticks([])
         plt.tight_layout()
 
@@ -1761,7 +1791,7 @@ class ValidationSuite:
         ):
             ax1.plot(wl, spectra_by_name[color_name], linestyle=style, color=color, lw=1.8, label=color_name)
         ax1.set_xlabel("Wavelength (nm)")
-        ax1.set_ylabel("Reconstructed reflectance")
+        ax1.set_ylabel("RGB-inferred reflectance")
         ax1.set_title("Representative RGB-Probe Spectra")
         ax1.grid(True, alpha=0.3)
         ax1.legend(fontsize=8)
@@ -2140,7 +2170,10 @@ class ValidationSuite:
 
             recon = render_reconstructed(results[sp].activation, (128, 128))
             axes[1, i + 1].imshow(recon, cmap="gray", origin="lower", vmin=0, vmax=1)
-            axes[1, i + 1].set_title(f"{sp.capitalize()}\nReconstructed", fontsize=9)
+            axes[1, i + 1].set_title(
+                f"{sp.capitalize()}\nRetinal-information rendering",
+                fontsize=9,
+            )
             axes[1, i + 1].axis("off")
 
         fig.suptitle("Resolution Gradient: Quantified Center vs Periphery Contrast", fontsize=11)
@@ -2235,7 +2268,7 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "method": "Project RGB-inferred reflectance spectra back to sRGB and compute per-colour RMSE.",
         "pass_criterion": "RMSE < 2 8-bit counts for all tested colours.",
         "limitations": ["This validates the D65 round-trip path, not arbitrary illuminant changes."],
-        "artifacts": ["RMSE bar chart", "Input vs reconstructed color swatches"],
+        "artifacts": ["RMSE bar chart", "Input vs reprojected color swatches"],
     },
     "Spectral Response Panel": {
         "stage": "spectral",
@@ -2249,7 +2282,7 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "method": "Upsample each probe color in reflectance_under_d65 mode, compute D65-weighted cone catches for each species, and verify expected dominance/order and blue-vs-warm separations.",
         "pass_criterion": "Anchor colors preserve expected cone-type dominance and dog/cat blue-vs-yellow/red separations exceed the fixed margin.",
         "limitations": ["Because the probes originate from sRGB values, this validates response ordering under the current D65-based reconstruction model rather than true narrowband physiology."],
-        "artifacts": ["Representative reconstructed spectra plot", "Per-species normalized cone-catch panel"],
+        "artifacts": ["Representative RGB-inferred spectra plot", "Per-species normalized cone-catch panel"],
     },
     "MTF vs Diffraction Limit": {
         "stage": "optical",
@@ -2382,7 +2415,7 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "method": "Measure left/right cone-response difference after full-pipeline simulation.",
         "pass_criterion": "Human left/right difference exceeds dog by at least 20%.",
         "limitations": ["This is a compact proxy for a richer end-to-end color-deficit comparison."],
-        "artifacts": ["Input stimulus", "Per-species Voronoi renderings"],
+        "artifacts": ["Input stimulus", "Per-species comparative renderings"],
     },
     "Resolution Gradient": {
         "stage": "e2e",
@@ -2393,7 +2426,7 @@ _RESULT_SPECS: Dict[str, Dict[str, Any]] = {
         "method": "Compare center vs peripheral bright/dark response contrast on a fine checkerboard and compare human center contrast against dichromat center contrast.",
         "pass_criterion": "Human center contrast exceeds human periphery and exceeds dog/cat center contrast.",
         "limitations": ["Quantifies contrast retention on a fine checkerboard but does not yet fit a full eccentricity-dependent MTF curve."],
-        "artifacts": ["Input checkerboard", "Per-species Voronoi images", "Per-species reconstructions"],
+        "artifacts": ["Input checkerboard", "Per-species comparative renderings", "Per-species retinal-information renderings"],
     },
 }
 
@@ -2684,6 +2717,29 @@ def _fig_to_data_uri(fig) -> str:
         plt.close(fig)
 
 
+def _array_to_data_uri(image: Any, image_kind: str = "rgb") -> str:
+    """Convert a numpy image array to a base64 data URI."""
+    import matplotlib.pyplot as plt
+
+    array = np.asarray(image, dtype=np.float32)
+    buf = io.BytesIO()
+    try:
+        if array.ndim == 2 or image_kind == "grayscale":
+            plt.imsave(
+                buf,
+                np.clip(array, 0.0, 1.0),
+                format="png",
+                cmap="gray",
+                vmin=0.0,
+                vmax=1.0,
+            )
+        else:
+            plt.imsave(buf, np.clip(array, 0.0, 1.0), format="png")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    finally:
+        buf.close()
+
+
 def _escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -2849,6 +2905,19 @@ pre {
 .test-figure img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; }
 .bonus-section img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; margin: 8px 0; }
 .split-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.output-family {
+    border: 1px solid #d8e2ea; border-radius: 8px; padding: 14px 16px;
+    margin: 16px 0; background: #fcfdff;
+}
+.output-gallery {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;
+    margin: 12px 0;
+}
+.output-item {
+    border: 1px solid #e3e7eb; border-radius: 6px; padding: 10px 12px; background: #fff;
+}
+.output-item img { max-width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; }
+.output-item-title { font-weight: 700; margin: 0 0 6px 0; }
 .reference-table { margin: 16px 0; }
 table { border-collapse: collapse; width: 100%; margin: 10px 0; }
 th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 0.92em; }
@@ -2861,6 +2930,8 @@ def _json_safe(value: Any) -> Any:
         return value
     if isinstance(value, Path):
         return str(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set)):
@@ -3205,6 +3276,115 @@ def _coverage_matrix_html(metadata: Dict[str, Any]) -> str:
     )
 
 
+def _simulation_output_section_html(metadata: Dict[str, Any]) -> str:
+    example = metadata.get("simulation_output_example", {})
+    if not example or example.get("error"):
+        return (
+            "<div class=\"section-note\"><em>No simulation-output example could be generated "
+            f"for R6 reporting. {_escape(str(example.get('error', '')))}</em></div>"
+        )
+
+    artifacts = example.get("artifacts", {})
+    context_rows = [
+        ("Example input", example.get("description", "Representative deterministic probe")),
+        ("Scene input mode", metadata.get("scene_input_mode", "unknown")),
+        (
+            "Scene spectrum source",
+            "RGB-inferred" if metadata.get("scene_input_is_inferred", True) else "Measured spectrum",
+        ),
+        (
+            "Retinal model scope",
+            metadata.get("retinal_physiology", {}).get("model_scope", "unknown"),
+        ),
+        (
+            "Naka-Rushton confidence",
+            metadata.get("retinal_physiology", {}).get("naka_rushton_provenance", {}).get("confidence", "unknown"),
+        ),
+        (
+            "Validation framing",
+            "Comparative renderings below remain retinal-front-end outputs and are not perceptual reconstructions.",
+        ),
+    ]
+    context_html = "<div class=\"meta-grid\">" + "".join(
+        f"<div class=\"meta-label\">{_escape(label)}</div><div>{_escape(str(value))}</div>"
+        for label, value in context_rows
+    ) + "</div>"
+
+    families = [
+        ("Retinal Irradiance Diagnostics", artifacts.get("retinal_irradiance_diagnostics", {})),
+        ("Photoreceptor Activation Diagnostics", artifacts.get("photoreceptor_activation_diagnostics", {})),
+        ("Comparative Renderings", artifacts.get("comparative_renderings", {})),
+    ]
+    body = "".join(_diagnostic_family_html(title, family) for title, family in families)
+    return (
+        "<div class=\"section-note\">"
+        "<strong>Traceability path:</strong> scene/spectral assumptions -> optical-stage delivery -> retinal sampling and activation."
+        "</div>"
+        + context_html
+        + body
+    )
+
+
+def _diagnostic_family_html(title: str, family: Dict[str, Any]) -> str:
+    if not family:
+        return f"<div class=\"output-family\"><h3>{_escape(title)}</h3><em>No data recorded.</em></div>"
+
+    note = family.get("traceability_note") or family.get("scope_note") or ""
+    sections = []
+    for key, value in family.items():
+        if key in {"family_label", "traceability_note", "scope_note"}:
+            continue
+        heading = key.replace("_", " ").capitalize()
+        sections.append(f"<h4>{_escape(heading)}</h4>{_diagnostic_value_html(value)}")
+
+    note_html = f"<p>{_escape(str(note))}</p>" if note else ""
+    return (
+        f"<div class=\"output-family\"><h3>{_escape(title)}</h3>"
+        f"{note_html}{''.join(sections)}</div>"
+    )
+
+
+def _diagnostic_value_html(value: Any) -> str:
+    if isinstance(value, dict) and "image_data" in value:
+        return _diagnostic_image_html(value)
+    if isinstance(value, list):
+        if value and all(isinstance(item, dict) and "image_data" in item for item in value):
+            return "<div class=\"output-gallery\">" + "".join(
+                _diagnostic_image_html(item) for item in value
+            ) + "</div>"
+        return f"<pre>{_escape(json.dumps(_json_safe(value), indent=2))}</pre>"
+    if isinstance(value, dict) and "items" in value and isinstance(value["items"], list):
+        gallery = "<div class=\"output-gallery\">" + "".join(
+            _diagnostic_image_html(item) for item in value["items"]
+        ) + "</div>"
+        remaining = {k: v for k, v in value.items() if k != "items"}
+        extra = ""
+        if remaining:
+            extra = f"<pre>{_escape(json.dumps(_json_safe(remaining), indent=2))}</pre>"
+        return gallery + extra
+    return f"<pre>{_escape(json.dumps(_json_safe(value), indent=2))}</pre>"
+
+
+def _diagnostic_image_html(item: Dict[str, Any]) -> str:
+    image_data = item.get("image_data")
+    uri = _array_to_data_uri(image_data, image_kind=str(item.get("image_kind", "rgb")))
+    extra = {k: v for k, v in item.items() if k not in {"image_data", "image_kind"}}
+    title = str(item.get("label", item.get("id", "Diagnostic image")))
+    description = str(item.get("description", ""))
+    description_html = f"<p>{_escape(description)}</p>" if description else ""
+    meta_html = ""
+    if extra:
+        meta_html = f"<pre>{_escape(json.dumps(_json_safe(extra), indent=2))}</pre>"
+    return (
+        "<div class=\"output-item\">"
+        f"<p class=\"output-item-title\">{_escape(title)}</p>"
+        f"{description_html}"
+        f"<img src=\"{uri}\" alt=\"{_escape(title)}\">"
+        f"{meta_html}"
+        "</div>"
+    )
+
+
 def _result_card_html(result: ValidationResult) -> str:
     cls = "passed" if result.passed else "failed"
     badge = (
@@ -3325,6 +3505,7 @@ def _build_report_html(report: ValidationReport) -> str:
     support_summary_html = _support_summary_html(report.metadata)
     external_reference_tables_html = _external_reference_tables_html(report.metadata)
     claim_calibration_html = _claim_calibration_html(report.metadata)
+    simulation_output_html = _simulation_output_section_html(report.metadata)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -3372,6 +3553,13 @@ def _build_report_html(report: ValidationReport) -> str:
 
 <h2>Retinal Physiology Assumptions</h2>
 {retinal_physiology_html}
+
+<h2>Simulation Output Families</h2>
+<div class="section-note">
+  These sections expose the R6 traceability path from scene assumptions to retinally delivered irradiance,
+  then to photoreceptor sampling/activation, and finally to claim-calibrated comparative renderings.
+</div>
+{simulation_output_html}
 
 <h2>External Reference Evidence</h2>
 <div class="section-note">

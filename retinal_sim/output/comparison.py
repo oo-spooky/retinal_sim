@@ -11,14 +11,14 @@ from retinal_sim.output.voronoi import _TYPE_BASE_COLOR, _FALLBACK_COLOR, render
 def render_comparison(
     activations: Dict[str, object],
     output_size: Tuple[int, int] = (256, 256),
-    title: str = "Species comparison",
+    title: str = "Comparative rendering",
 ) -> object:
-    """Render a side-by-side Voronoi activation panel for multiple species.
+    """Render a side-by-side comparative retinal-activation panel.
 
     Args:
         activations:  Mapping of species name → MosaicActivation.
         output_size:  (H, W) in pixels for each panel.
-        title:        Overall figure title.
+        title:        Overall figure title for the comparative rendering.
 
     Returns:
         matplotlib Figure with one Voronoi subplot per species.

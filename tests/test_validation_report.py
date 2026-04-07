@@ -564,6 +564,10 @@ class TestHTMLOutput:
         assert "Scene input mode" in content
         assert "RGB-inferred" in content
         assert "Retinal Physiology Assumptions" in content
+        assert "Simulation Output Families" in content
+        assert "Retinal Irradiance Diagnostics" in content
+        assert "Photoreceptor Activation Diagnostics" in content
+        assert "Comparative Renderings" in content
         assert "Retinal Front-End Only." in content
         assert "Naka-Rushton confidence" in content
         assert "Visual streak status" in content
@@ -578,6 +582,10 @@ class TestHTMLOutput:
         assert "not blanket claims of whole-simulator physiological or perceptual validation" in content
         assert "A passing report supports only the implemented checks and their declared claim scopes." in content
         assert "full physiological or perceptual validation" in content
+        assert "Retinal-information rendering" in content
+        assert "not direct perceptual, retinal-circuit, or cortical reconstructions" in content
+        assert "what the animal consciously sees" in content
+        assert "Reconstructed" not in content
 
     def test_report_json_contains_result_metadata(self, full_report_json: str):
         content = full_report_json
@@ -600,3 +608,7 @@ class TestHTMLOutput:
         assert '"validation_category_counts"' in content
         assert '"claim_support_level_counts"' in content
         assert '"external_reference_tables"' in content
+        assert '"simulation_output_example"' in content
+        assert '"retinal_irradiance_diagnostics"' in content
+        assert '"photoreceptor_activation_diagnostics"' in content
+        assert '"comparative_renderings"' in content
