@@ -23,31 +23,23 @@ pre { background: #f6f6f6; border: 1px solid #ddd; padding: 12px 14px; border-ra
 </head>
 <body>
 <h1>retinal_sim - Status Report</h1>
-<p>Generated: 2026-04-04 19:12</p>
+<p>Generated: 2026-04-07 17:08</p>
 
 <h2>Test Status</h2>
-<div class="summary-box all-pass">546 passed, 3 warnings in 1884.50s (0:31:24)</div>
+<div class="summary-box all-pass">608 passed, 1 warning in 643.66s (0:10:43)</div>
 <div class="panel">
   <strong>Exact pytest command:</strong> <code>C:\Python314\python.exe -m pytest --tb=short -q --no-header</code><br>
-  <strong>Git commit:</strong> <code>a2c4a008a8d9caa4e8bab3cc833a6cd309e232c4</code><br>
+  <strong>Git commit:</strong> <code>f2e3496a1b7cfea74e365ff5232f46f1604516bf</code><br>
   <strong>Interpretation:</strong> This section is automated test status only. It is not the same thing as architecture coverage or code review status.
 </div>
 <h3>Failure Excerpts</h3>
 <pre>============================== warnings summary ===============================
-tests/test_validation_report.py::TestValidationSuiteConstruction::test_run_all_count
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:479: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
-
-tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffraction
-  C:\Users\steve\retinal_sim\retinal_sim\validation\report.py:749: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
-    plt.tight_layout()
-
 ..\..\..\Python314\Lib\site-packages\_pytest\cacheprovider.py:475
-  C:\Python314\Lib\site-packages\_pytest\cacheprovider.py:475: PytestCacheWarning: could not create cache path C:\Users\steve\retinal_sim\.pytest_cache\v\cache\nodeids: [WinError 183] Cannot create a file when that file already exists: 'C:\\Users\\steve\\retinal_sim\\.pytest_cache\\v\\cache'
+  C:\Python314\Lib\site-packages\_pytest\cacheprovider.py:475: PytestCacheWarning: cache could not write path C:\Users\steve\retinal_sim\.pytest_cache\v\cache\nodeids: [Errno 13] Permission denied: 'C:\\Users\\steve\\retinal_sim\\.pytest_cache\\v\\cache\\nodeids'
     config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-546 passed, 3 warnings in 1884.50s (0:31:24)</pre>
+608 passed, 1 warning in 643.66s (0:10:43)</pre>
 
 <h2>Implementation Phase Status</h2>
 <div class="panel">
@@ -55,7 +47,7 @@ tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffracti
 </div>
 <table>
   <thead><tr><th>#</th><th>Component</th><th>Status</th><th>Tests</th><th>Notes</th></tr></thead>
-  <tbody><tr><td>1</td><td>Govardovskii nomogram</td><td>COMPLETE</td><td>51/51 pass (`test_retina.py`)</td><td>A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max for human/dog/cat</td></tr><tr><td>2</td><td>Species config loader (YAML)</td><td>COMPLETE</td><td>58/58 pass (`test_species.py`)</td><td>`species/config.py::SpeciesConfig.load()`, three species YAMLs, density function closures</td></tr><tr><td>3</td><td>Scene geometry module</td><td>COMPLETE</td><td>24/24 pass (`test_scene.py`)</td><td>Angular subtense, retinal scaling, accommodation, patch clipping</td></tr><tr><td>4</td><td>Mosaic generator (jittered grid)</td><td>COMPLETE</td><td>32/32 pass (`test_mosaic.py`)</td><td>Bernoulli jittered grid; all three species; rod-free zone; Nyquist validated</td></tr><tr><td>5</td><td>Simplified optical PSF (Gaussian)</td><td>COMPLETE</td><td>28/28 pass (`test_optical.py`)</td><td>`PSFGenerator.gaussian_psf`, `OpticalStage.apply`; §11b energy conserved</td></tr><tr><td>6</td><td>Smits spectral upsampler</td><td>COMPLETE</td><td>32/32 pass (`test_spectral.py`)</td><td>D65-optimised basis via `lsq_linear`; roundtrip RMSE &lt; 0.0002</td></tr><tr><td>7</td><td>Spectral integration + Naka-Rushton</td><td>COMPLETE</td><td>34/34 pass (`test_retinal_stage.py`)</td><td>`RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type</td></tr><tr><td>8</td><td>Voronoi visualization</td><td>COMPLETE</td><td>28/28 pass (`test_output.py`)</td><td>`render_voronoi`, `render_reconstructed`, `render_comparison`, `render_mosaic_map`</td></tr><tr><td>9</td><td>Snellen acuity validation</td><td>COMPLETE</td><td>42/42 pass (`test_snellen.py`)</td><td>Snellen E generator; full pipeline discriminability; species ordering validated</td></tr><tr><td>10</td><td>Dichromat confusion validation</td><td>COMPLETE</td><td>36/36 pass (`test_dichromat.py`)</td><td>Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human &gt; D_dog for confusion pair</td></tr><tr><td>11</td><td>Distance-dependent resolution test</td><td>COMPLETE</td><td>75/75 pass (`test_distance.py`)</td><td>Geometry scaling, receptor count 1/d², cross-species, coverage, seed stability, edge distances</td></tr><tr><td>12</td><td>Species comparison pipeline</td><td>COMPLETE</td><td>42/42 pass (`test_pipeline.py`)</td><td>RetinalSimulator orchestrator, compare_species, end-to-end color deficit validation</td></tr><tr><td>13</td><td>Full validation report generator</td><td>COMPLETE</td><td>41/41 pass (`test_validation_report.py`)</td><td>ValidationSuite with 14 tests, figures for every test, self-contained HTML report</td></tr></tbody>
+  <tbody><tr><td>1</td><td>Govardovskii nomogram</td><td>COMPLETE</td><td>51/51 pass (`test_retina.py`)</td><td>A1/A2 nomogram, `build_sensitivity_curves()`, all λ_max for human/dog/cat</td></tr><tr><td>2</td><td>Species config loader (YAML)</td><td>COMPLETE</td><td>58/58 pass (`test_species.py`)</td><td>`species/config.py::SpeciesConfig.load()`, three species YAMLs, density function closures</td></tr><tr><td>3</td><td>Scene geometry module</td><td>COMPLETE</td><td>24/24 pass (`test_scene.py`)</td><td>Angular subtense, retinal scaling, accommodation, patch clipping</td></tr><tr><td>4</td><td>Mosaic generator (jittered grid)</td><td>COMPLETE</td><td>32/32 pass (`test_mosaic.py`)</td><td>Bernoulli jittered grid; all three species; rod-free zone; Nyquist validated</td></tr><tr><td>5</td><td>Simplified optical PSF (Gaussian)</td><td>COMPLETE</td><td>28/28 pass (`test_optical.py`)</td><td>`PSFGenerator.gaussian_psf`, `OpticalStage.apply`; §11b energy conserved</td></tr><tr><td>6</td><td>Smits spectral upsampler</td><td>COMPLETE</td><td>32/32 pass (`test_spectral.py`)</td><td>D65-optimised basis via `lsq_linear`; roundtrip RMSE &lt; 0.0002</td></tr><tr><td>7</td><td>Spectral integration + Naka-Rushton</td><td>COMPLETE</td><td>34/34 pass (`test_retinal_stage.py`)</td><td>`RetinalStage`: bilinear interp, spectral dot product, Naka-Rushton per type</td></tr><tr><td>8</td><td>Voronoi visualization</td><td>COMPLETE</td><td>28/28 pass (`test_output.py`)</td><td>`render_voronoi`, `render_reconstructed`, `render_comparison`, `render_mosaic_map`</td></tr><tr><td>9</td><td>Snellen acuity validation</td><td>COMPLETE</td><td>42/42 pass (`test_snellen.py`)</td><td>Snellen E generator; full pipeline discriminability; species ordering validated</td></tr><tr><td>10</td><td>Dichromat confusion validation</td><td>COMPLETE</td><td>36/36 pass (`test_dichromat.py`)</td><td>Ishihara-style dot pattern; `find_confusion_pair` (dog confusion axis); D_human &gt; D_dog for confusion pair</td></tr><tr><td>11</td><td>Distance-dependent resolution test</td><td>COMPLETE</td><td>75/75 pass (`test_distance.py`)</td><td>Geometry scaling, receptor count 1/d², cross-species, coverage, seed stability, edge distances</td></tr><tr><td>12</td><td>Species comparison pipeline</td><td>COMPLETE</td><td>42/42 pass (`test_pipeline.py`)</td><td>RetinalSimulator orchestrator, compare_species, end-to-end color deficit validation</td></tr><tr><td>13</td><td>Full validation report generator</td><td>COMPLETE</td><td>51/51 pass (`test_validation_report.py`)</td><td>ValidationSuite with 14 tests, figures for every test, self-contained HTML report; expensive report tests now reuse cached artifacts</td></tr></tbody>
 </table>
 
 <h2>Validation and Architecture Audit Status</h2>
@@ -72,7 +64,27 @@ tests/test_validation_report.py::TestValidationSuiteTests::test_mtf_vs_diffracti
 
 <h2>Open Code Review Findings</h2>
 <div class="panel">
-  <pre>*(none)*
+  <pre>### CR-23 — Per-species LCA span not parameterized
+
+- **File:** retinal_sim/optical/psf.py (and data/species/human.yaml, dog.yaml, cat.yaml)
+- **Function:** `PSFGenerator._lca_offset_diopters`
+- **Issue:** Human longitudinal chromatic aberration span is hardcoded at 1.0 D as a PoC simplification (noted in SCRATCHPAD) and is reused for all species. Dog and cat LCA characteristics are not separately parameterized, so cross-species wavelength-dependent defocus is not empirically grounded.
+- **Fix:** Surface `lca_span_diopters` (or equivalent) in species YAML and read it in `PSFGenerator`. Update docs/provenance to cite the source when per-species values become available. Low priority — flag as future empirical tightening.
+
+### CR-24 — Implicit ndarray serialization contract in diagnostic builders
+
+- **File:** retinal_sim/output/diagnostics.py
+- **Function:** `build_retinal_irradiance_diagnostics`, `build_photoreceptor_activation_diagnostics`
+- **Issue:** Diagnostic image payloads are embedded as float32 ndarrays inside the artifact dicts and rely on `validation/report.py::_json_safe()` to become JSON-serializable. The contract is implicit and easy to break by a future refactor that touches either side.
+- **Fix:** Either add a short comment at each builder documenting that artifact dicts must be `_json_safe`-round-trippable, or add a targeted unit test asserting round-trip through `_json_safe` for each R6 diagnostic family. Low priority — hardening, not a current bug.
+
+### CR-25 — Visual streak extension point silently disabled
+
+- **File:** retinal_sim/retina/stage.py
+- **Function:** `RetinalStage` / `VisualStreakConfig`
+- **Issue:** `VisualStreakConfig.enabled` defaults to `False`. The architecture doc lists the visual streak as a planned extension; the disabled-state tests cover current behavior, but there is no reminder that enabling it must be accompanied by new validation entries (claim support, external references).
+- **Fix:** When the streak is enabled for any species, add a corresponding validation test under `tests/test_validation_report.py` with an appropriate claim-support level and external reference. Until then, no code change — tracking only.
+
 
 ---
 

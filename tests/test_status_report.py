@@ -51,3 +51,21 @@ def test_build_html_separates_status_types():
     assert "Validation and Architecture Audit Status" in html
     assert "Exact pytest command" in html
     assert "documentation drift" in html.lower()
+
+
+def test_build_html_includes_open_review_findings():
+    html = status_report.build_html(
+        phase_rows=[["13", "Validation report generator", "COMPLETE", "51/51", "ok"]],
+        pytest_summary="10 passed in 1.2s",
+        pytest_counts={"passed": 10.0, "failed": 0.0, "skipped": 0.0, "error": 0.0, "duration": 1.2},
+        pytest_failures="",
+        pytest_command="python -m pytest --tb=short -q --no-header",
+        open_items="### CR-23\n- Issue: sample finding",
+        doc_warnings=[],
+        validation_report_exists=True,
+        figure_uris=[],
+        git_commit="deadbeef",
+    )
+    assert "CR-23" in html
+    assert "sample finding" in html
+    assert "No open code review findings" not in html
