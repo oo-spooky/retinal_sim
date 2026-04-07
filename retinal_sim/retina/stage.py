@@ -7,6 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 from retinal_sim.constants import WAVELENGTHS as _CANONICAL_WAVELENGTHS
+from retinal_sim.optical.media import sample_media_transmission
 from retinal_sim.retina.mosaic import MosaicGenerator, PhotoreceptorMosaic
 from retinal_sim.retina.transduction import NAKA_RUSHTON_DEFAULTS, naka_rushton
 
@@ -95,6 +96,13 @@ class RetinalStage:
         irr_data = np.asarray(retinal_irradiance.data, dtype=np.float32)  # (H, W, N_λ)
         irr_wl = np.asarray(retinal_irradiance.wavelengths, dtype=float)
         H, W, N_lam = irr_data.shape
+
+        if not bool(retinal_irradiance.metadata.get("media_transmission_applied", False)):
+            transmission, _ = sample_media_transmission(
+                getattr(self._op, "media_transmission", None),
+                irr_wl,
+            )
+            irr_data = irr_data * transmission[np.newaxis, np.newaxis, :].astype(np.float32)
 
         # ------------------------------------------------------------------
         # 1. Pixel scale (mm/px)
@@ -192,6 +200,10 @@ class RetinalStage:
                 "mean_excitation": float(np.mean(excitation)),
                 "mean_response": float(np.mean(responses)),
                 "n_receptors": len(pos),
+                "media_transmission_applied": bool(
+                    retinal_irradiance.metadata.get("media_transmission_applied", False)
+                    or getattr(self._op, "media_transmission", None) is not None
+                ),
             },
         )
 

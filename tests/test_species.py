@@ -12,6 +12,7 @@ Validation strategy (architecture §12 Phase 2):
 """
 
 import pytest
+import numpy as np
 
 from retinal_sim.retina.opsin import LAMBDA_MAX
 from retinal_sim.species.config import SpeciesConfig
@@ -72,6 +73,38 @@ class TestOpticalParams:
     def test_lca_diopters_positive(self, species):
         cfg = SpeciesConfig.load(species)
         assert cfg.optical.lca_diopters > 0
+
+    @pytest.mark.parametrize("species", SPECIES)
+    def test_media_transmission_is_config_backed_and_callable(self, species):
+        cfg = SpeciesConfig.load(species)
+        transmission = cfg.optical.media_transmission
+        assert transmission is not None
+        assert callable(transmission)
+        assert hasattr(transmission, "summary")
+
+    @pytest.mark.parametrize("species", SPECIES)
+    def test_media_transmission_values_bounded_on_canonical_grid(self, species):
+        cfg = SpeciesConfig.load(species)
+        wl = np.arange(380, 721, 5, dtype=float)
+        values = cfg.optical.media_transmission(wl)
+        assert values.shape == wl.shape
+        assert np.all(values >= 0.0)
+        assert np.all(values <= 1.0)
+
+    @pytest.mark.parametrize("species", SPECIES)
+    def test_media_transmission_summary_has_source(self, species):
+        cfg = SpeciesConfig.load(species)
+        summary = cfg.optical.media_transmission.summary()
+        assert summary["kind"] == "tabulated"
+        assert summary["source"].endswith(".csv")
+
+    @pytest.mark.parametrize(
+        ("species", "expected"),
+        [("human", 2.0), ("dog", 1.5), ("cat", 1.5)],
+    )
+    def test_lca_diopters_round_trip_with_documented_semantics(self, species, expected):
+        cfg = SpeciesConfig.load(species)
+        assert cfg.optical.lca_diopters == pytest.approx(expected)
 
     def test_cat_slit_height_present(self):
         cfg = SpeciesConfig.load("cat")

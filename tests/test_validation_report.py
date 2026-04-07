@@ -244,12 +244,14 @@ class TestValidationSuiteConstruction:
     def test_run_stage_optical_count(self, suite: ValidationSuite):
         report = suite.run_stage("optical")
         assert isinstance(report, ValidationReport)
-        assert len(report.results) == 4
+        assert len(report.results) == 6
         assert [r.test_name for r in report.results] == [
             "MTF vs Diffraction Limit",
             "PSF Energy Conservation",
             "Pupil Throughput Scaling",
             "Cat Slit Anisotropy",
+            "Wavelength-Dependent Blur",
+            "Media Transmission Diagnostics",
         ]
 
     def test_run_stage_retinal_count(self, suite: ValidationSuite):
@@ -265,7 +267,7 @@ class TestValidationSuiteConstruction:
     def test_run_all_count(self, suite: ValidationSuite):
         report = suite.run_all()
         assert isinstance(report, ValidationReport)
-        assert len(report.results) == 17
+        assert len(report.results) == 19
 
     def test_run_all_returns_validation_results(self, suite: ValidationSuite):
         report = suite.run_all()
@@ -277,8 +279,8 @@ class TestValidationSuiteConstruction:
         assert report.metadata["report_type"] == "full_validation_audit"
         assert report.metadata["species"] == "human"
         assert "architecture_coverage" in report.metadata
-        assert len(report.metadata["architecture_coverage"]) == 17
-        assert report.metadata["stage_counts"]["optical"] == 4
+        assert len(report.metadata["architecture_coverage"]) == 19
+        assert report.metadata["stage_counts"]["optical"] == 6
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +369,22 @@ class TestValidationSuiteTests:
         assert r.passed is True
         assert r.figure is not None
         assert "anisotropy_active" in r.details
+
+    def test_wavelength_dependent_blur(self, suite: ValidationSuite):
+        r = suite.test_wavelength_dependent_blur_v2()
+        assert isinstance(r, ValidationResult)
+        assert r.test_name == "Wavelength-Dependent Blur"
+        assert r.passed is True
+        assert r.figure is not None
+        assert "lca_400" in r.details
+
+    def test_media_transmission_diagnostics(self, suite: ValidationSuite):
+        r = suite.test_media_transmission_diagnostics_v2()
+        assert isinstance(r, ValidationResult)
+        assert r.test_name == "Media Transmission Diagnostics"
+        assert r.passed is True
+        assert r.figure is not None
+        assert "source=" in r.details
 
     def test_snellen_acuity(self, suite: ValidationSuite):
         r = suite.test_snellen_acuity()

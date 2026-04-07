@@ -275,6 +275,39 @@ class TestSpectralSelectivity:
         # Dog is dichromat: L_cone and S_cone
         assert means.get("L_cone", 0.0) > means.get("S_cone", 0.0)
 
+    def test_direct_unfiltered_blue_stimulus_is_filtered_once_by_retinal_stage(
+        self, human_stage: RetinalStage, human_mosaic: PhotoreceptorMosaic
+    ) -> None:
+        spectrum = np.zeros(N_WL, dtype=np.float32)
+        spectrum[WL <= 460] = 0.05
+        raw = _make_spectral_irradiance(spectrum)
+        raw.metadata["media_transmission_applied"] = False
+        filtered = _make_spectral_irradiance(spectrum * human_stage._op.media_transmission(WL))
+        filtered.metadata["media_transmission_applied"] = True
+
+        result_raw = human_stage.compute_response(human_mosaic, raw)
+        result_filtered = human_stage.compute_response(human_mosaic, filtered)
+        np.testing.assert_allclose(
+            result_raw.responses,
+            result_filtered.responses,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_media_filtering_reduces_short_wavelength_excitation(
+        self, human_stage: RetinalStage, human_mosaic: PhotoreceptorMosaic
+    ) -> None:
+        spectrum = np.zeros(N_WL, dtype=np.float32)
+        spectrum[WL <= 460] = 0.05
+        unfiltered = _make_spectral_irradiance(spectrum)
+        unfiltered.metadata["media_transmission_applied"] = True
+        fallback = _make_spectral_irradiance(spectrum)
+        fallback.metadata["media_transmission_applied"] = False
+
+        no_filter = human_stage.compute_response(human_mosaic, unfiltered)
+        with_filter = human_stage.compute_response(human_mosaic, fallback)
+        assert with_filter.metadata["mean_excitation"] < no_filter.metadata["mean_excitation"]
+
 
 # ---------------------------------------------------------------------------
 # TestRodVsCone

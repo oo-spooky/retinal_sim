@@ -6,7 +6,8 @@ optical:
   axial_length_mm: 21.0
   focal_length_mm: 17.0
   corneal_radius_mm: 8.5
-  lca_diopters: 1.5
+  lca_diopters: 1.5               # total span from 400 nm to 700 nm, focused at 555 nm
+  media_transmission_table: dog_reference.csv
   zernike_coeffs: {}
 
 retinal:

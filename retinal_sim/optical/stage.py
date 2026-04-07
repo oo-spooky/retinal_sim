@@ -7,6 +7,7 @@ from typing import Callable, Dict, Optional
 import numpy as np
 from scipy.ndimage import convolve
 
+from retinal_sim.optical.media import sample_media_transmission
 from retinal_sim.optical.psf import PSFGenerator
 
 _REFERENCE_PUPIL_DIAMETER_MM = 3.0
@@ -22,7 +23,7 @@ class OpticalParams:
     axial_length_mm: float = 0.0
     focal_length_mm: float = 0.0
     corneal_radius_mm: float = 0.0
-    lca_diopters: float = 0.0            # Longitudinal chromatic aberration range
+    lca_diopters: float = 0.0            # Total LCA span from 400-700 nm, focused at 555 nm
     media_transmission: Optional[Callable[[np.ndarray], np.ndarray]] = None
     zernike_coeffs: Dict[str, float] = field(default_factory=dict)
 
@@ -122,9 +123,11 @@ class OpticalStage:
             return_metadata=True,
         )
 
-        transmission = np.ones(len(wavelengths), dtype=np.float32)
-        if self._params.media_transmission is not None:
-            transmission = self._params.media_transmission(wavelengths).astype(np.float32)
+        transmission, transmission_summary = sample_media_transmission(
+            self._params.media_transmission,
+            wavelengths,
+        )
+        transmission = transmission.astype(np.float32)
 
         reference_area_mm2 = float(np.pi * (_REFERENCE_PUPIL_DIAMETER_MM / 2.0) ** 2)
         pupil_area_mm2 = self._params.pupil_area_mm2()
@@ -150,6 +153,14 @@ class OpticalStage:
                 "effective_f_number_x": self._params.effective_f_number("x"),
                 "effective_f_number_y": self._params.effective_f_number("y"),
                 "anisotropy_active": self._params.anisotropy_active(),
+                "lca_reference_wavelength_nm": float(psf_metadata["lca_reference_wavelength_nm"]),
+                "lca_anchor_wavelengths_nm": psf_metadata["lca_anchor_wavelengths_nm"].tolist(),
+                "lca_offset_diopters": psf_metadata["lca_offset_diopters"].tolist(),
+                "total_defocus_diopters_by_wavelength": psf_metadata["total_defocus_diopters_by_wavelength"].tolist(),
+                "media_transmission_applied": True,
+                "media_transmission_values": transmission.astype(float).tolist(),
+                "media_transmission_source": transmission_summary.get("source", "unknown"),
+                "media_transmission_summary": transmission_summary,
                 "psf_sigma_mm_x": psf_metadata["sigma_mm_x"].tolist(),
                 "psf_sigma_mm_y": psf_metadata["sigma_mm_y"].tolist(),
                 "psf_sigma_px_x": psf_metadata["sigma_px_x"].tolist(),

@@ -5,6 +5,8 @@ import numpy as np
 
 
 _DEFAULT_PIXEL_SCALE_MM = 0.001
+_LCA_REFERENCE_WAVELENGTH_NM = 555.0
+_LCA_ANCHOR_WAVELENGTHS_NM = np.array([400.0, _LCA_REFERENCE_WAVELENGTH_NM, 700.0], dtype=float)
 
 
 class PSFGenerator:
@@ -38,9 +40,11 @@ class PSFGenerator:
         sigma_mm_y = np.empty(n_lam, dtype=float)
         sigma_px_x = np.empty(n_lam, dtype=float)
         sigma_px_y = np.empty(n_lam, dtype=float)
+        lca_offset_diopters = self._lca_offset_diopters(wavelengths)
+        total_defocus_diopters = float(defocus_diopters) + lca_offset_diopters
 
         for i, lam_nm in enumerate(wavelengths):
-            axis_sigmas_mm = self._axis_sigmas_mm(lam_nm, defocus_diopters)
+            axis_sigmas_mm = self._axis_sigmas_mm(lam_nm, total_defocus_diopters[i])
             sigma_mm_x[i] = axis_sigmas_mm["x"]
             sigma_mm_y[i] = axis_sigmas_mm["y"]
             sigma_px_x[i] = max(sigma_mm_x[i] / self._pixel_scale_mm, 0.5)
@@ -63,6 +67,10 @@ class PSFGenerator:
             "effective_f_number_x": self._params.effective_f_number("x"),
             "effective_f_number_y": self._params.effective_f_number("y"),
             "anisotropy_active": self._params.anisotropy_active(),
+            "lca_reference_wavelength_nm": _LCA_REFERENCE_WAVELENGTH_NM,
+            "lca_anchor_wavelengths_nm": _LCA_ANCHOR_WAVELENGTHS_NM.copy(),
+            "lca_offset_diopters": lca_offset_diopters,
+            "total_defocus_diopters_by_wavelength": total_defocus_diopters,
         }
         return kernels, metadata
 
@@ -80,6 +88,25 @@ class PSFGenerator:
             sigma_defocus_mm = abs(r_coc_mm) / np.sqrt(2.0)
             axis_sigmas[axis] = float(np.sqrt(sigma_diff_mm**2 + sigma_defocus_mm**2))
         return axis_sigmas
+
+    def _lca_offset_diopters(self, wavelengths: np.ndarray) -> np.ndarray:
+        """Return signed LCA defocus offsets using reciprocal-wavelength interpolation."""
+        wavelengths = np.asarray(wavelengths, dtype=float)
+        span = float(getattr(self._params, "lca_diopters", 0.0))
+        if span <= 0.0:
+            return np.zeros_like(wavelengths, dtype=float)
+
+        reciprocal_anchors = 1.0 / _LCA_ANCHOR_WAVELENGTHS_NM
+        reciprocal_query = 1.0 / np.clip(wavelengths, _LCA_ANCHOR_WAVELENGTHS_NM[0], _LCA_ANCHOR_WAVELENGTHS_NM[-1])
+        anchor_offsets = np.array([span / 2.0, 0.0, -span / 2.0], dtype=float)
+        order = np.argsort(reciprocal_anchors)
+        return np.interp(
+            reciprocal_query,
+            reciprocal_anchors[order],
+            anchor_offsets[order],
+            left=float(anchor_offsets[order][0]),
+            right=float(anchor_offsets[order][-1]),
+        )
 
     def diffraction_psf(
         self, wavelengths: np.ndarray, kernel_size: int = 64

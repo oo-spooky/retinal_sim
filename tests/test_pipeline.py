@@ -405,6 +405,9 @@ class TestSimulateSingleSpecies:
         far = human_sim.simulate(image, scene_width_m=0.02, viewing_distance_m=8.0, seed=SEED)
         assert near.summary_metrics["stimulated_receptor_count"] > far.summary_metrics["stimulated_receptor_count"]
 
+    def test_simulate_marks_media_transmission_applied(self, human_result: SimulationResult):
+        assert human_result.retinal_irradiance.metadata["media_transmission_applied"] is True
+
 
 class TestCompareSpecies:
     def test_compare_returns_dict_with_all_species(self, comparison_results: dict[str, SimulationResult]):
@@ -464,6 +467,20 @@ class TestCompareSpecies:
 
     def test_compare_values_are_simulation_results(self, comparison_results: dict[str, SimulationResult]):
         assert all(isinstance(result, SimulationResult) for result in comparison_results.values())
+
+    def test_compare_species_delivered_spectra_differ_before_receptor_integration(
+        self, comparison_results: dict[str, SimulationResult]
+    ):
+        means = {
+            species: result.retinal_irradiance.data.mean(axis=(0, 1))
+            for species, result in comparison_results.items()
+        }
+        assert not np.allclose(means["human"], means["dog"])
+        assert not np.allclose(means["human"], means["cat"])
+
+    def test_phase_r1_anisotropy_metadata_preserved(self, comparison_results: dict[str, SimulationResult]):
+        assert comparison_results["human"].retinal_irradiance.metadata["anisotropy_active"] is False
+        assert comparison_results["cat"].retinal_irradiance.metadata["anisotropy_active"] is True
 
 
 class TestEndToEndColorDeficit:

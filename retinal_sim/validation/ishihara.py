@@ -18,6 +18,7 @@ import numpy as np
 
 from retinal_sim.constants import WAVELENGTHS
 from retinal_sim.retina.opsin import LAMBDA_MAX, govardovskii_a1
+from retinal_sim.species.config import SpeciesConfig
 from retinal_sim.spectral.upsampler import SpectralUpsampler
 
 
@@ -110,8 +111,9 @@ def find_confusion_pair(
 
         score(A, B) = Δ_Mhuman(A, B) − 2 × ‖Δ_species(A, B)‖₂
 
-    where Δ_species is the L2 distance in the normalised (S, L) species cone
-    response space.
+    where Δ_species is the L2 distance in the normalised species cone-response
+    space after ocular-media prefiltering. This keeps the confusion-pair search
+    aligned with the in-vivo spectral-delivery model used by the R2 pipeline.
 
     Args:
         species:       ``'dog'`` or ``'cat'``.  ``'human'`` raises ValueError.
@@ -140,8 +142,17 @@ def find_confusion_pair(
     lmax_species = {k: v for k, v in LAMBDA_MAX[species].items() if k != "rod"}
     lmax_human = {k: v for k, v in LAMBDA_MAX["human"].items() if k != "rod"}
 
+    species_media = SpeciesConfig.load(species).optical.media_transmission
+    human_media = SpeciesConfig.load("human").optical.media_transmission
+
     species_curves = {k: govardovskii_a1(v, wl) for k, v in lmax_species.items()}
     human_curves = {k: govardovskii_a1(v, wl) for k, v in lmax_human.items()}
+    if species_media is not None:
+        species_filter = species_media(wl)
+        species_curves = {k: curve * species_filter for k, curve in species_curves.items()}
+    if human_media is not None:
+        human_filter = human_media(wl)
+        human_curves = {k: curve * human_filter for k, curve in human_curves.items()}
 
     # --- Generate candidate colours: R, G random; B low (≤ 50) ------------
     R = rng.integers(40, 230, size=n_candidates).astype(np.uint8)

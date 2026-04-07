@@ -122,6 +122,41 @@ class TestPSFGenerator:
         var_x_blur, _ = _kernel_second_moments(blurred)
         assert var_x_blur > var_x_focus
 
+    def test_lca_offsets_cross_zero_at_reference_wavelength(self):
+        _, metadata = PSFGenerator(_human_params()).gaussian_psf(
+            np.array([400.0, 555.0, 700.0], dtype=float),
+            return_metadata=True,
+        )
+        offsets = metadata["lca_offset_diopters"]
+        assert offsets[0] > 0.0
+        assert offsets[1] == pytest.approx(0.0, abs=1e-8)
+        assert offsets[2] < 0.0
+
+    def test_psf_width_reflects_combined_diffraction_and_lca(self):
+        _, metadata = PSFGenerator(_human_params()).gaussian_psf(
+            np.array([400.0, 555.0, 700.0], dtype=float),
+            return_metadata=True,
+        )
+        sigma_px_x = metadata["sigma_px_x"]
+        assert sigma_px_x[0] > sigma_px_x[1]
+        assert sigma_px_x[2] > sigma_px_x[1]
+
+    def test_larger_lca_span_increases_departure_from_reference_blur(self):
+        low_span = PSFGenerator(_human_params(lca_diopters=0.5))
+        high_span = PSFGenerator(_human_params(lca_diopters=2.0))
+        wavelengths = np.array([400.0, 555.0, 700.0], dtype=float)
+        _, low_meta = low_span.gaussian_psf(wavelengths, return_metadata=True)
+        _, high_meta = high_span.gaussian_psf(wavelengths, return_metadata=True)
+        low_departure = max(
+            abs(low_meta["sigma_px_x"][0] - low_meta["sigma_px_x"][1]),
+            abs(low_meta["sigma_px_x"][2] - low_meta["sigma_px_x"][1]),
+        )
+        high_departure = max(
+            abs(high_meta["sigma_px_x"][0] - high_meta["sigma_px_x"][1]),
+            abs(high_meta["sigma_px_x"][2] - high_meta["sigma_px_x"][1]),
+        )
+        assert high_departure > low_departure
+
     def test_circular_psf_remains_symmetric(self):
         kernel = PSFGenerator(_human_params()).gaussian_psf(WAVELENGTHS_1)[0]
         assert np.allclose(kernel, kernel[::-1, :], atol=1e-10)
@@ -218,6 +253,33 @@ class TestOpticalStage:
         ).apply(img)
         ratio = float(half_trans.data.sum()) / float(no_trans.data.sum())
         assert ratio == pytest.approx(0.5, abs=0.01)
+
+    def test_media_transmission_scales_spectrum_bandwise(self):
+        wavelengths = np.array([400.0, 550.0, 700.0], dtype=float)
+        img = SpectralImage(
+            data=np.ones((17, 17, len(wavelengths)), dtype=np.float32),
+            wavelengths=wavelengths,
+        )
+        result = OpticalStage(
+            _human_params(
+                media_transmission=lambda lam: np.array([0.25, 0.5, 0.75], dtype=float)
+            )
+        ).apply(img)
+        center = result.data[8, 8]
+        np.testing.assert_allclose(center / center.max(), np.array([1.0 / 3.0, 2.0 / 3.0, 1.0]), atol=0.05)
+
+    def test_metadata_contains_wavelength_aware_optical_diagnostics(self):
+        result = OpticalStage(_human_params()).apply(_point_spectral_image(wavelengths=np.array([400.0, 555.0, 700.0])))
+        expected_keys = {
+            "media_transmission_applied",
+            "media_transmission_values",
+            "media_transmission_source",
+            "lca_reference_wavelength_nm",
+            "lca_anchor_wavelengths_nm",
+            "lca_offset_diopters",
+            "total_defocus_diopters_by_wavelength",
+        }
+        assert expected_keys <= set(result.metadata)
 
     def test_species_energy_differs_with_pupil_geometry(self):
         img = self._make_spectral_image()

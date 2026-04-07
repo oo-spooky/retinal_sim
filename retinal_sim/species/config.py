@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from retinal_sim.optical.media import load_media_transmission_table
+
 _DATA_DIR = Path(__file__).parent.parent / "data" / "species"
 _VALID_SPECIES = {"human", "dog", "cat"}
 
@@ -51,6 +53,10 @@ class SpeciesConfig:
 
 def _build_optical(d: dict, species_name: str) -> object:
     from retinal_sim.optical.stage import OpticalParams
+    media_transmission = None
+    media_table = d.get("media_transmission_table")
+    if media_table is not None:
+        media_transmission = load_media_transmission_table(str(media_table))
     params = OpticalParams(
         pupil_shape=str(d["pupil_shape"]),
         pupil_diameter_mm=float(d["pupil_diameter_mm"]),
@@ -63,6 +69,7 @@ def _build_optical(d: dict, species_name: str) -> object:
         focal_length_mm=float(d["focal_length_mm"]),
         corneal_radius_mm=float(d["corneal_radius_mm"]),
         lca_diopters=float(d["lca_diopters"]),
+        media_transmission=media_transmission,
         zernike_coeffs=dict(d.get("zernike_coeffs") or {}),
     )
     params._species_name = species_name  # used by SceneGeometry for per-species accommodation limits
