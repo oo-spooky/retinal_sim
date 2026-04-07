@@ -169,6 +169,41 @@ class TestRenderVoronoi:
 
 
 # ---------------------------------------------------------------------------
+# TestPerceptualRendering — end-to-end color round-trip
+# ---------------------------------------------------------------------------
+
+
+class TestPerceptualHumanColor:
+    """Whole-pipeline checks that the human perceptual rendering doesn't
+    cast a global hue. These are end-to-end and a bit slow, but they catch
+    regressions in the LMS→sRGB transform that synthetic-mosaic tests can't.
+    """
+
+    def _render_uniform(self, rgb_tuple, size=32):
+        from retinal_sim.output.perceptual import render_perceptual_image
+        from retinal_sim.pipeline import RetinalSimulator
+
+        rgb = np.full((size, size, 3), rgb_tuple, dtype=np.float32)
+        sim = RetinalSimulator("human", patch_extent_deg=2.0)
+        result = sim.simulate(rgb, input_mode="reflectance_under_d65")
+        return render_perceptual_image(result, grid_shape=(size, size))
+
+    def test_white_in_is_approximately_neutral(self):
+        out = self._render_uniform((1.0, 1.0, 1.0))
+        means = out.reshape(-1, 3).mean(axis=0)
+        # Channels should be within 0.1 of each other (no global cast).
+        assert abs(means[0] - means[1]) < 0.18
+        assert abs(means[1] - means[2]) < 0.18
+        assert abs(means[0] - means[2]) < 0.18
+
+    def test_red_in_is_red_dominant(self):
+        out = self._render_uniform((1.0, 0.0, 0.0))
+        means = out.reshape(-1, 3).mean(axis=0)
+        assert means[0] > means[1]
+        assert means[0] > means[2]
+
+
+# ---------------------------------------------------------------------------
 # TestRenderReconstructed
 # ---------------------------------------------------------------------------
 

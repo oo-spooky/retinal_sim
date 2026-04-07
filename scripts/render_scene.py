@@ -101,6 +101,33 @@ def main(argv: list[str] | None = None) -> int:
     H, W, _ = rgb.shape
     print(f"Loaded {args.image} ({W}x{H})")
 
+    # Crop the input to the simulated patch so the displayed panel matches what
+    # the retina actually sees. Without this the simulator only models the
+    # central ``patch_deg`` of the scene but the rendered cone activations are
+    # then stretched across the full original image, which makes high-acuity
+    # species (human) look blurrier than they should and low-density species
+    # look like coarse Voronoi tiles. Cropping first keeps the panel
+    # apples-to-apples.
+    full_angular_w_deg = 2.0 * np.degrees(
+        np.arctan((args.scene_width_m / 2.0) / args.distance_m)
+    )
+    crop_frac = min(1.0, args.patch_deg / full_angular_w_deg)
+    if crop_frac < 1.0:
+        crop_w = max(1, int(round(W * crop_frac)))
+        crop_h = max(1, int(round(H * crop_frac)))
+        x0 = (W - crop_w) // 2
+        y0 = (H - crop_h) // 2
+        rgb = rgb[y0:y0 + crop_h, x0:x0 + crop_w, :]
+        H, W, _ = rgb.shape
+        sim_scene_width_m = args.scene_width_m * crop_frac
+        print(
+            f"Scene subtends {full_angular_w_deg:.2f}° but patch is "
+            f"{args.patch_deg:.2f}°; cropping input to central "
+            f"{crop_w}x{crop_h} (scene_width_m -> {sim_scene_width_m:.4f})."
+        )
+    else:
+        sim_scene_width_m = args.scene_width_m
+
     sim = RetinalSimulator(
         args.species[0],
         patch_extent_deg=args.patch_deg,
@@ -111,12 +138,12 @@ def main(argv: list[str] | None = None) -> int:
     results = sim.compare_species(
         rgb,
         species_list=args.species,
-        scene_width_m=args.scene_width_m,
+        scene_width_m=sim_scene_width_m,
         viewing_distance_m=args.distance_m,
         input_mode="reflectance_under_d65",
     )
 
-    panels = [_label(rgb, "input")]
+    panels = [_label(rgb, "input (patch)")]
     for sp in args.species:
         rendered = render_perceptual_image(results[sp], grid_shape=(H, W))
         panels.append(_label(rendered, sp))

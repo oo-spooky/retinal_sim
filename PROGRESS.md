@@ -54,3 +54,29 @@ Recent repo-level testing workflow update:
 ---
 
 _Detailed per-phase validation notes for Phases 1–9 are in git history. Key gotchas are in SCRATCHPAD.md._
+
+---
+
+## Post-phase work
+
+### Perceptual rendering correction (2026-04-07)
+
+`retinal_sim/output/perceptual.py` previously used a hand-rolled near-identity
+LMS→RGB matrix that produced a global yellow cast for human output (because
+L and M cones overlap massively). Replaced with the proper colorimetric chain:
+Naka-Rushton inverse → von Kries (D65) → inverse Hunt-Pointer-Estevez
+LMS→XYZ → linear sRGB → sRGB EOTF. Von Kries factors are computed at import
+time from the Govardovskii cone curves under D65 so the white point stays in
+sync with the rest of the pipeline.
+
+`scripts/render_scene.py` now crops the input image to the central
+`--patch-deg` region before running the pipeline, so the displayed panels
+match the retinal patch the simulator actually models.
+
+Regression tests: `tests/test_output.py::TestPerceptualHumanColor`
+(white-in→neutral, red-in→red-dominant). Run with
+`pytest tests/test_output.py -v`. Full fast gate: `pytest -m "not slow"`
+(513 tests).
+
+See SCRATCHPAD.md "Perceptual rendering" section and AGENTS.md gotchas
+#10 / #11 for details.

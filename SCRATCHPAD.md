@@ -249,6 +249,45 @@ because the CIE/D65 approximation is not exact.
 
 ---
 
+## Perceptual rendering (output/perceptual.py)
+
+### Why the original `_HUMAN_MATRIX` produced yellow output
+A near-identity LMS→RGB mapping (L→R, M→G, S→B) does not work for human cones
+because L (560 nm) and M (530 nm) overlap massively, so for natural stimuli
+L≈M and the matrix dumps both into R+G ≈ yellow. The fix is the proper
+colorimetric chain: **LMS → XYZ (inverse Hunt-Pointer-Estevez D65) → linear
+sRGB → sRGB EOTF**, with a **von Kries diagonal** computed at import time
+from the actual Govardovskii cone curves under D65 so that a D65-white
+stimulus yields equal LMS. Without von Kries, peak-normalized opsin curves
+under D65 yield S << L,M and white-in renders blue-deficient.
+
+### Naka-Rushton must be inverted before any color matrix
+`retina/transduction.py` compresses cone responses to [0, R_max] via
+`r = R_max * x^n / (x^n + sigma^n)`. Feeding compressed responses straight
+into a linear color matrix flattens highlights and lifts shadows. Invert
+with `x = sigma * (r/(R_max - r)) ** (1/n)` and clip `r` to `R_max - 1e-6`.
+After inverting, divide all cones by a **shared** scalar (we use the global
+99th percentile) — per-cone normalization would destroy color.
+TODO: N-R params are currently duplicated in `output/perceptual.py`; should
+be surfaced on `MosaicActivation` so the inverse stays in lockstep.
+
+### `render_scene.py` must crop input to the simulated patch
+The simulator only models the central `patch_extent_deg` of the scene.
+If you display the cone activations stretched across the full original
+image, high-acuity species look unnaturally blurry and low-density species
+look like coarse Voronoi tiles. `scripts/render_scene.py` now computes the
+scene's angular subtense from `--scene-width-m` / `--distance-m`, and
+crops the input to the central patch before running the pipeline.
+
+### Tests
+- `tests/test_output.py::TestPerceptualHumanColor` — end-to-end checks:
+  white-in → approximately neutral out (channels within 0.18 of each other),
+  red-in → red-dominant out. These run the full `RetinalSimulator("human")`
+  pipeline so they catch regressions in the LMS→sRGB chain that synthetic
+  mosaic tests cannot.
+
+---
+
 ## Test patterns
 
 Fast local loop: `pytest -m "not slow"`

@@ -38,6 +38,10 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 
+from retinal_sim.constants import WAVELENGTHS
+from retinal_sim.retina.opsin import LAMBDA_MAX, govardovskii_a1
+from retinal_sim.spectral.upsampler import _D65, _SRGB_TO_XYZ
+
 
 # Per-species cone-to-linear-display mixing matrices.
 # Rows are display channels (R, G, B). Columns are cone activations in the
@@ -49,13 +53,58 @@ _CONE_ORDER: Dict[str, Tuple[str, ...]] = {
     "cat":   ("L_cone", "S_cone"),
 }
 
-# Trichromat human: a near-identity LMS→RGB with a small mix so neutral cone
-# activations (L=M=S=1) produce a neutral display gray instead of pure red.
+# Hunt-Pointer-Estevez LMS → XYZ matrix (D65, equal-energy normalized so that
+# LMS=(1,1,1) corresponds to the D65 white point in XYZ). Our opsin templates
+# in retina/opsin.py are peak-normalized to 1, which matches the HPE
+# convention. The inverse direction (XYZ→LMS) is the standard HPE D65 matrix:
+#     [[ 0.4002, 0.7076, -0.0808],
+#      [-0.2263, 1.1653,  0.0457],
+#      [ 0.0000, 0.0000,  0.9182]]
+# We invert it once at import time so the per-pixel hot path is one 3x3 mul.
+_XYZ_TO_LMS_HPE_D65 = np.array(
+    [
+        [ 0.4002, 0.7076, -0.0808],
+        [-0.2263, 1.1653,  0.0457],
+        [ 0.0000, 0.0000,  0.9182],
+    ],
+    dtype=np.float64,
+)
+_LMS_TO_XYZ_HPE_D65 = np.linalg.inv(_XYZ_TO_LMS_HPE_D65)
+
+# linear sRGB ↔ XYZ (D65). We invert the matrix already shipped in
+# spectral/upsampler.py so the two stay numerically consistent.
+_XYZ_TO_LINEAR_SRGB_D65 = np.linalg.inv(_SRGB_TO_XYZ.astype(np.float64))
+
+# Von Kries chromatic adaptation: scale each cone so a D65 stimulus produces
+# equal LMS responses. Without this, peak-normalized opsin curves under D65
+# yield S << L,M (D65 has less blue power and the S band is narrow), and
+# white-in renders blue-deficient even with the correct HPE matrix.
+def _human_d65_cone_responses() -> np.ndarray:
+    lam = LAMBDA_MAX["human"]
+    L = govardovskii_a1(lam["L_cone"], WAVELENGTHS)
+    M = govardovskii_a1(lam["M_cone"], WAVELENGTHS)
+    S = govardovskii_a1(lam["S_cone"], WAVELENGTHS)
+    d65 = np.asarray(_D65, dtype=np.float64)
+    return np.array([float(np.trapezoid(L * d65, WAVELENGTHS)),
+                     float(np.trapezoid(M * d65, WAVELENGTHS)),
+                     float(np.trapezoid(S * d65, WAVELENGTHS))])
+
+
+_HUMAN_D65_LMS = _human_d65_cone_responses()
+_HUMAN_VON_KRIES = (1.0 / _HUMAN_D65_LMS) * _HUMAN_D65_LMS.max()  # diag scaling
+
+# Composed LMS → linear sRGB transform for trichromats, with von Kries
+# adaptation folded in.
+_LMS_TO_LINEAR_SRGB_HUMAN = (
+    _XYZ_TO_LINEAR_SRGB_D65 @ _LMS_TO_XYZ_HPE_D65 @ np.diag(_HUMAN_VON_KRIES)
+).astype(np.float32)
+
+# Legacy near-identity matrix retained for reference / non-human fallback only.
 _HUMAN_MATRIX = np.array(
     [
-        [0.85, 0.10, 0.05],   # R draws mainly from L
-        [0.15, 0.80, 0.05],   # G draws mainly from M
-        [0.00, 0.05, 0.95],   # B draws mainly from S
+        [0.85, 0.10, 0.05],
+        [0.15, 0.80, 0.05],
+        [0.00, 0.05, 0.95],
     ],
     dtype=np.float32,
 )
@@ -78,13 +127,50 @@ def _species_matrix(species_name: str) -> Tuple[np.ndarray, Tuple[str, ...]]:
     """Return (display matrix, cone order) for a species."""
     name = species_name.lower()
     if name == "human":
-        return _HUMAN_MATRIX, _CONE_ORDER["human"]
+        return _LMS_TO_LINEAR_SRGB_HUMAN, _CONE_ORDER["human"]
     if name in ("dog", "cat"):
         return _DICHROMAT_MATRIX, _CONE_ORDER[name]
     raise ValueError(
         f"perceptual rendering not configured for species {species_name!r}; "
         f"supported: human, dog, cat"
     )
+
+
+def _invert_naka_rushton(
+    response: np.ndarray,
+    sigma: float = 0.5,
+    n: float = 0.7,
+    r_max: float = 1.0,
+) -> np.ndarray:
+    """Recover a linear excitation from a Naka-Rushton-compressed response.
+
+    Forward (retinal_sim/retina/transduction.py):
+        r = R_max * x^n / (x^n + sigma^n)
+    Inverse:
+        x = sigma * (r / (R_max - r)) ** (1/n)
+
+    Values at or above ``r_max`` are clipped slightly below to avoid a
+    divide-by-zero; negative values are clamped to zero. The defaults match
+    NAKA_RUSHTON_DEFAULTS for cones; if these drift in the forward path,
+    update them here too. (TODO: surface N-R params on MosaicActivation so we
+    can read them from the result instead of duplicating defaults.)
+    """
+    r = np.clip(np.asarray(response, dtype=np.float64), 0.0, r_max - 1e-6)
+    ratio = r / (r_max - r)
+    return (sigma * np.power(ratio, 1.0 / n)).astype(np.float32)
+
+
+def _linear_to_srgb(linear: np.ndarray) -> np.ndarray:
+    """Apply the standard sRGB EOTF (piecewise) to linear-light values."""
+    x = np.clip(linear, 0.0, 1.0)
+    low = x <= 0.0031308
+    out = np.where(low, 12.92 * x, 1.055 * np.power(np.maximum(x, 0.0), 1.0 / 2.4) - 0.055)
+    return out.astype(np.float32)
+
+
+def _gamut_clip(linear: np.ndarray) -> np.ndarray:
+    """Map out-of-gamut linear RGB into the unit cube. Hard clip for now."""
+    return np.clip(linear, 0.0, 1.0)
 
 
 def reconstruct_cone_maps(
@@ -139,20 +225,42 @@ def reconstruct_cone_maps(
 def cone_maps_to_srgb(
     cone_maps: Dict[str, np.ndarray],
     species_name: str,
-    gamma: float = 2.2,
+    gamma: float = 2.2,  # retained for backward compat; ignored (sRGB EOTF used)
 ) -> np.ndarray:
     """Mix per-cone activation maps into a gamma-encoded sRGB image.
 
-    See module docstring for the meaning and limitations of the per-species
-    mixing matrices. Returns float32 in [0, 1] with shape (H, W, 3).
+    Pipeline:
+      1. Invert Naka-Rushton on each cone map → linear-ish excitations.
+      2. Renormalize all cones by a *shared* scalar so the brightest
+         excitation in the scene maps to ~1.0 (per-cone normalization would
+         destroy color, so we deliberately use one global factor).
+      3. Apply the species mixing matrix (HPE-derived for human;
+         hand-rolled dichromat matrix for dog/cat).
+      4. Hard-clip to gamut and apply the standard sRGB EOTF.
+
+    Returns float32 in [0, 1] with shape (H, W, 3).
     """
     matrix, cone_order = _species_matrix(species_name)
-    stack = np.stack([cone_maps[c] for c in cone_order], axis=-1)  # (H, W, K)
-    H, W, K = stack.shape
-    flat = stack.reshape(-1, K)
-    linear = flat @ matrix.T  # (H*W, 3)
-    linear = np.clip(linear, 0.0, 1.0).reshape(H, W, 3)
-    encoded = np.power(linear, 1.0 / gamma).astype(np.float32)
+
+    linearized = {c: _invert_naka_rushton(cone_maps[c]) for c in cone_order}
+    stacked = np.stack([linearized[c] for c in cone_order], axis=-1)  # (H, W, K)
+
+    # Shared brightness normalization across cones. The 99th percentile gives
+    # headroom for specular highlights without letting a single bright pixel
+    # crush the rest of the image.
+    finite = stacked[np.isfinite(stacked)]
+    if finite.size > 0:
+        scale = float(np.percentile(finite, 99.0))
+    else:
+        scale = 0.0
+    if scale > 1e-9:
+        stacked = stacked / scale
+
+    H, W, K = stacked.shape
+    flat = stacked.reshape(-1, K).astype(np.float64)
+    linear = flat @ matrix.T.astype(np.float64)  # (H*W, 3)
+    linear = _gamut_clip(linear).reshape(H, W, 3)
+    encoded = _linear_to_srgb(linear)
     return encoded
 
 

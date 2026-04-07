@@ -118,6 +118,10 @@ These are critical — violating them will break tests or produce wrong results:
 
 9. **Accommodation model is hard-cutoff** — defocus = max(0, demand - species_max). No lag/lead curves.
 
+10. **Perceptual rendering uses HPE LMS→XYZ + von Kries, not a hand-rolled matrix.** `output/perceptual.py::cone_maps_to_srgb` (a) inverts Naka-Rushton with `x = sigma * (r/(R_max - r))**(1/n)` before any color matrix, (b) renormalizes all cones by a *shared* 99th-percentile scalar (per-cone normalization destroys color), (c) applies the inverse Hunt-Pointer-Estevez D65 matrix composed with `inv(_SRGB_TO_XYZ)` and a von Kries diagonal computed at import time from the actual Govardovskii curves under D65, (d) finishes with the proper sRGB EOTF (not `^1/2.2`). Do not replace this with a near-identity LMS→RGB mapping — it produces yellow output because human L (560 nm) and M (530 nm) overlap massively. Regression tests live in `tests/test_output.py::TestPerceptualHumanColor` (white-in≈neutral, red-in→red-dominant) and run the full pipeline end-to-end.
+
+11. **`scripts/render_scene.py` crops input to the simulated patch.** The pipeline only models the central `--patch-deg` of the scene; rendering cone activations stretched across the full image makes high-acuity species look unnaturally blurry. The script computes the scene's angular subtense from `--scene-width-m` / `--distance-m` and crops the input before running the pipeline.
+
 10. **PoC patch size is 2 degrees**. Scale to 5-10 degrees later.
 
 ## Code review findings
