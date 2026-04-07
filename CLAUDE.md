@@ -7,6 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Check `PROGRESS.md` for current implementation status before starting work.
 Read `SCRATCHPAD.md` for non-obvious gotchas and architectural decisions before touching any phase.
 Check `CODEREVIEW.md` for open review findings and address any open items before starting new phase work.
+Read the Codex-authored architecture audit and remediation roadmap before any structural or scientific-claim work — these are the source of truth for the R-phase remediation effort (R1–R6) and were implemented entirely by Codex without Claude involvement, so they will not appear in Claude's git memory:
+- `reports/architecture_audit_2026-04-04.md` — baseline audit, the yardstick for remediation progress.
+- `reports/remediation_roadmap_2026-04-04.md` — the R1–R6 phase plan, milestones M1/M2/M3, and work packages A–D.
+- `AGENTS.md` — Codex's project context; mirrors much of this file but is the authoritative brief for Codex sessions, so keep the two in sync when workflow rules change.
+Any newer dated artifacts under `reports/*.md` from later Codex sessions should be read the same way: assume Codex has already implemented what they describe and treat them as required reading, not optional history.
 Update `PROGRESS.md` after completing any phase.
 Update `SCRATCHPAD.md` whenever you discover something that would waste time if rediscovered.
 Use `pytest -m "not slow"` for the fast local loop, `pytest tests/test_<phase>.py -v` for a phase-specific loop, and `pytest` for the full gate.

@@ -93,6 +93,8 @@ Implementation progress, validation status, and architecture audit status are di
 - `CODEREVIEW.md` tracks review findings.
 - `reports/status_latest.html` is the audit dashboard for current test status, doc drift, and review state.
 - `reports/validation_report.html` is the detailed validation artifact; generated user content should expose assumptions, methods, thresholds, and code provenance.
+- `reports/architecture_audit_2026-04-04.md` is the baseline architecture audit and the yardstick for the R-phase remediation effort.
+- `reports/remediation_roadmap_2026-04-04.md` is the R1–R6 remediation plan (milestones M1/M2/M3, work packages A–D). R1–R6 are already implemented; treat the roadmap as the authoritative record of why the current optical/spectral/retinal/validation/output choices look the way they do, and check it before proposing structural changes. Any later dated `reports/*.md` artifacts from subsequent sessions should be read the same way.
 
 ## Key design decisions and gotchas
 
