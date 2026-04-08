@@ -10,6 +10,11 @@ from retinal_sim.output.reconstruction import render_reconstructed
 from retinal_sim.output.voronoi import _TYPE_BASE_COLOR, _FALLBACK_COLOR, render_voronoi
 
 _SELECTED_WAVELENGTHS_NM = (420.0, 530.0, 650.0)
+_PLOT_COLORS_RGB = (
+    (42, 91, 153),
+    (205, 79, 57),
+    (62, 138, 86),
+)
 
 
 def json_safe_artifact_value(value: Any) -> Any:
@@ -32,6 +37,131 @@ def assert_json_safe_roundtrip(payload: Any) -> Any:
     diagnostic-family payloads are persisted or tested.
     """
     return json.loads(json.dumps(json_safe_artifact_value(payload)))
+
+
+def build_spectral_interpretation_diagnostics(
+    spectral_image: Any,
+    native_input_shape: Optional[tuple[int, int]] = None,
+) -> Dict[str, Any]:
+    """Build deterministic spectral-interpretation summaries from pipeline state."""
+    data = np.asarray(spectral_image.data, dtype=np.float32)
+    wavelengths = np.asarray(spectral_image.wavelengths, dtype=np.float64)
+    source_mean = data.mean(axis=(0, 1))
+    metadata = dict(getattr(spectral_image, "metadata", {}))
+
+    return {
+        "family_label": "spectral interpretation diagnostics",
+        "family_version": "r6_species_report_v1",
+        "traceability_note": (
+            "This family records how the input patch was interpreted as a spectral "
+            "stimulus before species-specific optics or retinal sampling were applied."
+        ),
+        "native_input_patch_px": (
+            [int(native_input_shape[0]), int(native_input_shape[1])]
+            if native_input_shape is not None else None
+        ),
+        "input_mode_summary": {
+            "scene_input_mode": metadata.get("scene_input_mode"),
+            "scene_input_is_inferred": metadata.get("scene_input_is_inferred"),
+            "scene_input_assumptions": metadata.get("scene_input_assumptions", []),
+        },
+        "source_spectrum_summary": {
+            "wavelengths_nm": wavelengths.astype(float).tolist(),
+            "source_mean_by_wavelength": source_mean.astype(float).tolist(),
+            "peak_source_wavelength_nm": float(wavelengths[int(np.argmax(source_mean))]),
+            "source_total_energy": float(np.sum(source_mean)),
+        },
+        "spectral_band_composite": {
+            "id": "spectral_band_composite",
+            "label": "Spectral interpretation RGB-style band composite",
+            "image_kind": "rgb",
+            "image_data": _band_composite_from_cube(data, wavelengths),
+        },
+        "source_mean_spectrum_plot": {
+            "id": "source_mean_spectrum_plot",
+            "label": "Mean source spectrum across the simulated patch",
+            "image_kind": "rgb",
+            "image_data": _plot_series_image(
+                wavelengths,
+                [("source", source_mean)],
+                title="Source spectrum",
+            ),
+        },
+    }
+
+
+def build_optical_delivery_diagnostics(
+    spectral_image: Any,
+    retinal_irradiance: Any,
+) -> Dict[str, Any]:
+    """Build deterministic optical-delivery summaries from pipeline state."""
+    spectral_data = np.asarray(spectral_image.data, dtype=np.float32)
+    irradiance_data = np.asarray(retinal_irradiance.data, dtype=np.float32)
+    wavelengths = np.asarray(retinal_irradiance.wavelengths, dtype=np.float64)
+    metadata = dict(getattr(retinal_irradiance, "metadata", {}))
+
+    source_mean = spectral_data.mean(axis=(0, 1))
+    delivered_mean = irradiance_data.mean(axis=(0, 1))
+    sigma_x = np.asarray(metadata.get("psf_sigma_px_x", []), dtype=np.float64)
+    sigma_y = np.asarray(metadata.get("psf_sigma_px_y", []), dtype=np.float64)
+    representative_kernel = np.asarray(
+        metadata.get("representative_psf_kernel", np.zeros((1, 1), dtype=np.float32)),
+        dtype=np.float32,
+    )
+    blur_reference_wavelength_nm = float(
+        metadata.get("representative_psf_wavelength_nm", metadata.get("lca_reference_wavelength_nm", 555.0))
+    )
+
+    blur_min_wavelength_nm = None
+    if sigma_x.size:
+        sigma_mean = sigma_x if sigma_y.size == 0 else 0.5 * (sigma_x + sigma_y)
+        blur_min_wavelength_nm = float(wavelengths[int(np.argmin(sigma_mean))])
+
+    return {
+        "family_label": "optical delivery diagnostics",
+        "family_version": "r6_species_report_v1",
+        "traceability_note": (
+            "This family records how species-specific optics altered the inferred scene "
+            "spectrum before photoreceptor sampling, including throughput, blur, and media filtering."
+        ),
+        "optical_delivery_summary": {
+            "pupil_throughput_scale": metadata.get("pupil_throughput_scale"),
+            "anisotropy_active": metadata.get("anisotropy_active"),
+            "effective_f_number": metadata.get("effective_f_number"),
+            "effective_f_number_x": metadata.get("effective_f_number_x"),
+            "effective_f_number_y": metadata.get("effective_f_number_y"),
+            "blur_min_wavelength_nm": blur_min_wavelength_nm,
+            "reference_wavelength_nm": blur_reference_wavelength_nm,
+            "media_transmission_source": metadata.get("media_transmission_source"),
+        },
+        "delivered_spectrum_plot": {
+            "id": "delivered_spectrum_plot",
+            "label": "Source versus delivered mean spectrum",
+            "image_kind": "rgb",
+            "image_data": _plot_series_image(
+                wavelengths,
+                [("source", source_mean), ("delivered", delivered_mean)],
+                title="Optical delivery",
+            ),
+        },
+        "psf_sigma_plot": {
+            "id": "psf_sigma_plot",
+            "label": "PSF sigma by wavelength",
+            "image_kind": "rgb",
+            "image_data": _plot_series_image(
+                wavelengths,
+                [("sigma_x", sigma_x), ("sigma_y", sigma_y)],
+                title="PSF sigma (px)",
+            ) if sigma_x.size and sigma_y.size else np.zeros((180, 320, 3), dtype=np.float32),
+        },
+        "representative_psf_kernel": {
+            "id": "representative_psf_kernel",
+            "label": f"Representative PSF kernel ({int(round(blur_reference_wavelength_nm))} nm)",
+            "image_kind": "grayscale",
+            "reference_wavelength_nm": blur_reference_wavelength_nm,
+            "image_data": _normalize_image(np.sqrt(np.clip(representative_kernel, 0.0, None))),
+        },
+    }
 
 
 def build_retinal_irradiance_diagnostics(
@@ -277,6 +407,90 @@ def build_comparative_renderings(
             },
         ],
     }
+
+
+def _band_composite_from_cube(data: np.ndarray, wavelengths: np.ndarray) -> np.ndarray:
+    """Return a simple RGB-style composite from representative wavelength bands."""
+    wavelengths = np.asarray(wavelengths, dtype=np.float64)
+    data = np.asarray(data, dtype=np.float32)
+    channels = []
+    for target_nm in (650.0, 530.0, 420.0):
+        idx = int(np.argmin(np.abs(wavelengths - target_nm)))
+        channels.append(data[:, :, idx])
+    composite = np.stack(channels, axis=-1)
+    safe_max = max(float(np.max(composite)), 1e-8)
+    return np.clip(composite / safe_max, 0.0, 1.0).astype(np.float32)
+
+
+def _plot_series_image(
+    wavelengths: np.ndarray,
+    series: list[tuple[str, np.ndarray]],
+    *,
+    title: str,
+    width: int = 320,
+    height: int = 180,
+) -> np.ndarray:
+    """Render a lightweight line-plot image for bundle diagnostics."""
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return np.zeros((height, width, 3), dtype=np.float32)
+
+    wavelengths = np.asarray(wavelengths, dtype=np.float64)
+    canvas = Image.new("RGB", (width, height), color=(250, 250, 247))
+    draw = ImageDraw.Draw(canvas)
+
+    plot_left = 42
+    plot_right = width - 12
+    plot_top = 24
+    plot_bottom = height - 28
+    plot_width = max(plot_right - plot_left, 1)
+    plot_height = max(plot_bottom - plot_top, 1)
+
+    draw.rectangle(
+        [(plot_left, plot_top), (plot_right, plot_bottom)],
+        outline=(170, 170, 170),
+        fill=(255, 255, 255),
+    )
+    draw.text((12, 6), title, fill=(34, 34, 34))
+    draw.text((plot_left, height - 20), f"{int(round(wavelengths[0]))} nm", fill=(85, 85, 85))
+    draw.text((plot_right - 42, height - 20), f"{int(round(wavelengths[-1]))} nm", fill=(85, 85, 85))
+
+    cleaned_series: list[tuple[str, np.ndarray]] = []
+    max_value = 0.0
+    for label, values in series:
+        arr = np.asarray(values, dtype=np.float64)
+        if arr.size != wavelengths.size:
+            continue
+        arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+        cleaned_series.append((label, arr))
+        max_value = max(max_value, float(np.max(arr)) if arr.size else 0.0)
+
+    max_value = max(max_value, 1e-8)
+    for row in range(5):
+        y = plot_top + int(round(row * plot_height / 4.0))
+        draw.line([(plot_left, y), (plot_right, y)], fill=(235, 235, 235), width=1)
+
+    wavelength_min = float(wavelengths[0])
+    wavelength_span = max(float(wavelengths[-1] - wavelengths[0]), 1e-8)
+
+    for index, (label, values) in enumerate(cleaned_series):
+        color = _PLOT_COLORS_RGB[index % len(_PLOT_COLORS_RGB)]
+        points = []
+        for x_nm, y_value in zip(wavelengths, values):
+            x = plot_left + int(round(((float(x_nm) - wavelength_min) / wavelength_span) * plot_width))
+            y = plot_bottom - int(round((float(y_value) / max_value) * plot_height))
+            points.append((x, int(np.clip(y, plot_top, plot_bottom))))
+        if len(points) >= 2:
+            draw.line(points, fill=color, width=2)
+        elif len(points) == 1:
+            x, y = points[0]
+            draw.ellipse((x - 1, y - 1, x + 1, y + 1), fill=color)
+        legend_x = plot_left + index * 94
+        draw.line([(legend_x, 16), (legend_x + 18, 16)], fill=color, width=3)
+        draw.text((legend_x + 24, 9), label.replace("_", " "), fill=(44, 44, 44))
+
+    return np.asarray(canvas, dtype=np.float32) / 255.0
 
 
 def _normalize_image(image: np.ndarray) -> np.ndarray:

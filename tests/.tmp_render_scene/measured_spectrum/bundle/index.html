@@ -4,78 +4,127 @@
   <meta charset="utf-8">
   <title>retinal_sim explorer run</title>
   <style>
-body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }
-h1, h2, h3 { border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-.panel { background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
-.note { background: #eef6ff; border-color: #c7dbf4; }
-.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
-.species-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.species-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; }
-.cta { display: inline-block; padding: 8px 12px; border-radius: 999px; background: #173b67; color: #fff; text-decoration: none; font-weight: 600; }
-.secondary-links { font-size: 0.92em; color: #555; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 14px; }
-.gallery-item { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; }
-.output-item-title { font-weight: 600; margin-bottom: 8px; }
-table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }
-th { background: #f4f4f4; }
-img { max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }
-code { background: #f6f6f6; padding: 0 4px; border-radius: 3px; }
-pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
-a { color: #173b67; }
+:root {
+  --bg: #f4efe8;
+  --paper: #fffaf4;
+  --panel: #f8f2ea;
+  --panel-strong: #efe4d4;
+  --line: #d6c6b6;
+  --ink: #1f1c19;
+  --muted: #62574c;
+  --accent: #184e69;
+  --accent-soft: #d8ebf5;
+}
+body { margin: 0; background: radial-gradient(circle at top, #faf6ef 0%, var(--bg) 58%, #ece3d7 100%); color: var(--ink); font-family: "Trebuchet MS", "Segoe UI", sans-serif; line-height: 1.55; }
+.shell { max-width: 1160px; margin: 0 auto; padding: 28px 24px 56px; }
+.species-shell { max-width: 1180px; }
+.masthead { padding: 18px 0 8px; }
+.species-masthead { padding-top: 8px; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--muted); margin: 0 0 8px; }
+h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; color: #211d19; }
+h1 { margin: 0 0 10px; font-size: clamp(2.2rem, 4vw, 3rem); }
+h2 { margin: 0 0 14px; font-size: 1.55rem; }
+h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.lead { max-width: 72ch; color: var(--muted); margin: 0; }
+.section { margin-top: 28px; }
+.callout, .card, .hero-card, .stage-card, .species-card { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 22px rgba(79, 57, 33, 0.06); }
+.callout, .card, .stage-card, .species-card { padding: 16px 18px; }
+.hero-card { padding: 14px; overflow: hidden; }
+.scope { background: var(--accent-soft); border-color: #afcddd; }
+.note { background: #fff5df; border-color: #e7cf9b; }
+.two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; align-items: start; }
+.species-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.cta { display: inline-block; padding: 10px 14px; border-radius: 999px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
+.secondary-links { font-size: 0.94rem; color: var(--muted); }
+.stage-card p { margin: 0 0 12px; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 16px; }
+.gallery-item { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.output-item-title { font-weight: 700; margin: 0 0 8px; color: #2f2922; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; background: var(--paper); border-radius: 14px; overflow: hidden; }
+th, td { border: 1px solid var(--line); padding: 9px 10px; text-align: left; font-size: 0.95rem; vertical-align: top; }
+th { background: var(--panel-strong); }
+.metrics { margin-top: 12px; }
+.metrics th { width: 34%; }
+img { width: 100%; max-width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; background: #fff; }
+code { background: #efe7dc; padding: 1px 6px; border-radius: 5px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+a { color: var(--accent); }
+details { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); }
+summary { cursor: pointer; font-weight: 700; color: #3a342d; }
+ul { margin: 10px 0; padding-left: 20px; }
 </style>
 </head>
 <body>
-<h1>retinal_sim explorer run</h1>
-<div class="panel note"><strong>Scope note:</strong> This bundle summarizes a retinal-front-end comparison. The outputs expose traceable retinal irradiance diagnostics, photoreceptor activation diagnostics, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.</div>
+<div class="shell">
+<header class="masthead">
+  <p class="eyebrow">Run bundle</p>
+  <h1>retinal_sim explorer run</h1>
+  <p class="lead">A landing page for the comparison strip plus guided per-species reports. Use the individual species pages to follow where differences enter the pipeline.</p>
+</header>
 
-<h2>Overview</h2>
-<div class="panel split">
-  <div>
-    <p><strong>Scene input mode:</strong> <code>measured_spectrum</code></p>
-    <p><strong>Species:</strong> human</p>
-    <p><strong>Patch geometry:</strong> full scene 14.25 x 14.25 deg, simulated patch 2.00 x 2.00 deg.</p>
-    <p><strong>Cropping applied:</strong> yes</p>
-    <p><strong>Native input patch:</strong> 1 x 1 px</p>
-    <p><strong>Activation render grid:</strong> 1 x 1 px</p>
+<div class="callout scope"><strong>Scope note:</strong> This bundle summarizes a retinal-front-end comparison. The outputs expose traceable scene assumptions, spectral interpretation, optical delivery, receptor sampling, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.</div>
+
+<section class="section">
+  <h2>Overview</h2>
+  <div class="two-up">
+    <div class="card">
+      <p><strong>Scene input mode:</strong> <code>measured_spectrum</code></p>
+      <p><strong>Species:</strong> human</p>
+      <p><strong>Patch geometry:</strong> full scene 14.25 x 14.25 deg, simulated patch 2.00 x 2.00 deg.</p>
+      <p><strong>Cropping applied:</strong> yes</p>
+      <p><strong>Native input patch:</strong> 1 x 1 px</p>
+      <p><strong>Activation render grid:</strong> 1 x 1 px</p>
+    </div>
+    <div class="card image-card"><img src="input_patch.png" alt="Input patch preview"></div>
   </div>
-  <div><img src="input_patch.png" alt="Input patch preview"></div>
-</div>
+</section>
 
-<h2>Scene assumptions</h2>
-<div class="panel"><ul><li>Caller provided a measured spectral image directly.</li><li>No RGB-to-spectrum inference is applied in this mode.</li></ul></div>
+<section class="section">
+  <h2>Scene assumptions</h2>
+  <div class="callout"><ul><li>Caller provided a measured spectral image directly.</li><li>No RGB-to-spectrum inference is applied in this mode.</li></ul></div>
+</section>
 
-<h2>Open species reports</h2>
-<div class="species-grid"><div class="species-card"><h3>Human</h3><p>This standalone report walks through the modeled stage story for this species.</p><p><a class="cta" href="species/human/index.html">Open human report</a></p><p class="secondary-links"><a href="diagnostics/human/summary.json">diagnostics summary</a> | <a href="diagnostics/manifest.json">manifest</a></p></div></div>
+<section class="section">
+  <h2>Open species reports</h2>
+  <div class="species-grid"><div class="species-card"><h3>Human</h3><p>This standalone walkthrough shows the full five-stage story for this species, from patch assumptions through final outputs.</p><p><a class="cta" href="species/human/index.html">Open human report</a></p><p class="secondary-links"><a href="species/human/story_plate.png">story plate</a> | <a href="species/human/hero_two_up.png">hero image</a> | <a href="species/human/summary.json">summary JSON</a></p></div></div>
+</section>
 
-<h2>At a glance comparison</h2>
-<div class="panel">
-  <p>The comparison strip remains an overview. The primary experience is the per-species report set above.</p>
-  <p><img src="comparison.png" alt="Retinal comparison panel"></p>
-</div>
+<section class="section">
+  <h2>At a glance comparison</h2>
+  <div class="callout">
+    <p>The comparison strip remains an overview. The primary experience is the per-species report set above, where each page breaks the result into scene, spectral, optical, sampling, and final-output stages.</p>
+    <p><img src="comparison.png" alt="Retinal comparison panel"></p>
+  </div>
+</section>
 
-<h2>Species summaries</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Species</th>
-      <th>Stimulated receptors</th>
-      <th>Stimulated fraction</th>
-      <th>Mean response</th>
-      <th>Left/right discriminability</th>
-      <th>Center contrast</th>
-      <th>Periphery contrast</th>
-      <th>Species report</th>
-      <th>Diagnostics</th>
-    </tr>
-  </thead>
-  <tbody><tr><td>human</td><td>4.0000</td><td>1.0000</td><td>0.2500</td><td>0.1000</td><td>0.2000</td><td>0.0500</td><td><a href="species/human/index.html">report</a></td><td><a href="diagnostics/human/summary.json">summary</a></td></tr></tbody>
-</table>
+<section class="section">
+  <h2>Species summaries</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Species</th>
+        <th>Stimulated receptors</th>
+        <th>Stimulated fraction</th>
+        <th>Mean response</th>
+        <th>Left/right discriminability</th>
+        <th>Center contrast</th>
+        <th>Periphery contrast</th>
+        <th>Species report</th>
+        <th>Story plate</th>
+        <th>Hero image</th>
+      </tr>
+    </thead>
+    <tbody><tr><td>human</td><td>4.0000</td><td>1.0000</td><td>0.2500</td><td>0.1000</td><td>0.2000</td><td>0.0500</td><td><a href="species/human/index.html">report</a></td><td><a href="species/human/story_plate.png">story plate</a></td><td><a href="species/human/hero_two_up.png">hero</a></td></tr></tbody>
+  </table>
+</section>
 
-<h2>Traceability bundle</h2>
-<div class="panel">
-  <p><a href="diagnostics/manifest.json">Diagnostics manifest</a></p>
-  <p>The diagnostics directory remains the machine-readable family. The per-species pages turn those same stages into a user-facing walkthrough.</p>
+<section class="section">
+  <h2>Traceability bundle</h2>
+  <div class="callout">
+    <p><a href="diagnostics/manifest.json">Diagnostics manifest</a></p>
+    <p>The diagnostics directory remains the machine-readable family. The species pages translate those same families into user-facing walkthroughs without changing the underlying scope claims.</p>
+  </div>
+</section>
 </div>
 </body>
 </html>

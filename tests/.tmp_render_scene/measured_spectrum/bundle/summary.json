@@ -40,7 +40,7 @@
     1,
     1
   ],
-  "scope_note": "This bundle summarizes a retinal-front-end comparison. The outputs expose traceable retinal irradiance diagnostics, photoreceptor activation diagnostics, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.",
+  "scope_note": "This bundle summarizes a retinal-front-end comparison. The outputs expose traceable scene assumptions, spectral interpretation, optical delivery, receptor sampling, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.",
   "paths": {
     "comparison_png": "comparison.png",
     "input_patch_png": "input_patch.png",
@@ -76,12 +76,18 @@
       "diagnostics": {
         "summary_json": "diagnostics/human/summary.json",
         "activation_overlay_png": "diagnostics/human/activation_overlay.png",
-        "irradiance_band_composite_png": "diagnostics/human/irradiance_band_composite.png"
+        "irradiance_band_composite_png": "diagnostics/human/irradiance_band_composite.png",
+        "manifest_entry": "diagnostics/manifest.json#species/human"
       },
       "report_html": "species/human/index.html",
       "report_summary_json": "species/human/summary.json",
       "report_assets": {
         "input_patch_png": "input_patch.png",
+        "spectral_band_composite_png": "species/human/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "species/human/source_mean_spectrum_plot.png",
+        "delivered_spectrum_plot_png": "species/human/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "species/human/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "species/human/representative_psf_kernel.png",
         "irradiance_band_composite_png": "species/human/irradiance_band_composite.png",
         "irradiance_slice_pngs": {
           "irradiance_slice_420nm": "species/human/irradiance_slice_420nm.png",
@@ -89,6 +95,9 @@
           "irradiance_slice_650nm": "species/human/irradiance_slice_650nm.png"
         },
         "activation_overlay_png": "species/human/activation_overlay.png",
+        "perceptual_appearance_png": "species/human/perceptual_appearance_approximation.png",
+        "hero_two_up_png": "species/human/hero_two_up.png",
+        "story_plate_png": "species/human/story_plate.png",
         "activation_map_png": "species/human/activation_map.png",
         "retinal_information_rendering_png": "species/human/retinal_information_rendering.png"
       }
@@ -142,12 +151,23 @@
         "species_report_html": "../species/human/index.html",
         "species_report_summary_json": "../species/human/summary.json",
         "input_patch_png": "../input_patch.png",
+        "hero_two_up_png": "../species/human/hero_two_up.png",
+        "story_plate_png": "../species/human/story_plate.png",
         "activation_map_png": "../species/human/activation_map.png",
         "retinal_information_rendering_png": "../species/human/retinal_information_rendering.png",
         "irradiance_slice_pngs": {
           "irradiance_slice_420nm": "../species/human/irradiance_slice_420nm.png",
           "irradiance_slice_530nm": "../species/human/irradiance_slice_530nm.png",
           "irradiance_slice_650nm": "../species/human/irradiance_slice_650nm.png"
+        },
+        "spectral_stage_assets": {
+          "spectral_band_composite_png": "../species/human/spectral_band_composite.png",
+          "source_mean_spectrum_plot_png": "../species/human/source_mean_spectrum_plot.png"
+        },
+        "optical_stage_assets": {
+          "delivered_spectrum_plot_png": "../species/human/delivered_spectrum_plot.png",
+          "psf_sigma_plot_png": "../species/human/psf_sigma_plot.png",
+          "representative_psf_kernel_png": "../species/human/representative_psf_kernel.png"
         },
         "species_irradiance_band_composite_png": "../species/human/irradiance_band_composite.png",
         "species_activation_overlay_png": "../species/human/activation_overlay.png"

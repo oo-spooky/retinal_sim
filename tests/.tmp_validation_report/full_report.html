@@ -94,7 +94,7 @@ th { background: #f4f4f4; }
 </head>
 <body>
 <h1>retinal_sim - Full Validation Audit Report</h1>
-<p class="timestamp">Generated: 2026-04-07 17:59</p>
+<p class="timestamp">Generated: 2026-04-07 19:51</p>
 
 <h2>Scope of This Report</h2>
 <div class="section-note">
@@ -145,7 +145,7 @@ cat: cen</td></tr></tbody></table>
 </div>
 
 <h2>Environment and Reproducibility</h2>
-<div class="meta-grid"><div class="meta-label">Report type</div><div>full_validation_audit</div><div class="meta-label">Stage scope</div><div>all</div><div class="meta-label">Species</div><div>human</div><div class="meta-label">Seed</div><div>42</div><div class="meta-label">Patch extent (deg)</div><div>1.0</div><div class="meta-label">Stimulus scale</div><div>0.01</div><div class="meta-label">Light level</div><div>photopic</div><div class="meta-label">Scene input mode</div><div>reflectance_under_d65</div><div class="meta-label">Scene spectrum source</div><div>RGB-inferred</div><div class="meta-label">Scene assumptions</div><div>RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.; The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.; This mode models diffuse reflectance under D65 for comparative PoC work.</div><div class="meta-label">Repo commit</div><div>0eefcaaea29b170754f647e457a57d2caa3235af</div><div class="meta-label">Python</div><div>3.14.3</div><div class="meta-label">Platform</div><div>Windows-11-10.0.26200-SP0</div><div class="meta-label">NumPy</div><div>2.4.4</div><div class="meta-label">Retinal model scope</div><div>retinal_front_end_only</div><div class="meta-label">Retinal scope note</div><div>This simulation stops at the photoreceptor/retinal front end. It does not include post-receptoral, retinal-circuit, or cortical perception modeling.</div><div class="meta-label">Naka-Rushton confidence</div><div>low</div><div class="meta-label">Aperture weighting default</div><div>Disabled</div><div class="meta-label">Visual streak status</div><div>not_applicable</div><div class="meta-label">Validation categories</div><div>analytic correctness: 3, external empirical alignment: 9, model self-consistency: 7</div><div class="meta-label">Claim support levels</div><div>moderate: 12, strong: 4, weak: 3</div></div>
+<div class="meta-grid"><div class="meta-label">Report type</div><div>full_validation_audit</div><div class="meta-label">Stage scope</div><div>all</div><div class="meta-label">Species</div><div>human</div><div class="meta-label">Seed</div><div>42</div><div class="meta-label">Patch extent (deg)</div><div>1.0</div><div class="meta-label">Stimulus scale</div><div>0.01</div><div class="meta-label">Light level</div><div>photopic</div><div class="meta-label">Scene input mode</div><div>reflectance_under_d65</div><div class="meta-label">Scene spectrum source</div><div>RGB-inferred</div><div class="meta-label">Scene assumptions</div><div>RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.; The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.; This mode models diffuse reflectance under D65 for comparative PoC work.</div><div class="meta-label">Repo commit</div><div>6c33d8cecac1b0eb144bbf517aeadb6188af9fed</div><div class="meta-label">Python</div><div>3.14.3</div><div class="meta-label">Platform</div><div>Windows-11-10.0.26200-SP0</div><div class="meta-label">NumPy</div><div>2.4.4</div><div class="meta-label">Retinal model scope</div><div>retinal_front_end_only</div><div class="meta-label">Retinal scope note</div><div>This simulation stops at the photoreceptor/retinal front end. It does not include post-receptoral, retinal-circuit, or cortical perception modeling.</div><div class="meta-label">Naka-Rushton confidence</div><div>low</div><div class="meta-label">Aperture weighting default</div><div>Disabled</div><div class="meta-label">Visual streak status</div><div>not_applicable</div><div class="meta-label">Validation categories</div><div>analytic correctness: 3, external empirical alignment: 9, model self-consistency: 7</div><div class="meta-label">Claim support levels</div><div>moderate: 12, strong: 4, weak: 3</div></div>
 
 <h2>Retinal Physiology Assumptions</h2>
 <div class="section-note"><p><strong>Retinal Front-End Only.</strong> This simulation stops at the photoreceptor/retinal front end. It does not include post-receptoral, retinal-circuit, or cortical perception modeling.</p><div class="meta-grid"><div class="meta-label">Lambda-max source</div><div>Human lambda-max anchors follow the project architecture/spec reference set and are used with the unchanged Govardovskii A1 nomogram.</div><div class="meta-label">Lambda-max confidence</div><div>moderate</div><div class="meta-label">Lambda-max notes</div><div>Fixed species-reference peak wavelengths; not individualized or adaptation-dependent in-vivo fits.</div><div class="meta-label">Density-function source</div><div>Human density falloff is a proof-of-concept Gaussian approximation referencing Curcio 1990-style foveal/rod-free-zone anatomy.</div><div class="meta-label">Density-function confidence</div><div>moderate</div><div class="meta-label">Density-function notes</div><div>The current model is radially symmetric and patch-limited; it is not a full histological density map.</div><div class="meta-label">Naka-Rushton source</div><div>Human Naka-Rushton parameters are configurable retinal-front-end model parameters stored in YAML.</div><div class="meta-label">Naka-Rushton confidence</div><div>low</div><div class="meta-label">Naka-Rushton notes</div><div>Defaults preserve prior proof-of-concept behavior and should not be over-read as validated species-specific transduction measurements.</div><div class="meta-label">Naka-Rushton configuration</div><div><pre>{
@@ -176,7 +176,13 @@ cat: cen</td></tr></tbody></table>
   These sections expose the R6 traceability path from scene assumptions to retinally delivered irradiance,
   then to photoreceptor sampling/activation, and finally to claim-calibrated comparative renderings.
 </div>
-<div class="section-note"><strong>Traceability path:</strong> scene/spectral assumptions -> optical-stage delivery -> retinal sampling and activation.</div><div class="meta-grid"><div class="meta-label">Example input</div><div>Representative deterministic RGB probe used to expose retinal irradiance, photoreceptor activation, and comparative rendering artifact families.</div><div class="meta-label">Scene input mode</div><div>reflectance_under_d65</div><div class="meta-label">Scene spectrum source</div><div>RGB-inferred</div><div class="meta-label">Retinal model scope</div><div>retinal_front_end_only</div><div class="meta-label">Naka-Rushton confidence</div><div>low</div><div class="meta-label">Validation framing</div><div>Comparative renderings below remain retinal-front-end outputs and are not perceptual reconstructions.</div></div><div class="output-family"><h3>Retinal Irradiance Diagnostics</h3><p>This family records where scene-spectrum assumptions and anterior-eye optical effects altered the retinally delivered light before receptor sampling.</p><h4>Delivered spectrum summary</h4><pre>{
+<div class="section-note"><strong>Traceability path:</strong> scene/spectral assumptions -> optical-stage delivery -> retinal sampling and activation.</div><div class="meta-grid"><div class="meta-label">Example input</div><div>Representative deterministic RGB probe used to expose retinal irradiance, photoreceptor activation, and comparative rendering artifact families.</div><div class="meta-label">Scene input mode</div><div>reflectance_under_d65</div><div class="meta-label">Scene spectrum source</div><div>RGB-inferred</div><div class="meta-label">Retinal model scope</div><div>retinal_front_end_only</div><div class="meta-label">Naka-Rushton confidence</div><div>low</div><div class="meta-label">Validation framing</div><div>Comparative renderings below remain retinal-front-end outputs and are not perceptual reconstructions.</div></div><div class="output-family"><h3>Retinal Irradiance Diagnostics</h3><p>This family records where scene-spectrum assumptions and anterior-eye optical effects altered the retinally delivered light before receptor sampling.</p><h4>Family version</h4><pre>"r6_run_bundle_v1"</pre><h4>Native input patch px</h4><pre>[
+  24,
+  24
+]</pre><h4>Irradiance native px</h4><pre>[
+  24,
+  24
+]</pre><h4>Delivered spectrum summary</h4><pre>{
   "wavelengths_nm": [
     380.0,
     385.0,
@@ -435,27 +441,31 @@ cat: cen</td></tr></tbody></table>
   "peak_delivered_wavelength_nm": 600.0,
   "delivered_total_energy": 0.1529020220041275
 }</pre><h4>Selected wavelength slices</h4><div class="output-gallery"><div class="output-item"><p class="output-item-title">Retinal irradiance slice (420 nm)</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAAZZJREFUeJzlVE2LwkAMfdNOteIXtEgPguhBtNeCF///v/Dq1R4qiF+1ywtO15W2WtddWDZQ0klm8jJ5ySgAGQpEKQWtNRqNhmjLsnKfbdvo9XqYzWZYLpeYz+eypv1ePk/9kFj/D0ApletbXspEVwViABJXRDK/bwHwMDuo2+2i1WoJSH5Ia3Q6Hflc15W95mZPAXCz4zjwfR/j8RhBEOSBbsFp5x7+1wZgwOFwiMVigTAM0e/3v/S5KSETob02ALPyPA/T6RRRFEmmLA19WZbhfD5jt9shSRLRXNP+NACzazabwgGBBoNBzgMDHY9HWR8OB+z3+8LsSwFugexrF5nOMQCms8pK82uDpquczDRNU6kvtcnWcHC5XArr/hCAh3iY9d1ut4jjOH9d70nmHu6tDUASGXi1WkngV9uU1qxsDjhIjwZtNBpJh9FfBFJ6g9PphM1mI3q9Xhc+FZPJBO12W27Hln4agMK6skzkgH1+/9jRx8zpqyK7FMAQnV67xwAYkmmvIvflOciumZoE3g6AmvL3AT4AU9u0Bw1lF28AAAAASUVORK5CYII=" alt="Retinal irradiance slice (420 nm)"><pre>{
-  "id": "slice_420nm",
+  "id": "irradiance_slice_420nm",
   "label": "Retinal irradiance slice (420 nm)",
-  "wavelength_nm": 420.0,
+  "target_wavelength_nm": 420.0,
+  "sampled_wavelength_nm": 420.0,
   "mean": 0.0012231552973389626,
   "min": 0.0001695945975370705,
   "max": 0.003000472206622362
 }</pre></div><div class="output-item"><p class="output-item-title">Retinal irradiance slice (530 nm)</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAALBJREFUeJztlDEOwyAMRT/QiQSUlXPlFtyMnCLHYSdhDJXZWgGRkCJVFX/xYMvPtmwzAAkVaa1hrc22pBACnHM4jqOWAhwPiw/A/4/o1XIyxjBNE5RS1RjO2zWy1h0YY7Dve7YE+5b3Huu6ZtvVAVUnpax2MM9zEfyRAw+LD8Bv38F1XYgx5rdc2hZ60ymlfgAl37YNy7IU/QSmmG4AVXeeJ4QQVQB12dJY01uNEeFOb0m3OpKtSXQPAAAAAElFTkSuQmCC" alt="Retinal irradiance slice (530 nm)"><pre>{
-  "id": "slice_530nm",
+  "id": "irradiance_slice_530nm",
   "label": "Retinal irradiance slice (530 nm)",
-  "wavelength_nm": 530.0,
+  "target_wavelength_nm": 530.0,
+  "sampled_wavelength_nm": 530.0,
   "mean": 0.001896331668831408,
   "min": 0.0002558860869612545,
   "max": 0.0066201644949615
 }</pre></div><div class="output-item"><p class="output-item-title">Retinal irradiance slice (650 nm)</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAAWdJREFUeJzlVcGOgjAQfVSURBIPcscz38+RbzCQGOJZvRligkGMKLB5je6yaLG64WB2kqZpO7w3M31TjCiKarSsrmtkWYYwDOH7vpy55n7Tp6qq76EygZ5N/G8CwzCe+pg6IMZ1tPe7LleLYDgcYjweYzKZYDAY3KmoKAocj0c5N8+0CAg+nU7heR5s28bpdPoFcj6fsd1usVqtkCSJXGsTMP3RaATXdeE4jgRvloNEh8MBcRwjCALs93tcLpeHWSgzME1TRj6bzWBZFoT40QOB0jSVpPP5XPoqcVQHzOJ2ByTiHTQJOLhPny41va0iIYSWTHtvNPOZQ30tx6OHTiVNLQJ+TOnleY6yLO8umcqhkujTRaQkoOwIsNlslDJdLpfY7XbS9yWCW5eu12tEUSRnVaPx7K1OJgCjY5SLxUJGrHoqXs6gSZLnuax3+49GY9lUHaxFcItUpSQdFf2pD+q+CaBhn0/wBcobK/46ef2XAAAAAElFTkSuQmCC" alt="Retinal irradiance slice (650 nm)"><pre>{
-  "id": "slice_650nm",
+  "id": "irradiance_slice_650nm",
   "label": "Retinal irradiance slice (650 nm)",
-  "wavelength_nm": 650.0,
+  "target_wavelength_nm": 650.0,
+  "sampled_wavelength_nm": 650.0,
   "mean": 0.002950758207589388,
   "min": 0.00031968491384759545,
   "max": 0.007090684026479721
 }</pre></div></div><h4>Band composite</h4><div class="output-item"><p class="output-item-title">Retinal irradiance RGB-style band composite</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAAbFJREFUeJzllNtu00AQhr+dzclxU1pE1Ru452F4Bt6xCIk7noH2AnqLyF3VSlV8aBx7txrHaezKSbQFCSFm5ZVmdnf+Of02l9HI80zUkABXM+HLR+FyJqS13TQ3DJ4hPj2h+nSOS0+AISDPXfVY/rDI/wRgDuj9Mjjk0mCQem87XOuusernQwH06QBLxIgZFovgWqc6RStG5FiKJ5gAAHX+2kx4Hx8RH0UsW1d1XFdYbon4acbcIqxCMtDoR1jeRlNOP5yxPD+tI960TMuhvPhxY/h6ISwSQ1lnFZSBEJsJ76avGMdvEMZPAFqqBQ6flnwzBQPKnV3Y24MhQsSQmDGWSScDqJjWfaowVOEAWxjTLOk0cjtb5u8SbbD/2LeW65RI9c3JiwD04QpHXu/LxnW3yRklJdVekJ0ApTrwD8yze5ap9I7pdWa481KPaBDRNKKCinmecfX5hl/HST/Rkoh5HlMQ4bG9IHsyqLjzD1ynju+SkvX9KtJjcq8sUI7YsBJpFgqSU7BASDpM1Ugdrs5zwwEflsEahGZ+1m1st3I7Xbv/pIE88Af03wbgRfLvAzwC9QitpFEcBmwAAAAASUVORK5CYII=" alt="Retinal irradiance RGB-style band composite"><pre>{
+  "id": "irradiance_band_composite",
   "label": "Retinal irradiance RGB-style band composite",
   "channels_nm": {
     "red": 650.0,
@@ -979,7 +989,7 @@ cat: cen</td></tr></tbody></table>
     1.465046845121033
   ],
   "pixel_scale_mm": 0.016217429311160086
-}</pre></div><div class="output-family"><h3>Photoreceptor Activation Diagnostics</h3><p>This family records where receptor sampling density, receptor classes, and front-end transduction changed the retained retinal information.</p><h4>Overall summary</h4><pre>{
+}</pre></div><div class="output-family"><h3>Photoreceptor Activation Diagnostics</h3><p>This family records where receptor sampling density, receptor classes, and front-end transduction changed the retained retinal information.</p><h4>Family version</h4><pre>"r6_run_bundle_v1"</pre><h4>Overall summary</h4><pre>{
   "n_receptors": 38781,
   "mean_response": 0.3473074734210968,
   "median_response": 0.33241164684295654,
@@ -1031,6 +1041,14 @@ cat: cen</td></tr></tbody></table>
     24,
     24
   ],
+  "native_input_patch_px": [
+    24,
+    24
+  ],
+  "activation_render_px": [
+    24,
+    24
+  ],
   "stimulated_receptor_count": 34136,
   "stimulated_receptor_fraction": 0.8802248523761635,
   "scene_covers_patch_fraction": 1.0,
@@ -1051,6 +1069,7 @@ cat: cen</td></tr></tbody></table>
     "y_max": 0.18648585677146912
   }
 }</pre><h4>Mosaic footprint overlay</h4><div class="output-item"><p class="output-item-title">Stimulated receptor footprint overlay</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAAZdJREFUeJyVVouSxCAIg07//5e5AYlG1K7nzdxuKfJIIq6KiZlKW2bxoaJuFlHttvgOH7aT/7QvfZ8w8FIVJFR/5c65wZ89yJTQ43Dwbmzfn9jgD6iIu1BK5K/KsyfpCXNPjaETRGV5oF/v+qcMZ+7kYfx7ZSWAggZGoCR2kNwWdkAqKg+3U4MgEIL1SsEHFTFvGpwsEFW8b9YXlAOiXDWZEjw7qOqemvhpHqTpkOZ4toRlUVBJWgNHV4BoV8WiEltluqscyG8hOqlES3D+XqELeo2Vaf5f/0XcqYupwFRb42CD7RdxVb5YLGeMmLfpddXzjVx1M0ImfzN5o5UcalvSbAQ5nfTaASd6m+VcpvXTm3PmoCwuBtXHMATJP0nTYw1Lx+GLcY1sJ9KM7JhDnPx00MbA81mEAUYHpEJxTXi5wBrJ4eGl7omyy2HYbDrBNDjAES93sFYp4oKs/PA+mm39oHFwvhuscIM507tjSKDGvEr9L2Q6rr08Cx8XCAebfkGkX28i7W84xqWfxqRcb3VJcACeZmr2P/EBLC0jft+eAAAAAElFTkSuQmCC" alt="Stimulated receptor footprint overlay"><pre>{
+  "id": "stimulated_receptor_footprint_overlay",
   "label": "Stimulated receptor footprint overlay"
 }</pre></div><h4>Retinal physiology summary</h4><pre>{
   "species": "human",
@@ -1121,7 +1140,13 @@ cat: cen</td></tr></tbody></table>
     "status": "not_applicable",
     "notes": "Human foveal modeling stays radially symmetric in this proof-of-concept build."
   }
-}</pre></div><div class="output-family"><h3>Comparative Renderings</h3><p>These human-readable outputs are retinal-information renderings of the modeled retinal front end. They are not direct perceptual, retinal-circuit, or cortical reconstructions, and they should not be read as what the animal consciously sees.</p><h4>Items</h4><div class="output-gallery"><div class="output-item"><p class="output-item-title">Comparative rendering: receptor-coded activation map</p><p>Voronoi rendering of receptor activations. Hue encodes receptor class and brightness encodes modeled activation.</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAAnBJREFUeJy9lc9rE0EUxz9ttVUQjwWxCt7FQ3rZoGddLGmLpHZP/ujBQ1KQIqJ/gmLoDzG5tgiFKkEMIbB48aIkl3r2pgfr/6CoI29nJ/O2yfaWPnjMzE7m+96b73dexgDDCG18lODHEuCEXpTT8UcQJONMr0fzKjTXmnwsl7neavFhYSHZk3ttLEPpDVTjuI9RD0PaCnMsw0HBDsFkQO93j+JUkZlul2l1oF6BasMeOgBay/Z7fD8m3AntYi/nigRY3Fn3VzcDLCbgOjsNHt+LKSlwZ8Z5GUwQBIaCncu4lOxdNFVInApmFUwFzCKYUupxHPfnGjNzRYG++wKUv0DzGnDZ1rqqspdD9chOhIekupSLMAzzVaTBxaJPwCQ8bsApvE8Bt9LraHPbAu+EnodhAQRcW3MW9uZg/SW8qMEFvK8/h9OOiOht/4zwkBvAydPZ0j486MCELCbs6HzzCeyuwLwiVQgWmR5JsvaE4JuYLTCvZL7hR/l2F8y8IzayLmQfSbLoX0w4kM2zwJU0a21/AKHpdWQz19bOq8DJM5HorK1gBZutZO0qSKqoYe6kFUjmJV1JXgUo9Tj+zgDbz2Drqf/+sAb8Bb5CaXvgyvNbhetFWqYngXOimjV4tOFf7z/gO/Au7UftyCtIv4MBDrRURaYi+upnD4wK8DMtxJk8tMPNbuAdSPb9ivZ9w8lcbLr/PhoE1511aAVioiRpehJQfjA9pNnpbirNToPntgonUddRD4pFn2EKXOdSJkPXh4SDYY8sE8ARK4Ek+/Nd367lz6Z1o0WVb8l6rtPp/xeICcES5LBlZToCGx8l+LEE+A94kh1WtIHpXgAAAABJRU5ErkJggg==" alt="Comparative rendering: receptor-coded activation map"><pre>{
+}</pre></div><div class="output-family"><h3>Comparative Renderings</h3><p>These human-readable outputs are retinal-information renderings of the modeled retinal front end. They are not direct perceptual, retinal-circuit, or cortical reconstructions, and they should not be read as what the animal consciously sees.</p><h4>Family version</h4><pre>"r6_run_bundle_v1"</pre><h4>Native input patch px</h4><pre>[
+  24,
+  24
+]</pre><h4>Activation render px</h4><pre>[
+  24,
+  24
+]</pre><h4>Items</h4><div class="output-gallery"><div class="output-item"><p class="output-item-title">Comparative rendering: receptor-coded activation map</p><p>Voronoi rendering of receptor activations. Hue encodes receptor class and brightness encodes modeled activation.</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAAnBJREFUeJy9lc9rE0EUxz9ttVUQjwWxCt7FQ3rZoGddLGmLpHZP/ujBQ1KQIqJ/gmLoDzG5tgiFKkEMIbB48aIkl3r2pgfr/6CoI29nJ/O2yfaWPnjMzE7m+96b73dexgDDCG18lODHEuCEXpTT8UcQJONMr0fzKjTXmnwsl7neavFhYSHZk3ttLEPpDVTjuI9RD0PaCnMsw0HBDsFkQO93j+JUkZlul2l1oF6BasMeOgBay/Z7fD8m3AntYi/nigRY3Fn3VzcDLCbgOjsNHt+LKSlwZ8Z5GUwQBIaCncu4lOxdNFVInApmFUwFzCKYUupxHPfnGjNzRYG++wKUv0DzGnDZ1rqqspdD9chOhIekupSLMAzzVaTBxaJPwCQ8bsApvE8Bt9LraHPbAu+EnodhAQRcW3MW9uZg/SW8qMEFvK8/h9OOiOht/4zwkBvAydPZ0j486MCELCbs6HzzCeyuwLwiVQgWmR5JsvaE4JuYLTCvZL7hR/l2F8y8IzayLmQfSbLoX0w4kM2zwJU0a21/AKHpdWQz19bOq8DJM5HorK1gBZutZO0qSKqoYe6kFUjmJV1JXgUo9Tj+zgDbz2Drqf/+sAb8Bb5CaXvgyvNbhetFWqYngXOimjV4tOFf7z/gO/Au7UftyCtIv4MBDrRURaYi+upnD4wK8DMtxJk8tMPNbuAdSPb9ivZ9w8lcbLr/PhoE1511aAVioiRpehJQfjA9pNnpbirNToPntgonUddRD4pFn2EKXOdSJkPXh4SDYY8sE8ARK4Ek+/Nd367lz6Z1o0WVb8l6rtPp/xeICcES5LBlZToCGx8l+LEE+A94kh1WtIHpXgAAAABJRU5ErkJggg==" alt="Comparative rendering: receptor-coded activation map"><pre>{
   "id": "comparative_activation_map",
   "label": "Comparative rendering: receptor-coded activation map",
   "description": "Voronoi rendering of receptor activations. Hue encodes receptor class and brightness encodes modeled activation."

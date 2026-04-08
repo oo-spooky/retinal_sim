@@ -122,6 +122,9 @@ class OpticalStage:
             defocus_diopters=defocus_diopters,
             return_metadata=True,
         )
+        reference_wavelength_nm = float(psf_metadata["lca_reference_wavelength_nm"])
+        representative_idx = int(np.argmin(np.abs(wavelengths - reference_wavelength_nm)))
+        representative_kernel = np.asarray(kernels[representative_idx], dtype=np.float64).copy()
 
         transmission, transmission_summary = sample_media_transmission(
             self._params.media_transmission,
@@ -165,5 +168,7 @@ class OpticalStage:
                 "psf_sigma_mm_y": psf_metadata["sigma_mm_y"].tolist(),
                 "psf_sigma_px_x": psf_metadata["sigma_px_x"].tolist(),
                 "psf_sigma_px_y": psf_metadata["sigma_px_y"].tolist(),
+                "representative_psf_wavelength_nm": float(wavelengths[representative_idx]),
+                "representative_psf_kernel": representative_kernel,
             },
         )

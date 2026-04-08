@@ -23,9 +23,11 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 
 from retinal_sim.output.diagnostics import (
+    build_optical_delivery_diagnostics,
     build_comparative_renderings,
     build_photoreceptor_activation_diagnostics,
     build_retinal_irradiance_diagnostics,
+    build_spectral_interpretation_diagnostics,
 )
 from retinal_sim.optical.stage import OpticalStage, RetinalIrradiance
 from retinal_sim.retina.mosaic import MosaicGenerator, PhotoreceptorMosaic
@@ -337,6 +339,14 @@ class RetinalSimulator:
             "render_receptor_rows": render_rows,
             "render_receptor_cols": render_cols,
             "stimulated_receptor_mask": stimulated_mask,
+            "spectral_interpretation_diagnostics": build_spectral_interpretation_diagnostics(
+                spectral_image=spectral_image,
+                native_input_shape=image_shape,
+            ),
+            "optical_delivery_diagnostics": build_optical_delivery_diagnostics(
+                spectral_image=spectral_image,
+                retinal_irradiance=retinal_irradiance,
+            ),
             "retinal_irradiance_diagnostics": build_retinal_irradiance_diagnostics(
                 spectral_image=spectral_image,
                 retinal_irradiance=retinal_irradiance,

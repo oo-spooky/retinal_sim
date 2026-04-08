@@ -12,9 +12,11 @@ from retinal_sim.retina.stage import MosaicActivation
 from retinal_sim.spectral.upsampler import SpectralImage
 from retinal_sim.output.diagnostics import (
     assert_json_safe_roundtrip,
+    build_optical_delivery_diagnostics,
     build_comparative_renderings,
     build_photoreceptor_activation_diagnostics,
     build_retinal_irradiance_diagnostics,
+    build_spectral_interpretation_diagnostics,
 )
 from retinal_sim.output.voronoi import render_voronoi, _TYPE_BASE_COLOR
 from retinal_sim.output.reconstruction import render_reconstructed
@@ -347,6 +349,73 @@ class TestRenderMosaicMap:
 
 
 class TestDiagnosticBuilders:
+    def test_build_spectral_interpretation_diagnostics_has_stable_ids(self):
+        wavelengths = np.linspace(380.0, 720.0, N_WL, dtype=np.float64)
+        y, x = np.mgrid[0:6, 0:6]
+        spectral = SpectralImage(
+            data=np.repeat((x + y + 0.5)[..., np.newaxis].astype(np.float32), N_WL, axis=2),
+            wavelengths=wavelengths,
+            metadata={
+                "scene_input_mode": "reflectance_under_d65",
+                "scene_input_is_inferred": True,
+                "scene_input_assumptions": ["unit-test inferred spectrum"],
+            },
+        )
+
+        diagnostics = build_spectral_interpretation_diagnostics(
+            spectral,
+            native_input_shape=(6, 6),
+        )
+
+        assert diagnostics["family_label"] == "spectral interpretation diagnostics"
+        assert diagnostics["family_version"] == "r6_species_report_v1"
+        assert diagnostics["native_input_patch_px"] == [6, 6]
+        assert diagnostics["spectral_band_composite"]["id"] == "spectral_band_composite"
+        assert diagnostics["source_mean_spectrum_plot"]["id"] == "source_mean_spectrum_plot"
+        assert diagnostics["spectral_band_composite"]["image_data"].shape == (6, 6, 3)
+        assert diagnostics["source_mean_spectrum_plot"]["image_data"].shape == (180, 320, 3)
+        assert diagnostics["input_mode_summary"]["scene_input_mode"] == "reflectance_under_d65"
+
+    def test_build_optical_delivery_diagnostics_has_stable_ids(self):
+        wavelengths = np.linspace(380.0, 720.0, N_WL, dtype=np.float64)
+        base = np.linspace(0.2, 1.0, 6 * 6 * N_WL, dtype=np.float32).reshape(6, 6, N_WL)
+        spectral = SpectralImage(
+            data=base,
+            wavelengths=wavelengths,
+        )
+        irradiance = RetinalIrradiance(
+            data=base * 0.7,
+            wavelengths=wavelengths,
+            metadata={
+                "pupil_throughput_scale": 1.2,
+                "anisotropy_active": True,
+                "effective_f_number": 5.1,
+                "effective_f_number_x": 7.0,
+                "effective_f_number_y": 4.2,
+                "media_transmission_source": "unit-test",
+                "psf_sigma_px_x": np.linspace(1.0, 1.5, N_WL).tolist(),
+                "psf_sigma_px_y": np.linspace(0.8, 1.3, N_WL).tolist(),
+                "lca_reference_wavelength_nm": 555.0,
+                "representative_psf_wavelength_nm": 555.0,
+                "representative_psf_kernel": np.eye(5, dtype=np.float32),
+            },
+        )
+
+        diagnostics = build_optical_delivery_diagnostics(
+            spectral,
+            irradiance,
+        )
+
+        assert diagnostics["family_label"] == "optical delivery diagnostics"
+        assert diagnostics["family_version"] == "r6_species_report_v1"
+        assert diagnostics["delivered_spectrum_plot"]["id"] == "delivered_spectrum_plot"
+        assert diagnostics["psf_sigma_plot"]["id"] == "psf_sigma_plot"
+        assert diagnostics["representative_psf_kernel"]["id"] == "representative_psf_kernel"
+        assert diagnostics["delivered_spectrum_plot"]["image_data"].shape == (180, 320, 3)
+        assert diagnostics["psf_sigma_plot"]["image_data"].shape == (180, 320, 3)
+        assert diagnostics["representative_psf_kernel"]["image_data"].shape == (5, 5)
+        assert diagnostics["optical_delivery_summary"]["anisotropy_active"] is True
+
     def test_build_retinal_irradiance_diagnostics_has_structured_groups(self):
         wavelengths = np.linspace(380.0, 720.0, N_WL, dtype=np.float64)
         y, x = np.mgrid[0:6, 0:6]
@@ -489,12 +558,46 @@ class TestDiagnosticBuilders:
 
         safe_payload = assert_json_safe_roundtrip(
             {
+                "spectral_interpretation_diagnostics": build_spectral_interpretation_diagnostics(
+                    SpectralImage(
+                        data=np.ones((4, 4, N_WL), dtype=np.float32),
+                        wavelengths=np.linspace(380.0, 720.0, N_WL, dtype=np.float64),
+                        metadata={
+                            "scene_input_mode": "reflectance_under_d65",
+                            "scene_input_is_inferred": True,
+                            "scene_input_assumptions": ["unit-test inferred spectrum"],
+                        },
+                    ),
+                    native_input_shape=(4, 4),
+                ),
+                "optical_delivery_diagnostics": build_optical_delivery_diagnostics(
+                    SpectralImage(
+                        data=np.ones((4, 4, N_WL), dtype=np.float32),
+                        wavelengths=np.linspace(380.0, 720.0, N_WL, dtype=np.float64),
+                    ),
+                    RetinalIrradiance(
+                        data=np.ones((4, 4, N_WL), dtype=np.float32),
+                        wavelengths=np.linspace(380.0, 720.0, N_WL, dtype=np.float64),
+                        metadata={
+                            "pupil_throughput_scale": 1.0,
+                            "anisotropy_active": False,
+                            "effective_f_number": 7.4,
+                            "media_transmission_source": "unit-test",
+                            "psf_sigma_px_x": [1.0] * N_WL,
+                            "psf_sigma_px_y": [1.0] * N_WL,
+                            "representative_psf_wavelength_nm": 555.0,
+                            "representative_psf_kernel": np.ones((3, 3), dtype=np.float32),
+                        },
+                    ),
+                ),
                 "retinal_irradiance_diagnostics": irradiance,
                 "photoreceptor_activation_diagnostics": activation_payload,
                 "comparative_renderings": renderings,
             }
         )
 
+        assert safe_payload["spectral_interpretation_diagnostics"]["spectral_band_composite"]["id"] == "spectral_band_composite"
+        assert safe_payload["optical_delivery_diagnostics"]["delivered_spectrum_plot"]["id"] == "delivered_spectrum_plot"
         assert safe_payload["retinal_irradiance_diagnostics"]["band_composite"]["id"] == "irradiance_band_composite"
         assert safe_payload["photoreceptor_activation_diagnostics"]["mosaic_footprint_overlay"]["id"] == "stimulated_receptor_footprint_overlay"
         assert safe_payload["comparative_renderings"]["items"][0]["id"] == "comparative_activation_map"

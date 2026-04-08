@@ -493,6 +493,8 @@ class TestSimulateSingleSpecies:
     def test_simulate_populates_artifacts_and_summary_metrics(self, human_result: SimulationResult):
         assert "stimulated_receptor_mask" in human_result.artifacts
         assert human_result.artifacts["stimulated_receptor_mask"].shape == (human_result.mosaic.n_receptors,)
+        assert "spectral_interpretation_diagnostics" in human_result.artifacts
+        assert "optical_delivery_diagnostics" in human_result.artifacts
         assert "retinal_irradiance_diagnostics" in human_result.artifacts
         assert "photoreceptor_activation_diagnostics" in human_result.artifacts
         assert "comparative_renderings" in human_result.artifacts
@@ -500,9 +502,21 @@ class TestSimulateSingleSpecies:
         assert human_result.summary_metrics["stimulated_receptor_count"] > 0
 
     def test_simulate_artifact_groups_expose_structured_traceability(self, human_result: SimulationResult):
+        spectral = human_result.artifacts["spectral_interpretation_diagnostics"]
+        optical = human_result.artifacts["optical_delivery_diagnostics"]
         irradiance = human_result.artifacts["retinal_irradiance_diagnostics"]
         activation = human_result.artifacts["photoreceptor_activation_diagnostics"]
         renderings = human_result.artifacts["comparative_renderings"]
+
+        assert spectral["family_label"] == "spectral interpretation diagnostics"
+        assert spectral["spectral_band_composite"]["id"] == "spectral_band_composite"
+        assert spectral["source_mean_spectrum_plot"]["id"] == "source_mean_spectrum_plot"
+
+        assert optical["family_label"] == "optical delivery diagnostics"
+        assert optical["delivered_spectrum_plot"]["id"] == "delivered_spectrum_plot"
+        assert optical["psf_sigma_plot"]["id"] == "psf_sigma_plot"
+        assert optical["representative_psf_kernel"]["id"] == "representative_psf_kernel"
+        assert optical["optical_delivery_summary"]["pupil_throughput_scale"] > 0.0
 
         assert irradiance["family_label"] == "retinal irradiance diagnostics"
         assert "delivered_spectrum_summary" in irradiance

@@ -409,8 +409,10 @@ def main(argv: list[str] | None = None) -> int:
         input_label = "input spectrum (patch)"
     preview_panel = _fit_input_preview_to_shape(preview, render_shape)
     panels = [_label(preview_panel, input_label)]
+    perceptual_renders: dict[str, np.ndarray] = {}
     for species_name in args.species:
         rendered = render_perceptual_image(results[species_name], grid_shape=render_shape)
+        perceptual_renders[species_name] = rendered
         panels.append(_label(rendered, species_name))
 
     panel = np.concatenate(panels, axis=1)
@@ -459,6 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             crop_info=crop_info,
             native_input_shape=(preview_h, preview_w),
             activation_render_shape=render_shape,
+            perceptual_renders=perceptual_renders,
             primary_output_path=str(primary_output) if primary_output is not None else None,
             extra_diagnostics_dir=str(args.diagnostics_dir) if args.diagnostics_dir is not None else None,
         )

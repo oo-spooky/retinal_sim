@@ -16,8 +16,56 @@
     4,
     4
   ],
+  "diagnostic_families": {
+    "spectral_interpretation_diagnostics": {
+      "family_label": "spectral interpretation diagnostics",
+      "family_version": "r6_species_report_v1",
+      "traceability_note": "spectral traceability"
+    },
+    "optical_delivery_diagnostics": {
+      "family_label": "optical delivery diagnostics",
+      "family_version": "r6_species_report_v1",
+      "traceability_note": "optical traceability"
+    },
+    "retinal_irradiance_diagnostics": {
+      "family_label": null,
+      "family_version": null,
+      "traceability_note": "irradiance traceability"
+    },
+    "photoreceptor_activation_diagnostics": {
+      "family_label": null,
+      "family_version": null,
+      "traceability_note": "activation traceability"
+    },
+    "comparative_renderings": {
+      "family_label": null,
+      "family_version": null,
+      "scope_note": "These are not direct perceptual or cortical reconstructions."
+    }
+  },
+  "spectral_interpretation_summary": {
+    "input_mode_summary": {
+      "scene_input_mode": "reflectance_under_d65",
+      "scene_input_is_inferred": true,
+      "scene_input_assumptions": [
+        "unit-test assumption"
+      ]
+    },
+    "source_spectrum_summary": {
+      "peak_source_wavelength_nm": 530.0,
+      "source_total_energy": 1.25
+    }
+  },
+  "optical_delivery_summary": {
+    "optical_delivery_summary": {
+      "pupil_throughput_scale": 1.0,
+      "anisotropy_active": false,
+      "effective_f_number": 7.4,
+      "blur_min_wavelength_nm": 530.0,
+      "media_transmission_source": "unit-test"
+    }
+  },
   "retinal_irradiance_summary": {
-    "traceability_note": "irradiance traceability",
     "delivered_spectrum_summary": {
       "delivered_total_energy": 1.0
     },
@@ -26,7 +74,6 @@
     }
   },
   "photoreceptor_activation_summary": {
-    "traceability_note": "activation traceability",
     "overall_summary": {
       "n_receptors": 4
     },

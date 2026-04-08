@@ -49,12 +49,23 @@
       "species_report_html": "../species/human/index.html",
       "species_report_summary_json": "../species/human/summary.json",
       "input_patch_png": "../input_patch.png",
+      "hero_two_up_png": "../species/human/hero_two_up.png",
+      "story_plate_png": "../species/human/story_plate.png",
       "activation_map_png": "../species/human/activation_map.png",
       "retinal_information_rendering_png": "../species/human/retinal_information_rendering.png",
       "irradiance_slice_pngs": {
         "irradiance_slice_420nm": "../species/human/irradiance_slice_420nm.png",
         "irradiance_slice_530nm": "../species/human/irradiance_slice_530nm.png",
         "irradiance_slice_650nm": "../species/human/irradiance_slice_650nm.png"
+      },
+      "spectral_stage_assets": {
+        "spectral_band_composite_png": "../species/human/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "../species/human/source_mean_spectrum_plot.png"
+      },
+      "optical_stage_assets": {
+        "delivered_spectrum_plot_png": "../species/human/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "../species/human/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "../species/human/representative_psf_kernel.png"
       },
       "species_irradiance_band_composite_png": "../species/human/irradiance_band_composite.png",
       "species_activation_overlay_png": "../species/human/activation_overlay.png"
@@ -66,12 +77,23 @@
       "species_report_html": "../species/dog/index.html",
       "species_report_summary_json": "../species/dog/summary.json",
       "input_patch_png": "../input_patch.png",
+      "hero_two_up_png": "../species/dog/hero_two_up.png",
+      "story_plate_png": "../species/dog/story_plate.png",
       "activation_map_png": "../species/dog/activation_map.png",
       "retinal_information_rendering_png": "../species/dog/retinal_information_rendering.png",
       "irradiance_slice_pngs": {
         "irradiance_slice_420nm": "../species/dog/irradiance_slice_420nm.png",
         "irradiance_slice_530nm": "../species/dog/irradiance_slice_530nm.png",
         "irradiance_slice_650nm": "../species/dog/irradiance_slice_650nm.png"
+      },
+      "spectral_stage_assets": {
+        "spectral_band_composite_png": "../species/dog/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "../species/dog/source_mean_spectrum_plot.png"
+      },
+      "optical_stage_assets": {
+        "delivered_spectrum_plot_png": "../species/dog/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "../species/dog/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "../species/dog/representative_psf_kernel.png"
       },
       "species_irradiance_band_composite_png": "../species/dog/irradiance_band_composite.png",
       "species_activation_overlay_png": "../species/dog/activation_overlay.png"
@@ -83,12 +105,23 @@
       "species_report_html": "../species/cat/index.html",
       "species_report_summary_json": "../species/cat/summary.json",
       "input_patch_png": "../input_patch.png",
+      "hero_two_up_png": "../species/cat/hero_two_up.png",
+      "story_plate_png": "../species/cat/story_plate.png",
       "activation_map_png": "../species/cat/activation_map.png",
       "retinal_information_rendering_png": "../species/cat/retinal_information_rendering.png",
       "irradiance_slice_pngs": {
         "irradiance_slice_420nm": "../species/cat/irradiance_slice_420nm.png",
         "irradiance_slice_530nm": "../species/cat/irradiance_slice_530nm.png",
         "irradiance_slice_650nm": "../species/cat/irradiance_slice_650nm.png"
+      },
+      "spectral_stage_assets": {
+        "spectral_band_composite_png": "../species/cat/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "../species/cat/source_mean_spectrum_plot.png"
+      },
+      "optical_stage_assets": {
+        "delivered_spectrum_plot_png": "../species/cat/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "../species/cat/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "../species/cat/representative_psf_kernel.png"
       },
       "species_irradiance_band_composite_png": "../species/cat/irradiance_band_composite.png",
       "species_activation_overlay_png": "../species/cat/activation_overlay.png"

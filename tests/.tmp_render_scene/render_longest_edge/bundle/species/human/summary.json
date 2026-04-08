@@ -1,7 +1,7 @@
 {
   "species": "human",
   "title": "human retinal-front-end report",
-  "scope_note": "This page traces the modeled retinal front end from scene assumptions to retinally delivered irradiance, receptor sampling, and retinal-information renderings. It is not a direct perceptual, retinal-circuit, or cortical report.",
+  "scope_note": "This page traces the modeled retinal front end from scene assumptions to spectral interpretation, optical delivery, receptor sampling, and final retinal-information outputs. It is not a direct perceptual, retinal-circuit, or cortical report.",
   "scene_input_mode": "reflectance_under_d65",
   "scene_input_is_inferred": true,
   "scene_input_assumptions": [
@@ -43,8 +43,52 @@
     "overview_html": "../../index.html",
     "summary_json": "summary.json",
     "input_patch_png": "../../input_patch.png",
+    "hero_two_up_png": "hero_two_up.png",
+    "story_plate_png": "story_plate.png",
     "diagnostics_summary_json": "../../diagnostics/human/summary.json",
     "diagnostics_manifest_json": "../../diagnostics/manifest.json"
+  },
+  "hero": {
+    "hero_two_up_png": "hero_two_up.png",
+    "perceptual_appearance_png": "perceptual_appearance_approximation.png",
+    "retinal_information_rendering_png": "retinal_information_rendering.png",
+    "appearance_caption": "Appearance approximation",
+    "retinal_caption": "Retained retinal-front-end information"
+  },
+  "story_plate": {
+    "story_plate_png": "story_plate.png",
+    "takeaways": [
+      "This run starts from a RGB-inferred spectrum in reflectance_under_d65.",
+      "Human reaches its minimum blur near 530 nm in this run, which helps explain spectral-balance differences later in the report.",
+      "Human retains 4 stimulated receptors in this patch, and the final report keeps that retinal-front-end scope explicit."
+    ]
+  },
+  "diagnostic_families": {
+    "spectral_interpretation_diagnostics": {
+      "family_label": "spectral interpretation diagnostics",
+      "family_version": "r6_species_report_v1",
+      "traceability_note": "spectral traceability"
+    },
+    "optical_delivery_diagnostics": {
+      "family_label": "optical delivery diagnostics",
+      "family_version": "r6_species_report_v1",
+      "traceability_note": "optical traceability"
+    },
+    "retinal_irradiance_diagnostics": {
+      "family_label": null,
+      "family_version": null,
+      "traceability_note": "irradiance traceability"
+    },
+    "photoreceptor_activation_diagnostics": {
+      "family_label": null,
+      "family_version": null,
+      "traceability_note": "activation traceability"
+    },
+    "comparative_renderings": {
+      "family_label": null,
+      "family_version": null,
+      "scope_note": "These are not direct perceptual or cortical reconstructions."
+    }
   },
   "scene_and_patch": {
     "input_patch_png": "../../input_patch.png",
@@ -73,6 +117,35 @@
       "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
       "This mode models diffuse reflectance under D65 for comparative PoC work."
     ]
+  },
+  "spectral_interpretation": {
+    "traceability_note": "spectral traceability",
+    "spectral_band_composite_png": "spectral_band_composite.png",
+    "source_mean_spectrum_plot_png": "source_mean_spectrum_plot.png",
+    "input_mode_summary": {
+      "scene_input_mode": "reflectance_under_d65",
+      "scene_input_is_inferred": true,
+      "scene_input_assumptions": [
+        "unit-test assumption"
+      ]
+    },
+    "source_spectrum_summary": {
+      "peak_source_wavelength_nm": 530.0,
+      "source_total_energy": 1.25
+    }
+  },
+  "optical_delivery": {
+    "traceability_note": "optical traceability",
+    "delivered_spectrum_plot_png": "delivered_spectrum_plot.png",
+    "psf_sigma_plot_png": "psf_sigma_plot.png",
+    "representative_psf_kernel_png": "representative_psf_kernel.png",
+    "optical_delivery_summary": {
+      "pupil_throughput_scale": 1.0,
+      "anisotropy_active": false,
+      "effective_f_number": 7.4,
+      "blur_min_wavelength_nm": 530.0,
+      "media_transmission_source": "unit-test"
+    }
   },
   "retinal_irradiance": {
     "traceability_note": "irradiance traceability",
@@ -134,6 +207,8 @@
     "scope_note": "These are not direct perceptual or cortical reconstructions.",
     "activation_map_png": "activation_map.png",
     "retinal_information_rendering_png": "retinal_information_rendering.png",
+    "perceptual_appearance_png": "perceptual_appearance_approximation.png",
+    "hero_two_up_png": "hero_two_up.png",
     "items": [
       {
         "id": "comparative_activation_map",
@@ -148,5 +223,391 @@
         "image_path": "retinal_information_rendering.png"
       }
     ]
-  }
+  },
+  "stage_story": [
+    {
+      "id": "scene_patch",
+      "title": "Scene and patch",
+      "what_happens": "The input scene is cropped to the simulated central patch so every downstream artifact refers to the same field of view.",
+      "species_takeaway": "This step is shared across species in this run, which means later differences in the human report come from the modeled biology rather than a different crop.",
+      "final_correlation": "The final composite should be read as different processing of the same patch, not different source content.",
+      "asset_paths": [
+        {
+          "label": "Input patch",
+          "path": "../../input_patch.png"
+        }
+      ],
+      "key_metrics": {
+        "Scene input mode": "reflectance_under_d65",
+        "Spectrum source": "RGB-inferred",
+        "Full scene (deg)": "14.25 x 7.15",
+        "Simulated patch (deg)": "2.00 x 1.00",
+        "Crop applied": "yes"
+      },
+      "raw_diagnostics_paths": [
+        {
+          "label": "Species summary JSON",
+          "path": "summary.json"
+        },
+        {
+          "label": "Diagnostics summary JSON",
+          "path": "../../diagnostics/human/summary.json"
+        }
+      ],
+      "raw_metadata": {
+        "scene_input_assumptions": [
+          "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+          "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+          "This mode models diffuse reflectance under D65 for comparative PoC work."
+        ],
+        "crop_info": {
+          "cropped": true,
+          "crop_fraction": 0.1403505551470255,
+          "full_angular_width_deg": 14.250032697803595,
+          "full_angular_height_deg": 7.152668749994702,
+          "cropped_angular_width_deg": 2.0,
+          "cropped_angular_height_deg": 1.0038810298445373,
+          "full_scene_width_m": 0.5,
+          "full_scene_height_m": 0.25,
+          "cropped_scene_width_m": 0.07017527757351275,
+          "cropped_scene_height_m": 0.03508763878675637,
+          "input_width_px": 16,
+          "input_height_px": 8,
+          "cropped_width_px": 2,
+          "cropped_height_px": 1,
+          "patch_deg": 2.0,
+          "distance_m": 2.0
+        }
+      }
+    },
+    {
+      "id": "spectral_interpretation",
+      "title": "Spectral interpretation",
+      "what_happens": "The cropped patch is interpreted as a spectral stimulus, either by RGB-to-spectrum inference or by directly accepting a measured spectral cube.",
+      "species_takeaway": "This spectral starting point is shared across species for this run. The human page uses it as the common input before optics diverge.",
+      "final_correlation": "If the final outputs differ from other species, the divergence begins after this shared spectral interpretation stage.",
+      "asset_paths": [
+        {
+          "label": "Spectral band composite",
+          "path": "spectral_band_composite.png"
+        },
+        {
+          "label": "Mean source spectrum",
+          "path": "source_mean_spectrum_plot.png"
+        }
+      ],
+      "key_metrics": {
+        "Input mode": "reflectance_under_d65",
+        "Inference status": "RGB-inferred spectrum",
+        "Peak source wavelength (nm)": 530.0,
+        "Total source energy": 1.25
+      },
+      "raw_diagnostics_paths": [
+        {
+          "label": "Species summary JSON",
+          "path": "summary.json"
+        },
+        {
+          "label": "Diagnostics manifest",
+          "path": "../../diagnostics/manifest.json"
+        }
+      ],
+      "raw_metadata": {
+        "traceability_note": "spectral traceability",
+        "input_mode_summary": {
+          "scene_input_mode": "reflectance_under_d65",
+          "scene_input_is_inferred": true,
+          "scene_input_assumptions": [
+            "unit-test assumption"
+          ]
+        },
+        "source_spectrum_summary": {
+          "peak_source_wavelength_nm": 530.0,
+          "source_total_energy": 1.25
+        }
+      }
+    },
+    {
+      "id": "optical_delivery",
+      "title": "Optical delivery",
+      "what_happens": "Species-specific optics filter and blur the spectral scene before it reaches the retina. The delivered spectrum and PSF metadata show where throughput, anisotropy, and blur entered the pipeline.",
+      "species_takeaway": "Human reaches its minimum blur near 530 nm in this run, which helps explain spectral-balance differences later in the report.",
+      "final_correlation": "These optical differences shape the contrast and spectral balance that the receptors sample, which is why they materially influence the final composite.",
+      "asset_paths": [
+        {
+          "label": "Delivered spectrum",
+          "path": "delivered_spectrum_plot.png"
+        },
+        {
+          "label": "PSF sigma by wavelength",
+          "path": "psf_sigma_plot.png"
+        },
+        {
+          "label": "Representative PSF kernel",
+          "path": "representative_psf_kernel.png"
+        },
+        {
+          "label": "Retinal irradiance band composite",
+          "path": "irradiance_band_composite.png"
+        },
+        {
+          "label": "Retinal irradiance slice (420 nm)",
+          "path": "irradiance_slice_420nm.png"
+        },
+        {
+          "label": "Retinal irradiance slice (530 nm)",
+          "path": "irradiance_slice_530nm.png"
+        },
+        {
+          "label": "Retinal irradiance slice (650 nm)",
+          "path": "irradiance_slice_650nm.png"
+        }
+      ],
+      "key_metrics": {
+        "Pupil throughput scale": 1.0,
+        "Anisotropy active": false,
+        "Effective f-number": 7.4,
+        "Blur minimum wavelength (nm)": 530.0,
+        "Media transmission source": "unit-test"
+      },
+      "raw_diagnostics_paths": [
+        {
+          "label": "Species summary JSON",
+          "path": "summary.json"
+        },
+        {
+          "label": "Diagnostics summary JSON",
+          "path": "../../diagnostics/human/summary.json"
+        }
+      ],
+      "raw_metadata": {
+        "traceability_note": "optical traceability",
+        "optical_delivery_summary": {
+          "pupil_throughput_scale": 1.0,
+          "anisotropy_active": false,
+          "effective_f_number": 7.4,
+          "blur_min_wavelength_nm": 530.0,
+          "media_transmission_source": "unit-test"
+        },
+        "optical_stage_summary": {
+          "pupil_throughput_scale": 1.0
+        }
+      }
+    },
+    {
+      "id": "receptor_sampling",
+      "title": "Receptor sampling and activation",
+      "what_happens": "The delivered retinal image is sampled by the species-specific mosaic and pushed through the retinal-front-end transduction model, producing receptor activations.",
+      "species_takeaway": "Human samples the delivered image with receptor classes ; 4 receptors were stimulated in this patch.",
+      "final_correlation": "The final outputs retain this sampling pattern, so receptor density, class mix, and activation strength directly affect the structure of the composite above.",
+      "asset_paths": [
+        {
+          "label": "Stimulated receptor footprint overlay",
+          "path": "activation_overlay.png"
+        }
+      ],
+      "key_metrics": {
+        "Stimulated receptor count": 4,
+        "Stimulated receptor fraction": null,
+        "Total receptors": 4,
+        "Mean response": null,
+        "Model scope": "retinal_front_end_only"
+      },
+      "raw_diagnostics_paths": [
+        {
+          "label": "Species summary JSON",
+          "path": "summary.json"
+        },
+        {
+          "label": "Diagnostics summary JSON",
+          "path": "../../diagnostics/human/summary.json"
+        }
+      ],
+      "raw_metadata": {
+        "traceability_note": "activation traceability",
+        "sampling_footprint_summary": {
+          "stimulated_receptor_count": 4
+        },
+        "response_summary_by_type": [],
+        "retinal_physiology_summary": {
+          "model_scope": "retinal_front_end_only"
+        }
+      }
+    },
+    {
+      "id": "final_outputs",
+      "title": "Final outputs",
+      "what_happens": "The report ends with two human-readable views: an appearance approximation and a retinal-information rendering. Both summarize the accumulated effects of the earlier stages.",
+      "species_takeaway": "Human retains 4 stimulated receptors in this patch, and the final report keeps that retinal-front-end scope explicit.",
+      "final_correlation": "These outputs integrate the scene assumptions, optical delivery, and receptor sampling shown above. They remain model-scope-safe summaries of the retinal front end rather than direct perceptual claims.",
+      "asset_paths": [
+        {
+          "label": "Hero two-up",
+          "path": "hero_two_up.png"
+        },
+        {
+          "label": "Appearance approximation",
+          "path": "perceptual_appearance_approximation.png"
+        },
+        {
+          "label": "Activation map",
+          "path": "activation_map.png"
+        },
+        {
+          "label": "Retinal-information rendering",
+          "path": "retinal_information_rendering.png"
+        }
+      ],
+      "key_metrics": {
+        "Activation render grid": [
+          4,
+          4
+        ],
+        "Retinal-output scope": "Retinal front end only",
+        "Appearance panel": "Appearance approximation",
+        "Retinal-information panel": "Retained retinal-front-end information"
+      },
+      "raw_diagnostics_paths": [
+        {
+          "label": "Species summary JSON",
+          "path": "summary.json"
+        },
+        {
+          "label": "Diagnostics manifest",
+          "path": "../../diagnostics/manifest.json"
+        }
+      ],
+      "raw_metadata": {
+        "scope_note": "These are not direct perceptual or cortical reconstructions.",
+        "rendered_items": [
+          {
+            "id": "comparative_activation_map",
+            "label": "Comparative rendering: receptor-coded activation map",
+            "description": "Unit-test activation map.",
+            "image_data": [
+              [
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ]
+              ],
+              [
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ]
+              ],
+              [
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ]
+              ],
+              [
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ],
+                [
+                  0.6000000238418579,
+                  0.6000000238418579,
+                  0.6000000238418579
+                ]
+              ]
+            ]
+          },
+          {
+            "id": "retinal_information_rendering",
+            "label": "Retinal-information rendering",
+            "description": "Unit-test retinal-information rendering.",
+            "image_data": [
+              [
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071
+              ],
+              [
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071
+              ],
+              [
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071
+              ],
+              [
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071,
+                0.699999988079071
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

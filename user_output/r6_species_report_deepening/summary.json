@@ -1,0 +1,339 @@
+{
+  "bundle_label": "explorer_run_bundle",
+  "input_path": "user_input\\test1.png",
+  "species": [
+    "human",
+    "dog",
+    "cat"
+  ],
+  "scene_input_mode": "reflectance_under_d65",
+  "scene_input_is_inferred": true,
+  "scene_input_assumptions": [
+    "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+    "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+    "This mode models diffuse reflectance under D65 for comparative PoC work."
+  ],
+  "patch_geometry": {
+    "cropped": true,
+    "crop_fraction": 0.1403505551470255,
+    "full_angular_width_deg": 14.250032697803595,
+    "full_angular_height_deg": 10.351421828880424,
+    "cropped_angular_width_deg": 2.0,
+    "cropped_angular_height_deg": 1.4528278002444055,
+    "full_scene_width_m": 0.5,
+    "full_scene_height_m": 0.36231884057971014,
+    "cropped_scene_width_m": 0.07017527757351275,
+    "cropped_scene_height_m": 0.05085165041558894,
+    "input_width_px": 759,
+    "input_height_px": 550,
+    "cropped_width_px": 107,
+    "cropped_height_px": 77,
+    "patch_deg": 2.0,
+    "distance_m": 2.0
+  },
+  "native_input_patch_px": [
+    77,
+    107
+  ],
+  "activation_render_px": [
+    184,
+    256
+  ],
+  "irradiance_native_px": [
+    77,
+    107
+  ],
+  "scope_note": "This bundle summarizes a retinal-front-end comparison. The outputs expose traceable scene assumptions, spectral interpretation, optical delivery, receptor sampling, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.",
+  "paths": {
+    "comparison_png": "comparison.png",
+    "input_patch_png": "input_patch.png",
+    "summary_json": "summary.json",
+    "index_html": "index.html",
+    "diagnostics_manifest_json": "diagnostics/manifest.json",
+    "species_reports_dir": "species",
+    "extra_output_path": "user_output\\r6_species_report_deepening_comparison.png",
+    "extra_diagnostics_dir": null
+  },
+  "species_summaries": {
+    "human": {
+      "species": "human",
+      "native_input_patch_px": [
+        77,
+        107
+      ],
+      "activation_render_px": [
+        184,
+        256
+      ],
+      "irradiance_native_px": [
+        77,
+        107
+      ],
+      "stimulated_receptor_count": 134328.0,
+      "stimulated_receptor_fraction": 0.7026404988073817,
+      "mean_response": 0.16819201409816742,
+      "left_right_cone_discriminability": 0.16072085286025645,
+      "center_contrast": 0.864456387821868,
+      "periphery_contrast": 0.9382581337183188,
+      "retinal_model_scope": "retinal_front_end_only",
+      "diagnostics": {
+        "summary_json": "diagnostics/human/summary.json",
+        "activation_overlay_png": "diagnostics/human/activation_overlay.png",
+        "irradiance_band_composite_png": "diagnostics/human/irradiance_band_composite.png",
+        "manifest_entry": "diagnostics/manifest.json#species/human"
+      },
+      "report_html": "species/human/index.html",
+      "report_summary_json": "species/human/summary.json",
+      "report_assets": {
+        "input_patch_png": "input_patch.png",
+        "spectral_band_composite_png": "species/human/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "species/human/source_mean_spectrum_plot.png",
+        "delivered_spectrum_plot_png": "species/human/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "species/human/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "species/human/representative_psf_kernel.png",
+        "irradiance_band_composite_png": "species/human/irradiance_band_composite.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "species/human/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "species/human/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "species/human/irradiance_slice_650nm.png"
+        },
+        "activation_overlay_png": "species/human/activation_overlay.png",
+        "perceptual_appearance_png": "species/human/perceptual_appearance_approximation.png",
+        "hero_two_up_png": "species/human/hero_two_up.png",
+        "story_plate_png": "species/human/story_plate.png",
+        "activation_map_png": "species/human/activation_map.png",
+        "retinal_information_rendering_png": "species/human/retinal_information_rendering.png"
+      }
+    },
+    "dog": {
+      "species": "dog",
+      "native_input_patch_px": [
+        77,
+        107
+      ],
+      "activation_render_px": [
+        184,
+        256
+      ],
+      "irradiance_native_px": [
+        77,
+        107
+      ],
+      "stimulated_receptor_count": 102744.0,
+      "stimulated_receptor_fraction": 0.7099502487562189,
+      "mean_response": 0.2509724199771881,
+      "left_right_cone_discriminability": 0.15955382520600314,
+      "center_contrast": 0.814239146749964,
+      "periphery_contrast": 0.9127240148864345,
+      "retinal_model_scope": "retinal_front_end_only",
+      "diagnostics": {
+        "summary_json": "diagnostics/dog/summary.json",
+        "activation_overlay_png": "diagnostics/dog/activation_overlay.png",
+        "irradiance_band_composite_png": "diagnostics/dog/irradiance_band_composite.png",
+        "manifest_entry": "diagnostics/manifest.json#species/dog"
+      },
+      "report_html": "species/dog/index.html",
+      "report_summary_json": "species/dog/summary.json",
+      "report_assets": {
+        "input_patch_png": "input_patch.png",
+        "spectral_band_composite_png": "species/dog/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "species/dog/source_mean_spectrum_plot.png",
+        "delivered_spectrum_plot_png": "species/dog/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "species/dog/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "species/dog/representative_psf_kernel.png",
+        "irradiance_band_composite_png": "species/dog/irradiance_band_composite.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "species/dog/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "species/dog/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "species/dog/irradiance_slice_650nm.png"
+        },
+        "activation_overlay_png": "species/dog/activation_overlay.png",
+        "perceptual_appearance_png": "species/dog/perceptual_appearance_approximation.png",
+        "hero_two_up_png": "species/dog/hero_two_up.png",
+        "story_plate_png": "species/dog/story_plate.png",
+        "activation_map_png": "species/dog/activation_map.png",
+        "retinal_information_rendering_png": "species/dog/retinal_information_rendering.png"
+      }
+    },
+    "cat": {
+      "species": "cat",
+      "native_input_patch_px": [
+        77,
+        107
+      ],
+      "activation_render_px": [
+        184,
+        256
+      ],
+      "irradiance_native_px": [
+        77,
+        107
+      ],
+      "stimulated_receptor_count": 136928.0,
+      "stimulated_receptor_fraction": 0.7142454749361014,
+      "mean_response": 0.24893970787525177,
+      "left_right_cone_discriminability": 0.21009719057983198,
+      "center_contrast": 0.7782242268670001,
+      "periphery_contrast": 0.9305688391164886,
+      "retinal_model_scope": "retinal_front_end_only",
+      "diagnostics": {
+        "summary_json": "diagnostics/cat/summary.json",
+        "activation_overlay_png": "diagnostics/cat/activation_overlay.png",
+        "irradiance_band_composite_png": "diagnostics/cat/irradiance_band_composite.png",
+        "manifest_entry": "diagnostics/manifest.json#species/cat"
+      },
+      "report_html": "species/cat/index.html",
+      "report_summary_json": "species/cat/summary.json",
+      "report_assets": {
+        "input_patch_png": "input_patch.png",
+        "spectral_band_composite_png": "species/cat/spectral_band_composite.png",
+        "source_mean_spectrum_plot_png": "species/cat/source_mean_spectrum_plot.png",
+        "delivered_spectrum_plot_png": "species/cat/delivered_spectrum_plot.png",
+        "psf_sigma_plot_png": "species/cat/psf_sigma_plot.png",
+        "representative_psf_kernel_png": "species/cat/representative_psf_kernel.png",
+        "irradiance_band_composite_png": "species/cat/irradiance_band_composite.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "species/cat/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "species/cat/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "species/cat/irradiance_slice_650nm.png"
+        },
+        "activation_overlay_png": "species/cat/activation_overlay.png",
+        "perceptual_appearance_png": "species/cat/perceptual_appearance_approximation.png",
+        "hero_two_up_png": "species/cat/hero_two_up.png",
+        "story_plate_png": "species/cat/story_plate.png",
+        "activation_map_png": "species/cat/activation_map.png",
+        "retinal_information_rendering_png": "species/cat/retinal_information_rendering.png"
+      }
+    }
+  },
+  "diagnostics_manifest": {
+    "run_metadata": {
+      "input_path": "user_input\\test1.png",
+      "species": [
+        "human",
+        "dog",
+        "cat"
+      ],
+      "scene_input_mode": "reflectance_under_d65",
+      "scene_input_is_inferred": true,
+      "scene_input_assumptions": [
+        "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+        "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+        "This mode models diffuse reflectance under D65 for comparative PoC work."
+      ],
+      "patch_geometry": {
+        "cropped": true,
+        "crop_fraction": 0.1403505551470255,
+        "full_angular_width_deg": 14.250032697803595,
+        "full_angular_height_deg": 10.351421828880424,
+        "cropped_angular_width_deg": 2.0,
+        "cropped_angular_height_deg": 1.4528278002444055,
+        "full_scene_width_m": 0.5,
+        "full_scene_height_m": 0.36231884057971014,
+        "cropped_scene_width_m": 0.07017527757351275,
+        "cropped_scene_height_m": 0.05085165041558894,
+        "input_width_px": 759,
+        "input_height_px": 550,
+        "cropped_width_px": 107,
+        "cropped_height_px": 77,
+        "patch_deg": 2.0,
+        "distance_m": 2.0
+      },
+      "output_path": "user_output\\r6_species_report_deepening\\comparison.png",
+      "activation_render_px": [
+        184,
+        256
+      ],
+      "native_input_patch_px": [
+        77,
+        107
+      ]
+    },
+    "species": {
+      "human": {
+        "summary_json": "human/summary.json",
+        "activation_overlay_png": "human/activation_overlay.png",
+        "irradiance_band_composite_png": "human/irradiance_band_composite.png",
+        "species_report_html": "../species/human/index.html",
+        "species_report_summary_json": "../species/human/summary.json",
+        "input_patch_png": "../input_patch.png",
+        "hero_two_up_png": "../species/human/hero_two_up.png",
+        "story_plate_png": "../species/human/story_plate.png",
+        "activation_map_png": "../species/human/activation_map.png",
+        "retinal_information_rendering_png": "../species/human/retinal_information_rendering.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "../species/human/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "../species/human/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "../species/human/irradiance_slice_650nm.png"
+        },
+        "spectral_stage_assets": {
+          "spectral_band_composite_png": "../species/human/spectral_band_composite.png",
+          "source_mean_spectrum_plot_png": "../species/human/source_mean_spectrum_plot.png"
+        },
+        "optical_stage_assets": {
+          "delivered_spectrum_plot_png": "../species/human/delivered_spectrum_plot.png",
+          "psf_sigma_plot_png": "../species/human/psf_sigma_plot.png",
+          "representative_psf_kernel_png": "../species/human/representative_psf_kernel.png"
+        },
+        "species_irradiance_band_composite_png": "../species/human/irradiance_band_composite.png",
+        "species_activation_overlay_png": "../species/human/activation_overlay.png"
+      },
+      "dog": {
+        "summary_json": "dog/summary.json",
+        "activation_overlay_png": "dog/activation_overlay.png",
+        "irradiance_band_composite_png": "dog/irradiance_band_composite.png",
+        "species_report_html": "../species/dog/index.html",
+        "species_report_summary_json": "../species/dog/summary.json",
+        "input_patch_png": "../input_patch.png",
+        "hero_two_up_png": "../species/dog/hero_two_up.png",
+        "story_plate_png": "../species/dog/story_plate.png",
+        "activation_map_png": "../species/dog/activation_map.png",
+        "retinal_information_rendering_png": "../species/dog/retinal_information_rendering.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "../species/dog/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "../species/dog/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "../species/dog/irradiance_slice_650nm.png"
+        },
+        "spectral_stage_assets": {
+          "spectral_band_composite_png": "../species/dog/spectral_band_composite.png",
+          "source_mean_spectrum_plot_png": "../species/dog/source_mean_spectrum_plot.png"
+        },
+        "optical_stage_assets": {
+          "delivered_spectrum_plot_png": "../species/dog/delivered_spectrum_plot.png",
+          "psf_sigma_plot_png": "../species/dog/psf_sigma_plot.png",
+          "representative_psf_kernel_png": "../species/dog/representative_psf_kernel.png"
+        },
+        "species_irradiance_band_composite_png": "../species/dog/irradiance_band_composite.png",
+        "species_activation_overlay_png": "../species/dog/activation_overlay.png"
+      },
+      "cat": {
+        "summary_json": "cat/summary.json",
+        "activation_overlay_png": "cat/activation_overlay.png",
+        "irradiance_band_composite_png": "cat/irradiance_band_composite.png",
+        "species_report_html": "../species/cat/index.html",
+        "species_report_summary_json": "../species/cat/summary.json",
+        "input_patch_png": "../input_patch.png",
+        "hero_two_up_png": "../species/cat/hero_two_up.png",
+        "story_plate_png": "../species/cat/story_plate.png",
+        "activation_map_png": "../species/cat/activation_map.png",
+        "retinal_information_rendering_png": "../species/cat/retinal_information_rendering.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "../species/cat/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "../species/cat/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "../species/cat/irradiance_slice_650nm.png"
+        },
+        "spectral_stage_assets": {
+          "spectral_band_composite_png": "../species/cat/spectral_band_composite.png",
+          "source_mean_spectrum_plot_png": "../species/cat/source_mean_spectrum_plot.png"
+        },
+        "optical_stage_assets": {
+          "delivered_spectrum_plot_png": "../species/cat/delivered_spectrum_plot.png",
+          "psf_sigma_plot_png": "../species/cat/psf_sigma_plot.png",
+          "representative_psf_kernel_png": "../species/cat/representative_psf_kernel.png"
+        },
+        "species_irradiance_band_composite_png": "../species/cat/irradiance_band_composite.png",
+        "species_activation_overlay_png": "../species/cat/activation_overlay.png"
+      }
+    }
+  }
+}

@@ -33,6 +33,52 @@ def _fake_result(input_mode: str) -> SimpleNamespace:
             "periphery_contrast": 0.05,
         },
         artifacts={
+            "spectral_interpretation_diagnostics": {
+                "family_label": "spectral interpretation diagnostics",
+                "family_version": "r6_species_report_v1",
+                "traceability_note": "spectral traceability",
+                "input_mode_summary": {
+                    "scene_input_mode": input_mode,
+                    "scene_input_is_inferred": input_mode != "measured_spectrum",
+                    "scene_input_assumptions": ["unit-test assumption"],
+                },
+                "source_spectrum_summary": {
+                    "peak_source_wavelength_nm": 530.0,
+                    "source_total_energy": 1.25,
+                },
+                "spectral_band_composite": {
+                    "id": "spectral_band_composite",
+                    "image_data": np.ones((4, 4, 3), dtype=np.float32) * 0.15,
+                },
+                "source_mean_spectrum_plot": {
+                    "id": "source_mean_spectrum_plot",
+                    "image_data": np.ones((180, 320, 3), dtype=np.float32) * 0.2,
+                },
+            },
+            "optical_delivery_diagnostics": {
+                "family_label": "optical delivery diagnostics",
+                "family_version": "r6_species_report_v1",
+                "traceability_note": "optical traceability",
+                "optical_delivery_summary": {
+                    "pupil_throughput_scale": 1.0,
+                    "anisotropy_active": False,
+                    "effective_f_number": 7.4,
+                    "blur_min_wavelength_nm": 530.0,
+                    "media_transmission_source": "unit-test",
+                },
+                "delivered_spectrum_plot": {
+                    "id": "delivered_spectrum_plot",
+                    "image_data": np.ones((180, 320, 3), dtype=np.float32) * 0.25,
+                },
+                "psf_sigma_plot": {
+                    "id": "psf_sigma_plot",
+                    "image_data": np.ones((180, 320, 3), dtype=np.float32) * 0.3,
+                },
+                "representative_psf_kernel": {
+                    "id": "representative_psf_kernel",
+                    "image_data": np.ones((5, 5), dtype=np.float32) * 0.4,
+                },
+            },
             "retinal_irradiance_diagnostics": {
                 "traceability_note": "irradiance traceability",
                 "irradiance_native_px": [4, 4],
@@ -279,11 +325,19 @@ def test_main_run_dir_writes_standard_bundle_and_compatibility_outputs(monkeypat
     assert (run_dir / "diagnostics" / "manifest.json").exists()
     assert (run_dir / "species" / "human" / "index.html").exists()
     assert (run_dir / "species" / "human" / "summary.json").exists()
+    assert (run_dir / "species" / "human" / "hero_two_up.png").exists()
+    assert (run_dir / "species" / "human" / "story_plate.png").exists()
+    assert (run_dir / "species" / "human" / "spectral_band_composite.png").exists()
+    assert (run_dir / "species" / "human" / "source_mean_spectrum_plot.png").exists()
+    assert (run_dir / "species" / "human" / "delivered_spectrum_plot.png").exists()
+    assert (run_dir / "species" / "human" / "psf_sigma_plot.png").exists()
+    assert (run_dir / "species" / "human" / "representative_psf_kernel.png").exists()
     assert (run_dir / "species" / "human" / "irradiance_band_composite.png").exists()
     assert (run_dir / "species" / "human" / "irradiance_slice_420nm.png").exists()
     assert (run_dir / "species" / "human" / "irradiance_slice_530nm.png").exists()
     assert (run_dir / "species" / "human" / "irradiance_slice_650nm.png").exists()
     assert (run_dir / "species" / "human" / "activation_overlay.png").exists()
+    assert (run_dir / "species" / "human" / "perceptual_appearance_approximation.png").exists()
     assert (run_dir / "species" / "human" / "activation_map.png").exists()
     assert (run_dir / "species" / "human" / "retinal_information_rendering.png").exists()
     assert output_path.exists()
@@ -301,19 +355,49 @@ def test_main_run_dir_writes_standard_bundle_and_compatibility_outputs(monkeypat
     assert summary["species_summaries"]["human"]["stimulated_receptor_count"] == 4.0
     assert summary["species_summaries"]["human"]["diagnostics"]["summary_json"] == "diagnostics/human/summary.json"
     assert summary["species_summaries"]["human"]["report_html"] == "species/human/index.html"
+    assert summary["species_summaries"]["human"]["report_assets"]["hero_two_up_png"] == "species/human/hero_two_up.png"
+    assert summary["species_summaries"]["human"]["report_assets"]["story_plate_png"] == "species/human/story_plate.png"
+    assert summary["species_summaries"]["human"]["report_assets"]["spectral_band_composite_png"] == "species/human/spectral_band_composite.png"
     assert summary["species_summaries"]["human"]["report_assets"]["activation_map_png"] == "species/human/activation_map.png"
 
     index_html = (run_dir / "index.html").read_text(encoding="utf-8")
     assert "retinal-front-end comparison" in summary["scope_note"]
     assert "Open human report" in index_html
-    assert "retinal-information renderings" in index_html
+    assert "story plate" in index_html
+    assert "hero image" in index_html
     assert "comparison strip remains an overview" in index_html
 
     species_html = (run_dir / "species" / "human" / "index.html").read_text(encoding="utf-8")
+    assert "Hero" in species_html
+    assert "How to read this page" in species_html
+    assert "Story plate" in species_html
     assert "Scene and patch" in species_html
-    assert "Retinal irradiance" in species_html
-    assert "Sampling and activation" in species_html
-    assert "Retinal-information outputs" in species_html
+    assert "Spectral interpretation" in species_html
+    assert "Optical delivery" in species_html
+    assert "Receptor sampling and activation" in species_html
+    assert "Final outputs" in species_html
+    assert "Appearance approximation" in species_html
+    assert "retinal-front-end information" in species_html
+
+    species_summary = json.loads((run_dir / "species" / "human" / "summary.json").read_text(encoding="utf-8"))
+    assert [stage["id"] for stage in species_summary["stage_story"]] == [
+        "scene_patch",
+        "spectral_interpretation",
+        "optical_delivery",
+        "receptor_sampling",
+        "final_outputs",
+    ]
+    for stage in species_summary["stage_story"]:
+        assert {
+            "id",
+            "title",
+            "what_happens",
+            "species_takeaway",
+            "final_correlation",
+            "asset_paths",
+            "key_metrics",
+            "raw_diagnostics_paths",
+        }.issubset(stage)
 
 
 def test_main_run_dir_writes_default_three_species_reports(monkeypatch):
@@ -356,6 +440,8 @@ def test_main_run_dir_writes_default_three_species_reports(monkeypatch):
     assert rc == 0
     for species in ("human", "dog", "cat"):
         assert (run_dir / "species" / species / "index.html").exists()
+        assert (run_dir / "species" / species / "hero_two_up.png").exists()
+        assert (run_dir / "species" / species / "story_plate.png").exists()
 
 
 def test_main_run_dir_supports_measured_spectrum(monkeypatch):
@@ -477,10 +563,15 @@ def test_main_render_longest_edge_changes_output_size_and_summary(monkeypatch):
     assert summary["activation_render_px"] == [32, 64]
     assert summary["irradiance_native_px"] == [1, 2]
     assert summary["patch_geometry"]["patch_deg"] == 2.0
+    assert summary["species_summaries"]["human"]["report_assets"]["hero_two_up_png"] == "species/human/hero_two_up.png"
     assert summary["species_summaries"]["human"]["report_assets"]["retinal_information_rendering_png"] == "species/human/retinal_information_rendering.png"
 
     manifest = json.loads((run_dir / "diagnostics" / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["species"]["human"]["species_report_html"] == "../species/human/index.html"
+    assert manifest["species"]["human"]["hero_two_up_png"] == "../species/human/hero_two_up.png"
+    assert manifest["species"]["human"]["story_plate_png"] == "../species/human/story_plate.png"
+    assert manifest["species"]["human"]["spectral_stage_assets"]["spectral_band_composite_png"] == "../species/human/spectral_band_composite.png"
+    assert manifest["species"]["human"]["optical_stage_assets"]["delivered_spectrum_plot_png"] == "../species/human/delivered_spectrum_plot.png"
     assert manifest["species"]["human"]["irradiance_slice_pngs"]["irradiance_slice_420nm"] == "../species/human/irradiance_slice_420nm.png"
 
 

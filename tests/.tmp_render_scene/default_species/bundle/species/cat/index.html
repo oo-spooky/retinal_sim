@@ -4,101 +4,286 @@
   <meta charset="utf-8">
   <title>cat retinal-front-end report</title>
   <style>
-body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }
-h1, h2, h3 { border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-.panel { background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
-.note { background: #eef6ff; border-color: #c7dbf4; }
-.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
-.species-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.species-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; }
-.cta { display: inline-block; padding: 8px 12px; border-radius: 999px; background: #173b67; color: #fff; text-decoration: none; font-weight: 600; }
-.secondary-links { font-size: 0.92em; color: #555; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 14px; }
-.gallery-item { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; }
-.output-item-title { font-weight: 600; margin-bottom: 8px; }
-table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }
-th { background: #f4f4f4; }
-img { max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }
-code { background: #f6f6f6; padding: 0 4px; border-radius: 3px; }
-pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
-a { color: #173b67; }
+:root {
+  --bg: #f4efe8;
+  --paper: #fffaf4;
+  --panel: #f8f2ea;
+  --panel-strong: #efe4d4;
+  --line: #d6c6b6;
+  --ink: #1f1c19;
+  --muted: #62574c;
+  --accent: #184e69;
+  --accent-soft: #d8ebf5;
+}
+body { margin: 0; background: radial-gradient(circle at top, #faf6ef 0%, var(--bg) 58%, #ece3d7 100%); color: var(--ink); font-family: "Trebuchet MS", "Segoe UI", sans-serif; line-height: 1.55; }
+.shell { max-width: 1160px; margin: 0 auto; padding: 28px 24px 56px; }
+.species-shell { max-width: 1180px; }
+.masthead { padding: 18px 0 8px; }
+.species-masthead { padding-top: 8px; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--muted); margin: 0 0 8px; }
+h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; color: #211d19; }
+h1 { margin: 0 0 10px; font-size: clamp(2.2rem, 4vw, 3rem); }
+h2 { margin: 0 0 14px; font-size: 1.55rem; }
+h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.lead { max-width: 72ch; color: var(--muted); margin: 0; }
+.section { margin-top: 28px; }
+.callout, .card, .hero-card, .stage-card, .species-card { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 22px rgba(79, 57, 33, 0.06); }
+.callout, .card, .stage-card, .species-card { padding: 16px 18px; }
+.hero-card { padding: 14px; overflow: hidden; }
+.scope { background: var(--accent-soft); border-color: #afcddd; }
+.note { background: #fff5df; border-color: #e7cf9b; }
+.two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; align-items: start; }
+.species-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.cta { display: inline-block; padding: 10px 14px; border-radius: 999px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
+.secondary-links { font-size: 0.94rem; color: var(--muted); }
+.stage-card p { margin: 0 0 12px; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 16px; }
+.gallery-item { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.output-item-title { font-weight: 700; margin: 0 0 8px; color: #2f2922; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; background: var(--paper); border-radius: 14px; overflow: hidden; }
+th, td { border: 1px solid var(--line); padding: 9px 10px; text-align: left; font-size: 0.95rem; vertical-align: top; }
+th { background: var(--panel-strong); }
+.metrics { margin-top: 12px; }
+.metrics th { width: 34%; }
+img { width: 100%; max-width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; background: #fff; }
+code { background: #efe7dc; padding: 1px 6px; border-radius: 5px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+a { color: var(--accent); }
+details { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); }
+summary { cursor: pointer; font-weight: 700; color: #3a342d; }
+ul { margin: 10px 0; padding-left: 20px; }
 </style>
 </head>
 <body>
+<div class="shell species-shell">
 <p><a href="../../index.html">Back to overview</a></p>
-<h1>cat retinal-front-end report</h1>
-<div class="panel note"><strong>Scope note:</strong> This page traces the modeled retinal front end from scene assumptions to retinally delivered irradiance, receptor sampling, and retinal-information renderings. It is not a direct perceptual, retinal-circuit, or cortical report.</div>
+<header class="masthead species-masthead">
+  <p class="eyebrow">Cat report</p>
+  <h1>cat retinal-front-end report</h1>
+  <p class="lead">A guided walkthrough of how this species-specific retinal-front-end simulation moves from the shared scene patch to the final report outputs.</p>
+</header>
 
-<h2>Scene and patch</h2>
-<div class="panel split">
-  <div>
-    <p><strong>Scene input mode:</strong> <code>reflectance_under_d65</code></p>
-    <p><strong>Spectrum source:</strong> RGB-inferred</p>
-    <p><strong>Patch geometry:</strong> full scene 14.25 x 14.25 deg, simulated patch 2.00 x 2.00 deg.</p>
-    <ul><li>RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.</li><li>The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.</li><li>This mode models diffuse reflectance under D65 for comparative PoC work.</li></ul>
+<div class="callout scope"><strong>Scope note:</strong> This page traces the modeled retinal front end from scene assumptions to spectral interpretation, optical delivery, receptor sampling, and final retinal-information outputs. It is not a direct perceptual, retinal-circuit, or cortical report.</div>
+
+<section class="section">
+  <h2>Hero</h2>
+  <div class="hero-card">
+    <img src="hero_two_up.png" alt="cat hero two-up">
   </div>
-  <div><img src="../../input_patch.png" alt="Input patch"></div>
-</div>
-
-<h2>Retinal irradiance</h2>
-<div class="panel">
-  <p>irradiance traceability</p>
-  <div class="split">
-    <div>
-      <p class="output-item-title">Retinal irradiance band composite</p>
-      <img src="irradiance_band_composite.png" alt="Retinal irradiance band composite">
-    </div>
-    <div>
-      <p class="output-item-title">Optical stage summary</p>
-      <pre>{
-  &quot;pupil_throughput_scale&quot;: 1.0
-}</pre>
-    </div>
+  <div class="callout note">
+    <strong>How to read this page:</strong> Read this page top to bottom. The hero shows the final outputs first, then each stage explains what the simulator is doing, what is species-specific at that step, and how that difference carries into the final result.
   </div>
-  <div class="gallery"><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (420 nm)</p><img src="irradiance_slice_420nm.png" alt="Retinal irradiance slice (420 nm)"><p>Target 420 nm, sampled 420 nm</p></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (530 nm)</p><img src="irradiance_slice_530nm.png" alt="Retinal irradiance slice (530 nm)"><p>Target 530 nm, sampled 530 nm</p></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (650 nm)</p><img src="irradiance_slice_650nm.png" alt="Retinal irradiance slice (650 nm)"><p>Target 650 nm, sampled 650 nm</p></div></div>
-</div>
+</section>
 
-<h2>Sampling and activation</h2>
-<div class="panel">
-  <p>activation traceability</p>
-  <div class="split">
-    <div>
-      <p class="output-item-title">Stimulated receptor footprint overlay</p>
-      <img src="activation_overlay.png" alt="Stimulated receptor footprint overlay">
-    </div>
-    <div>
-      <p class="output-item-title">Sampling footprint summary</p>
-      <pre>{
-  &quot;stimulated_receptor_count&quot;: 4
-}</pre>
-    </div>
+<section class="section">
+  <h2>Story plate</h2>
+  <div class="hero-card">
+    <img src="story_plate.png" alt="cat story plate">
   </div>
-  <div class="split">
-    <div>
-      <p class="output-item-title">Overall activation summary</p>
-      <pre>{
-  &quot;n_receptors&quot;: 4
-}</pre>
-    </div>
-    <div>
-      <p class="output-item-title">Retinal physiology scope</p>
-      <pre>{
-  &quot;model_scope&quot;: &quot;retinal_front_end_only&quot;
-}</pre>
-    </div>
+  <div class="callout">
+    <p>This one-page PNG is the shareable summary for the cat run.</p>
+    <ul><li>This run starts from a RGB-inferred spectrum in reflectance_under_d65.</li><li>Cat reaches its minimum blur near 530 nm in this run, which helps explain spectral-balance differences later in the report.</li><li>Cat retains 4 stimulated receptors in this patch, and the final report keeps that retinal-front-end scope explicit.</li></ul>
   </div>
-</div>
+</section>
 
-<h2>Retinal-information outputs</h2>
-<div class="panel">
-  <p>These are not direct perceptual or cortical reconstructions.</p>
-  <div class="gallery"><div class="gallery-item"><p class="output-item-title">Comparative rendering: receptor-coded activation map</p><img src="activation_map.png" alt="Comparative rendering: receptor-coded activation map"><p>Unit-test activation map.</p></div><div class="gallery-item"><p class="output-item-title">Retinal-information rendering</p><img src="retinal_information_rendering.png" alt="Retinal-information rendering"><p>Unit-test retinal-information rendering.</p></div></div>
-</div>
+<section class="section"><h2>Scene and patch</h2><div class="stage-card"><p>The input scene is cropped to the simulated central patch so every downstream artifact refers to the same field of view.</p><p><strong>Why it matters for this species:</strong> This step is shared across species in this run, which means later differences in the cat report come from the modeled biology rather than a different crop.</p><p><strong>How it shows up in the final outputs:</strong> The final composite should be read as different processing of the same patch, not different source content.</p><table class="metrics"><tbody><tr><th>Scene input mode</th><td>reflectance_under_d65</td></tr><tr><th>Spectrum source</th><td>RGB-inferred</td></tr><tr><th>Full scene (deg)</th><td>14.25 x 14.25</td></tr><tr><th>Simulated patch (deg)</th><td>2.00 x 2.00</td></tr><tr><th>Crop applied</th><td>yes</td></tr></tbody></table><div class="gallery"><div class="gallery-item"><p class="output-item-title">Input patch</p><img src="../../input_patch.png" alt="Input patch"></div></div><details><summary>Raw metadata and JSON links</summary><ul><li><a href="summary.json">Species summary JSON</a></li><li><a href="../../diagnostics/cat/summary.json">Diagnostics summary JSON</a></li></ul><pre>{
+  &quot;scene_input_assumptions&quot;: [
+    &quot;RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.&quot;,
+    &quot;The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.&quot;,
+    &quot;This mode models diffuse reflectance under D65 for comparative PoC work.&quot;
+  ],
+  &quot;crop_info&quot;: {
+    &quot;cropped&quot;: true,
+    &quot;crop_fraction&quot;: 0.1403505551470255,
+    &quot;full_angular_width_deg&quot;: 14.250032697803595,
+    &quot;full_angular_height_deg&quot;: 14.250032697803595,
+    &quot;cropped_angular_width_deg&quot;: 2.0,
+    &quot;cropped_angular_height_deg&quot;: 2.0,
+    &quot;full_scene_width_m&quot;: 0.5,
+    &quot;full_scene_height_m&quot;: 0.5,
+    &quot;cropped_scene_width_m&quot;: 0.07017527757351275,
+    &quot;cropped_scene_height_m&quot;: 0.07017527757351275,
+    &quot;input_width_px&quot;: 8,
+    &quot;input_height_px&quot;: 8,
+    &quot;cropped_width_px&quot;: 1,
+    &quot;cropped_height_px&quot;: 1,
+    &quot;patch_deg&quot;: 2.0,
+    &quot;distance_m&quot;: 2.0
+  }
+}</pre></details></div></section><section class="section"><h2>Spectral interpretation</h2><div class="stage-card"><p>The cropped patch is interpreted as a spectral stimulus, either by RGB-to-spectrum inference or by directly accepting a measured spectral cube.</p><p><strong>Why it matters for this species:</strong> This spectral starting point is shared across species for this run. The cat page uses it as the common input before optics diverge.</p><p><strong>How it shows up in the final outputs:</strong> If the final outputs differ from other species, the divergence begins after this shared spectral interpretation stage.</p><table class="metrics"><tbody><tr><th>Input mode</th><td>reflectance_under_d65</td></tr><tr><th>Inference status</th><td>RGB-inferred spectrum</td></tr><tr><th>Peak source wavelength (nm)</th><td>530.0000</td></tr><tr><th>Total source energy</th><td>1.2500</td></tr></tbody></table><div class="gallery"><div class="gallery-item"><p class="output-item-title">Spectral band composite</p><img src="spectral_band_composite.png" alt="Spectral band composite"></div><div class="gallery-item"><p class="output-item-title">Mean source spectrum</p><img src="source_mean_spectrum_plot.png" alt="Mean source spectrum"></div></div><details><summary>Raw metadata and JSON links</summary><ul><li><a href="summary.json">Species summary JSON</a></li><li><a href="../../diagnostics/manifest.json">Diagnostics manifest</a></li></ul><pre>{
+  &quot;traceability_note&quot;: &quot;spectral traceability&quot;,
+  &quot;input_mode_summary&quot;: {
+    &quot;scene_input_mode&quot;: &quot;reflectance_under_d65&quot;,
+    &quot;scene_input_is_inferred&quot;: true,
+    &quot;scene_input_assumptions&quot;: [
+      &quot;unit-test assumption&quot;
+    ]
+  },
+  &quot;source_spectrum_summary&quot;: {
+    &quot;peak_source_wavelength_nm&quot;: 530.0,
+    &quot;source_total_energy&quot;: 1.25
+  }
+}</pre></details></div></section><section class="section"><h2>Optical delivery</h2><div class="stage-card"><p>Species-specific optics filter and blur the spectral scene before it reaches the retina. The delivered spectrum and PSF metadata show where throughput, anisotropy, and blur entered the pipeline.</p><p><strong>Why it matters for this species:</strong> Cat reaches its minimum blur near 530 nm in this run, which helps explain spectral-balance differences later in the report.</p><p><strong>How it shows up in the final outputs:</strong> These optical differences shape the contrast and spectral balance that the receptors sample, which is why they materially influence the final composite.</p><table class="metrics"><tbody><tr><th>Pupil throughput scale</th><td>1.0000</td></tr><tr><th>Anisotropy active</th><td>0</td></tr><tr><th>Effective f-number</th><td>7.4000</td></tr><tr><th>Blur minimum wavelength (nm)</th><td>530.0000</td></tr><tr><th>Media transmission source</th><td>unit-test</td></tr></tbody></table><div class="gallery"><div class="gallery-item"><p class="output-item-title">Delivered spectrum</p><img src="delivered_spectrum_plot.png" alt="Delivered spectrum"></div><div class="gallery-item"><p class="output-item-title">PSF sigma by wavelength</p><img src="psf_sigma_plot.png" alt="PSF sigma by wavelength"></div><div class="gallery-item"><p class="output-item-title">Representative PSF kernel</p><img src="representative_psf_kernel.png" alt="Representative PSF kernel"></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance band composite</p><img src="irradiance_band_composite.png" alt="Retinal irradiance band composite"></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (420 nm)</p><img src="irradiance_slice_420nm.png" alt="Retinal irradiance slice (420 nm)"></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (530 nm)</p><img src="irradiance_slice_530nm.png" alt="Retinal irradiance slice (530 nm)"></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (650 nm)</p><img src="irradiance_slice_650nm.png" alt="Retinal irradiance slice (650 nm)"></div></div><details><summary>Raw metadata and JSON links</summary><ul><li><a href="summary.json">Species summary JSON</a></li><li><a href="../../diagnostics/cat/summary.json">Diagnostics summary JSON</a></li></ul><pre>{
+  &quot;traceability_note&quot;: &quot;optical traceability&quot;,
+  &quot;optical_delivery_summary&quot;: {
+    &quot;pupil_throughput_scale&quot;: 1.0,
+    &quot;anisotropy_active&quot;: false,
+    &quot;effective_f_number&quot;: 7.4,
+    &quot;blur_min_wavelength_nm&quot;: 530.0,
+    &quot;media_transmission_source&quot;: &quot;unit-test&quot;
+  },
+  &quot;optical_stage_summary&quot;: {
+    &quot;pupil_throughput_scale&quot;: 1.0
+  }
+}</pre></details></div></section><section class="section"><h2>Receptor sampling and activation</h2><div class="stage-card"><p>The delivered retinal image is sampled by the species-specific mosaic and pushed through the retinal-front-end transduction model, producing receptor activations.</p><p><strong>Why it matters for this species:</strong> Cat samples the delivered image with receptor classes ; 4 receptors were stimulated in this patch.</p><p><strong>How it shows up in the final outputs:</strong> The final outputs retain this sampling pattern, so receptor density, class mix, and activation strength directly affect the structure of the composite above.</p><table class="metrics"><tbody><tr><th>Stimulated receptor count</th><td>4</td></tr><tr><th>Stimulated receptor fraction</th><td>n/a</td></tr><tr><th>Total receptors</th><td>4</td></tr><tr><th>Mean response</th><td>n/a</td></tr><tr><th>Model scope</th><td>retinal_front_end_only</td></tr></tbody></table><div class="gallery"><div class="gallery-item"><p class="output-item-title">Stimulated receptor footprint overlay</p><img src="activation_overlay.png" alt="Stimulated receptor footprint overlay"></div></div><details><summary>Raw metadata and JSON links</summary><ul><li><a href="summary.json">Species summary JSON</a></li><li><a href="../../diagnostics/cat/summary.json">Diagnostics summary JSON</a></li></ul><pre>{
+  &quot;traceability_note&quot;: &quot;activation traceability&quot;,
+  &quot;sampling_footprint_summary&quot;: {
+    &quot;stimulated_receptor_count&quot;: 4
+  },
+  &quot;response_summary_by_type&quot;: [],
+  &quot;retinal_physiology_summary&quot;: {
+    &quot;model_scope&quot;: &quot;retinal_front_end_only&quot;
+  }
+}</pre></details></div></section><section class="section"><h2>Final outputs</h2><div class="stage-card"><p>The report ends with two human-readable views: an appearance approximation and a retinal-information rendering. Both summarize the accumulated effects of the earlier stages.</p><p><strong>Why it matters for this species:</strong> Cat retains 4 stimulated receptors in this patch, and the final report keeps that retinal-front-end scope explicit.</p><p><strong>How it shows up in the final outputs:</strong> These outputs integrate the scene assumptions, optical delivery, and receptor sampling shown above. They remain model-scope-safe summaries of the retinal front end rather than direct perceptual claims.</p><table class="metrics"><tbody><tr><th>Activation render grid</th><td>4, 4</td></tr><tr><th>Retinal-output scope</th><td>Retinal front end only</td></tr><tr><th>Appearance panel</th><td>Appearance approximation</td></tr><tr><th>Retinal-information panel</th><td>Retained retinal-front-end information</td></tr></tbody></table><div class="gallery"><div class="gallery-item"><p class="output-item-title">Hero two-up</p><img src="hero_two_up.png" alt="Hero two-up"></div><div class="gallery-item"><p class="output-item-title">Appearance approximation</p><img src="perceptual_appearance_approximation.png" alt="Appearance approximation"></div><div class="gallery-item"><p class="output-item-title">Activation map</p><img src="activation_map.png" alt="Activation map"></div><div class="gallery-item"><p class="output-item-title">Retinal-information rendering</p><img src="retinal_information_rendering.png" alt="Retinal-information rendering"></div></div><details><summary>Raw metadata and JSON links</summary><ul><li><a href="summary.json">Species summary JSON</a></li><li><a href="../../diagnostics/manifest.json">Diagnostics manifest</a></li></ul><pre>{
+  &quot;scope_note&quot;: &quot;These are not direct perceptual or cortical reconstructions.&quot;,
+  &quot;rendered_items&quot;: [
+    {
+      &quot;id&quot;: &quot;comparative_activation_map&quot;,
+      &quot;label&quot;: &quot;Comparative rendering: receptor-coded activation map&quot;,
+      &quot;description&quot;: &quot;Unit-test activation map.&quot;,
+      &quot;image_data&quot;: [
+        [
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ]
+        ],
+        [
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ]
+        ],
+        [
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ]
+        ],
+        [
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ],
+          [
+            0.6000000238418579,
+            0.6000000238418579,
+            0.6000000238418579
+          ]
+        ]
+      ]
+    },
+    {
+      &quot;id&quot;: &quot;retinal_information_rendering&quot;,
+      &quot;label&quot;: &quot;Retinal-information rendering&quot;,
+      &quot;description&quot;: &quot;Unit-test retinal-information rendering.&quot;,
+      &quot;image_data&quot;: [
+        [
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071
+        ],
+        [
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071
+        ],
+        [
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071
+        ],
+        [
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071,
+          0.699999988079071
+        ]
+      ]
+    }
+  ]
+}</pre></details></div></section>
 
-<div class="panel">
-  <p><a href="../../diagnostics/cat/summary.json">Diagnostics summary JSON</a></p>
-  <p><a href="../../diagnostics/manifest.json">Diagnostics manifest</a></p>
+<section class="section">
+  <h2>Machine-readable links</h2>
+  <div class="callout">
+    <p><a href="summary.json">Species summary JSON</a></p>
+    <p><a href="../../diagnostics/cat/summary.json">Diagnostics summary JSON</a></p>
+    <p><a href="../../diagnostics/manifest.json">Diagnostics manifest</a></p>
+  </div>
+</section>
 </div>
 </body>
 </html>
