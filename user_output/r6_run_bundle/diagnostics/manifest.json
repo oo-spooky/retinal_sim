@@ -1,0 +1,97 @@
+{
+  "run_metadata": {
+    "input_path": "user_input\\test1.png",
+    "species": [
+      "human",
+      "dog",
+      "cat"
+    ],
+    "scene_input_mode": "reflectance_under_d65",
+    "scene_input_is_inferred": true,
+    "scene_input_assumptions": [
+      "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+      "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+      "This mode models diffuse reflectance under D65 for comparative PoC work."
+    ],
+    "patch_geometry": {
+      "cropped": true,
+      "crop_fraction": 0.1403505551470255,
+      "full_angular_width_deg": 14.250032697803595,
+      "full_angular_height_deg": 10.351421828880424,
+      "cropped_angular_width_deg": 2.0,
+      "cropped_angular_height_deg": 1.4528278002444055,
+      "full_scene_width_m": 0.5,
+      "full_scene_height_m": 0.36231884057971014,
+      "cropped_scene_width_m": 0.07017527757351275,
+      "cropped_scene_height_m": 0.05085165041558894,
+      "input_width_px": 759,
+      "input_height_px": 550,
+      "cropped_width_px": 107,
+      "cropped_height_px": 77,
+      "patch_deg": 2.0,
+      "distance_m": 2.0
+    },
+    "output_path": "user_output\\r6_run_bundle\\comparison.png",
+    "activation_render_px": [
+      184,
+      256
+    ],
+    "native_input_patch_px": [
+      77,
+      107
+    ]
+  },
+  "species": {
+    "human": {
+      "summary_json": "human/summary.json",
+      "activation_overlay_png": "human/activation_overlay.png",
+      "irradiance_band_composite_png": "human/irradiance_band_composite.png",
+      "species_report_html": "../species/human/index.html",
+      "species_report_summary_json": "../species/human/summary.json",
+      "input_patch_png": "../input_patch.png",
+      "activation_map_png": "../species/human/activation_map.png",
+      "retinal_information_rendering_png": "../species/human/retinal_information_rendering.png",
+      "irradiance_slice_pngs": {
+        "irradiance_slice_420nm": "../species/human/irradiance_slice_420nm.png",
+        "irradiance_slice_530nm": "../species/human/irradiance_slice_530nm.png",
+        "irradiance_slice_650nm": "../species/human/irradiance_slice_650nm.png"
+      },
+      "species_irradiance_band_composite_png": "../species/human/irradiance_band_composite.png",
+      "species_activation_overlay_png": "../species/human/activation_overlay.png"
+    },
+    "dog": {
+      "summary_json": "dog/summary.json",
+      "activation_overlay_png": "dog/activation_overlay.png",
+      "irradiance_band_composite_png": "dog/irradiance_band_composite.png",
+      "species_report_html": "../species/dog/index.html",
+      "species_report_summary_json": "../species/dog/summary.json",
+      "input_patch_png": "../input_patch.png",
+      "activation_map_png": "../species/dog/activation_map.png",
+      "retinal_information_rendering_png": "../species/dog/retinal_information_rendering.png",
+      "irradiance_slice_pngs": {
+        "irradiance_slice_420nm": "../species/dog/irradiance_slice_420nm.png",
+        "irradiance_slice_530nm": "../species/dog/irradiance_slice_530nm.png",
+        "irradiance_slice_650nm": "../species/dog/irradiance_slice_650nm.png"
+      },
+      "species_irradiance_band_composite_png": "../species/dog/irradiance_band_composite.png",
+      "species_activation_overlay_png": "../species/dog/activation_overlay.png"
+    },
+    "cat": {
+      "summary_json": "cat/summary.json",
+      "activation_overlay_png": "cat/activation_overlay.png",
+      "irradiance_band_composite_png": "cat/irradiance_band_composite.png",
+      "species_report_html": "../species/cat/index.html",
+      "species_report_summary_json": "../species/cat/summary.json",
+      "input_patch_png": "../input_patch.png",
+      "activation_map_png": "../species/cat/activation_map.png",
+      "retinal_information_rendering_png": "../species/cat/retinal_information_rendering.png",
+      "irradiance_slice_pngs": {
+        "irradiance_slice_420nm": "../species/cat/irradiance_slice_420nm.png",
+        "irradiance_slice_530nm": "../species/cat/irradiance_slice_530nm.png",
+        "irradiance_slice_650nm": "../species/cat/irradiance_slice_650nm.png"
+      },
+      "species_irradiance_band_composite_png": "../species/cat/irradiance_band_composite.png",
+      "species_activation_overlay_png": "../species/cat/activation_overlay.png"
+    }
+  }
+}

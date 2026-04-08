@@ -29,7 +29,6 @@
       "distance_m": 2.0
     },
     "output_path": "tests\\.tmp_render_scene\\measured_spectrum\\bundle\\comparison.png",
-    "render_longest_edge_px": null,
     "activation_render_px": [
       1,
       1
@@ -43,7 +42,19 @@
     "human": {
       "summary_json": "human/summary.json",
       "activation_overlay_png": "human/activation_overlay.png",
-      "irradiance_band_composite_png": "human/irradiance_band_composite.png"
+      "irradiance_band_composite_png": "human/irradiance_band_composite.png",
+      "species_report_html": "../species/human/index.html",
+      "species_report_summary_json": "../species/human/summary.json",
+      "input_patch_png": "../input_patch.png",
+      "activation_map_png": "../species/human/activation_map.png",
+      "retinal_information_rendering_png": "../species/human/retinal_information_rendering.png",
+      "irradiance_slice_pngs": {
+        "irradiance_slice_420nm": "../species/human/irradiance_slice_420nm.png",
+        "irradiance_slice_530nm": "../species/human/irradiance_slice_530nm.png",
+        "irradiance_slice_650nm": "../species/human/irradiance_slice_650nm.png"
+      },
+      "species_irradiance_band_composite_png": "../species/human/irradiance_band_composite.png",
+      "species_activation_overlay_png": "../species/human/activation_overlay.png"
     }
   }
 }

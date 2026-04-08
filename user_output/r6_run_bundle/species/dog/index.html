@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>dog retinal-front-end report</title>
+  <style>
+body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }
+h1, h2, h3 { border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+.panel { background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
+.note { background: #eef6ff; border-color: #c7dbf4; }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+.species-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.species-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; }
+.cta { display: inline-block; padding: 8px 12px; border-radius: 999px; background: #173b67; color: #fff; text-decoration: none; font-weight: 600; }
+.secondary-links { font-size: 0.92em; color: #555; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 14px; }
+.gallery-item { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; }
+.output-item-title { font-weight: 600; margin-bottom: 8px; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }
+th { background: #f4f4f4; }
+img { max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }
+code { background: #f6f6f6; padding: 0 4px; border-radius: 3px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
+a { color: #173b67; }
+</style>
+</head>
+<body>
+<p><a href="../../index.html">Back to overview</a></p>
+<h1>dog retinal-front-end report</h1>
+<div class="panel note"><strong>Scope note:</strong> This page traces the modeled retinal front end from scene assumptions to retinally delivered irradiance, receptor sampling, and retinal-information renderings. It is not a direct perceptual, retinal-circuit, or cortical report.</div>
+
+<h2>Scene and patch</h2>
+<div class="panel split">
+  <div>
+    <p><strong>Scene input mode:</strong> <code>reflectance_under_d65</code></p>
+    <p><strong>Spectrum source:</strong> RGB-inferred</p>
+    <p><strong>Patch geometry:</strong> full scene 14.25 x 10.35 deg, simulated patch 2.00 x 1.45 deg.</p>
+    <ul><li>RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.</li><li>The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.</li><li>This mode models diffuse reflectance under D65 for comparative PoC work.</li></ul>
+  </div>
+  <div><img src="../../input_patch.png" alt="Input patch"></div>
+</div>
+
+<h2>Retinal irradiance</h2>
+<div class="panel">
+  <p>This family records where scene-spectrum assumptions and anterior-eye optical effects altered the retinally delivered light before receptor sampling.</p>
+  <div class="split">
+    <div>
+      <p class="output-item-title">Retinal irradiance band composite</p>
+      <img src="irradiance_band_composite.png" alt="Retinal irradiance band composite">
+    </div>
+    <div>
+      <p class="output-item-title">Optical stage summary</p>
+      <pre>{
+  &quot;pupil_shape&quot;: &quot;circular&quot;,
+  &quot;pupil_area_mm2&quot;: 12.566370614359172,
+  &quot;reference_pupil_area_mm2&quot;: 7.0685834705770345,
+  &quot;pupil_throughput_scale&quot;: 1.7777777777777777,
+  &quot;effective_f_number&quot;: 4.25,
+  &quot;effective_f_number_x&quot;: 4.25,
+  &quot;effective_f_number_y&quot;: 4.25,
+  &quot;anisotropy_active&quot;: false,
+  &quot;defocus_diopters&quot;: 0.0,
+  &quot;defocus_residual_diopters&quot;: 0.0,
+  &quot;lca_reference_wavelength_nm&quot;: 555.0,
+  &quot;lca_anchor_wavelengths_nm&quot;: [
+    400.0,
+    555.0,
+    700.0
+  ],
+  &quot;lca_offset_diopters&quot;: [
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.7168458781362007,
+    0.6845003933910306,
+    0.6529343179168289,
+    0.622119815668203,
+    0.5920303605313091,
+    0.5626406601650412,
+    0.5339265850945495,
+    0.5058651026392961,
+    0.4784342152953971,
+    0.45161290322580644,
+    0.42538107054236085,
+    0.3997194950911641,
+    0.37460978147762747,
+    0.3500343170899108,
+    0.32597623089983013,
+    0.30241935483870963,
+    0.2793481875623545,
+    0.25674786043449654,
+    0.2346041055718475,
+    0.21290322580645163,
+    0.1916320664324497,
+    0.1707779886148007,
+    0.15032884434700897,
+    0.1302729528535981,
+    0.1105990783410138,
+    0.09129640900791235,
+    0.07235453723243901,
+    0.0537634408602151,
+    0.03551346552234397,
+    0.017595307917888534,
+    0.0,
+    -0.032327586206896686,
+    -0.06408300274641454,
+    -0.09528130671506352,
+    -0.12593703148425772,
+    -0.15606420927467313,
+    -0.18567639257294433,
+    -0.2147866744593806,
+    -0.24340770791075028,
+    -0.2715517241379308,
+    -0.2992305500142492,
+    -0.3264556246466931,
+    -0.3532380151387721,
+    -0.3795884315906563,
+    -0.4055172413793102,
+    -0.4310344827586207,
+    -0.45614987781699706,
+    -0.480872844827586,
+    -0.5052125100240578,
+    -0.5291777188328912,
+    -0.5527770465912083,
+    -0.5760188087774295,
+    -0.5989110707803991,
+    -0.6214616572310859,
+    -0.6436781609195403,
+    -0.6655679513184585,
+    -0.687138182733451,
+    -0.7083958020989505,
+    -0.7293475564376085,
+    -0.75,
+    -0.75,
+    -0.75,
+    -0.75,
+    -0.75
+  ],
+  &quot;total_defocus_diopters_by_wavelength&quot;: [
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.7168458781362007,
+    0.6845003933910306,
+    0.6529343179168289,
+    0.622119815668203,
+    0.5920303605313091,
+    0.5626406601650412,
+    0.5339265850945495,
+    0.5058651026392961,
+    0.4784342152953971,
+    0.45161290322580644,
+    0.42538107054236085,
+    0.3997194950911641,
+    0.37460978147762747,
+    0.3500343170899108,
+    0.32597623089983013,
+    0.30241935483870963,
+    0.2793481875623545,
+    0.25674786043449654,
+    0.2346041055718475,
+    0.21290322580645163,
+    0.1916320664324497,
+    0.1707779886148007,
+    0.15032884434700897,
+    0.1302729528535981,
+    0.1105990783410138,
+    0.09129640900791235,
+    0.07235453723243901,
+    0.0537634408602151,
+    0.03551346552234397,
+    0.017595307917888534,
+    0.0,
+    -0.032327586206896686,
+    -0.06408300274641454,
+    -0.09528130671506352,
+    -0.12593703148425772,
+    -0.15606420927467313,
+    -0.18567639257294433,
+    -0.2147866744593806,
+    -0.24340770791075028,
+    -0.2715517241379308,
+    -0.2992305500142492,
+    -0.3264556246466931,
+    -0.3532380151387721,
+    -0.3795884315906563,
+    -0.4055172413793102,
+    -0.4310344827586207,
+    -0.45614987781699706,
+    -0.480872844827586,
+    -0.5052125100240578,
+    -0.5291777188328912,
+    -0.5527770465912083,
+    -0.5760188087774295,
+    -0.5989110707803991,
+    -0.6214616572310859,
+    -0.6436781609195403,
+    -0.6655679513184585,
+    -0.687138182733451,
+    -0.7083958020989505,
+    -0.7293475564376085,
+    -0.75,
+    -0.75,
+    -0.75,
+    -0.75,
+    -0.75
+  ],
+  &quot;media_transmission_applied&quot;: true,
+  &quot;media_transmission_source&quot;: &quot;C:\\Users\\steve\\retinal_sim\\retinal_sim\\data\\optical_media\\dog_reference.csv&quot;,
+  &quot;media_transmission_values&quot;: [
+    0.550000011920929,
+    0.5799999833106995,
+    0.6100000143051147,
+    0.6399999856948853,
+    0.6700000166893005,
+    0.6924999952316284,
+    0.7149999737739563,
+    0.737500011920929,
+    0.7599999904632568,
+    0.7774999737739563,
+    0.7950000166893005,
+    0.8125,
+    0.8299999833106995,
+    0.8424999713897705,
+    0.8550000190734863,
+    0.8675000071525574,
+    0.8799999952316284,
+    0.887499988079071,
+    0.8949999809265137,
+    0.9024999737739563,
+    0.9100000262260437,
+    0.9175000190734863,
+    0.925000011920929,
+    0.9325000047683716,
+    0.9399999976158142,
+    0.9437500238418579,
+    0.9474999904632568,
+    0.9512500166893005,
+    0.9549999833106995,
+    0.9574999809265137,
+    0.9599999785423279,
+    0.9624999761581421,
+    0.9649999737739563,
+    0.9667500257492065,
+    0.968500018119812,
+    0.9702500104904175,
+    0.972000002861023,
+    0.9735000133514404,
+    0.9750000238418579,
+    0.9764999747276306,
+    0.9779999852180481,
+    0.9792500138282776,
+    0.9804999828338623,
+    0.9817500114440918,
+    0.9829999804496765,
+    0.984000027179718,
+    0.9850000143051147,
+    0.9860000014305115,
+    0.9869999885559082,
+    0.9877499938011169,
+    0.9884999990463257,
+    0.9892500042915344,
+    0.9900000095367432,
+    0.9904999732971191,
+    0.9909999966621399,
+    0.9915000200271606,
+    0.9919999837875366,
+    0.9925000071525574,
+    0.9929999709129333,
+    0.9934999942779541,
+    0.9940000176429749,
+    0.9942499995231628,
+    0.9944999814033508,
+    0.9947500228881836,
+    0.9950000047683716,
+    0.9950000047683716,
+    0.9950000047683716,
+    0.9950000047683716,
+    0.9950000047683716
+  ],
+  &quot;psf_sigma_mm_x&quot;: [
+    0.018043976581951105,
+    0.018044314290119892,
+    0.018044656406329823,
+    0.018045002930330185,
+    0.018045353861867047,
+    0.017249299466068832,
+    0.016472770872134137,
+    0.015715074635248683,
+    0.014975552132966197,
+    0.014253577856584843,
+    0.013548557901515238,
+    0.012859928663336562,
+    0.012187155753310839,
+    0.011529733156529744,
+    0.010887182668744198,
+    0.010259053666017015,
+    0.009644923287353327,
+    0.009044397148706083,
+    0.008457110764189322,
+    0.007882731938494682,
+    0.007320964532946015,
+    0.006771554230350093,
+    0.006234297291650905,
+    0.005709053922638958,
+    0.005195768965897378,
+    0.004694504626289522,
+    0.004205493703359123,
+    0.0037292292286087462,
+    0.003266621750022975,
+    0.0028192888303074995,
+    0.002390117241181639,
+    0.0019844169789181385,
+    0.0016123946747831474,
+    0.0012943591787189833,
+    0.0010690083685356393,
+    0.0009906749999999999,
+    0.0012661959784012057,
+    0.0018414004270992364,
+    0.002506510192497278,
+    0.0031969679682920947,
+    0.0038922532955543553,
+    0.004584470918794276,
+    0.005270121563696128,
+    0.005947516271343528,
+    0.006615811127440043,
+    0.007274595174809577,
+    0.007923695299137983,
+    0.008563076027729212,
+    0.009192784617607912,
+    0.009812919333558538,
+    0.010423610312243124,
+    0.01102500759874512,
+    0.011617273443106547,
+    0.012200577218322269,
+    0.012775092001610299,
+    0.013340992239419305,
+    0.013898452135104227,
+    0.014447644528335628,
+    0.014988740115051684,
+    0.015521906906881551,
+    0.016047309861196686,
+    0.016565110634101345,
+    0.01707546742282208,
+    0.017578534873581984,
+    0.018074464037696938,
+    0.018075083221955713,
+    0.01807570679178272,
+    0.0180763347467241,
+    0.018076967086322858
+  ],
+  &quot;psf_sigma_mm_y&quot;: [
+    0.018043976581951105,
+    0.018044314290119892,
+    0.018044656406329823,
+    0.018045002930330185,
+    0.018045353861867047,
+    0.017249299466068832,
+    0.016472770872134137,
+    0.015715074635248683,
+    0.014975552132966197,
+    0.014253577856584843,
+    0.013548557901515238,
+    0.012859928663336562,
+    0.012187155753310839,
+    0.011529733156529744,
+    0.010887182668744198,
+    0.010259053666017015,
+    0.009644923287353327,
+    0.009044397148706083,
+    0.008457110764189322,
+    0.007882731938494682,
+    0.007320964532946015,
+    0.006771554230350093,
+    0.006234297291650905,
+    0.005709053922638958,
+    0.005195768965897378,
+    0.004694504626289522,
+    0.004205493703359123,
+    0.0037292292286087462,
+    0.003266621750022975,
+    0.0028192888303074995,
+    0.002390117241181639,
+    0.0019844169789181385,
+    0.0016123946747831474,
+    0.0012943591787189833,
+    0.0010690083685356393,
+    0.0009906749999999999,
+    0.0012661959784012057,
+    0.0018414004270992364,
+    0.002506510192497278,
+    0.0031969679682920947,
+    0.0038922532955543553,
+    0.004584470918794276,
+    0.005270121563696128,
+    0.005947516271343528,
+    0.006615811127440043,
+    0.007274595174809577,
+    0.007923695299137983,
+    0.008563076027729212,
+    0.009192784617607912,
+    0.009812919333558538,
+    0.010423610312243124,
+    0.01102500759874512,
+    0.011617273443106547,
+    0.012200577218322269,
+    0.012775092001610299,
+    0.013340992239419305,
+    0.013898452135104227,
+    0.014447644528335628,
+    0.014988740115051684,
+    0.015521906906881551,
+    0.016047309861196686,
+    0.016565110634101345,
+    0.01707546742282208,
+    0.017578534873581984,
+    0.018074464037696938,
+    0.018075083221955713,
+    0.01807570679178272,
+    0.0180763347467241,
+    0.018076967086322858
+  ],
+  &quot;psf_sigma_px_x&quot;: [
+    3.236778402724588,
+    3.2368389817495156,
+    3.23690035150105,
+    3.2369625119342174,
+    3.237025463003467,
+    3.094227024753941,
+    2.954931178822726,
+    2.8190135331619746,
+    2.6863559422564802,
+    2.5568462006260577,
+    2.430377772023586,
+    2.306849555529946,
+    2.186165691015976,
+    2.068235408128518,
+    1.9529729252673529,
+    1.8402974082648564,
+    1.7301330031467492,
+    1.6224089642123778,
+    1.5170599089758787,
+    1.4140262473244685,
+    1.3132548570837295,
+    1.2147001181324684,
+    1.1183254831955711,
+    1.024105875601271,
+    0.9320314010596441,
+    0.8421132180510477,
+    0.7543930868012219,
+    0.6689594486641067,
+    0.5859756402544313,
+    0.5057318244421731,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5734809523262657,
+    0.6982031564808023,
+    0.822375067406994,
+    0.9453689756041707,
+    1.0668819109527021,
+    1.186762489773052,
+    1.304936993430861,
+    1.4213743682018742,
+    1.5360682508958088,
+    1.64902711860839,
+    1.7602685983483117,
+    1.8698160343897783,
+    1.977696342234666,
+    2.083938626744061,
+    2.1885732705140217,
+    2.2916313206143957,
+    2.393144069731411,
+    2.49314276694447,
+    2.5916584167115024,
+    2.688721638941795,
+    2.784362572025863,
+    2.87861080647303,
+    2.9714953406021842,
+    3.0630445522691687,
+    3.1532861823410085,
+    3.242247326820335,
+    3.2423583978044395,
+    3.242470255483897,
+    3.2425828997772936,
+    3.242696330602653
+  ],
+  &quot;psf_sigma_px_y&quot;: [
+    3.236778402724588,
+    3.2368389817495156,
+    3.23690035150105,
+    3.2369625119342174,
+    3.237025463003467,
+    3.094227024753941,
+    2.954931178822726,
+    2.8190135331619746,
+    2.6863559422564802,
+    2.5568462006260577,
+    2.430377772023586,
+    2.306849555529946,
+    2.186165691015976,
+    2.068235408128518,
+    1.9529729252673529,
+    1.8402974082648564,
+    1.7301330031467492,
+    1.6224089642123778,
+    1.5170599089758787,
+    1.4140262473244685,
+    1.3132548570837295,
+    1.2147001181324684,
+    1.1183254831955711,
+    1.024105875601271,
+    0.9320314010596441,
+    0.8421132180510477,
+    0.7543930868012219,
+    0.6689594486641067,
+    0.5859756402544313,
+    0.5057318244421731,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5734809523262657,
+    0.6982031564808023,
+    0.822375067406994,
+    0.9453689756041707,
+    1.0668819109527021,
+    1.186762489773052,
+    1.304936993430861,
+    1.4213743682018742,
+    1.5360682508958088,
+    1.64902711860839,
+    1.7602685983483117,
+    1.8698160343897783,
+    1.977696342234666,
+    2.083938626744061,
+    2.1885732705140217,
+    2.2916313206143957,
+    2.393144069731411,
+    2.49314276694447,
+    2.5916584167115024,
+    2.688721638941795,
+    2.784362572025863,
+    2.87861080647303,
+    2.9714953406021842,
+    3.0630445522691687,
+    3.1532861823410085,
+    3.242247326820335,
+    3.2423583978044395,
+    3.242470255483897,
+    3.2425828997772936,
+    3.242696330602653
+  ],
+  &quot;pixel_scale_mm&quot;: 0.005574671582942602
+}</pre>
+    </div>
+  </div>
+  <div class="gallery"><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (420 nm)</p><img src="irradiance_slice_420nm.png" alt="Retinal irradiance slice (420 nm)"><p>Target 420 nm, sampled 420 nm</p></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (530 nm)</p><img src="irradiance_slice_530nm.png" alt="Retinal irradiance slice (530 nm)"><p>Target 530 nm, sampled 530 nm</p></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (650 nm)</p><img src="irradiance_slice_650nm.png" alt="Retinal irradiance slice (650 nm)"><p>Target 650 nm, sampled 650 nm</p></div></div>
+</div>
+
+<h2>Sampling and activation</h2>
+<div class="panel">
+  <p>This family records where receptor sampling density, receptor classes, and front-end transduction changed the retained retinal information.</p>
+  <div class="split">
+    <div>
+      <p class="output-item-title">Stimulated receptor footprint overlay</p>
+      <img src="activation_overlay.png" alt="Stimulated receptor footprint overlay">
+    </div>
+    <div>
+      <p class="output-item-title">Sampling footprint summary</p>
+      <pre>{
+  &quot;input_shape&quot;: [
+    77,
+    107
+  ],
+  &quot;native_input_patch_px&quot;: [
+    77,
+    107
+  ],
+  &quot;activation_render_px&quot;: [
+    184,
+    256
+  ],
+  &quot;stimulated_receptor_count&quot;: 102744,
+  &quot;stimulated_receptor_fraction&quot;: 0.7099502487562189,
+  &quot;scene_covers_patch_fraction&quot;: 0.7269974454037974,
+  &quot;retinal_extent_mm&quot;: {
+    &quot;width&quot;: 0.5964898593748584,
+    &quot;height&quot;: 0.4292497118865803
+  },
+  &quot;stimulated_pixel_bounds&quot;: {
+    &quot;row_min&quot;: 0,
+    &quot;row_max&quot;: 76,
+    &quot;col_min&quot;: 0,
+    &quot;col_max&quot;: 106
+  },
+  &quot;position_bounds_mm&quot;: {
+    &quot;x_min&quot;: -0.29544195532798767,
+    &quot;x_max&quot;: 0.2954529821872711,
+    &quot;y_min&quot;: -0.21183545887470245,
+    &quot;y_max&quot;: 0.21183423697948456
+  }
+}</pre>
+    </div>
+  </div>
+  <div class="split">
+    <div>
+      <p class="output-item-title">Overall activation summary</p>
+      <pre>{
+  &quot;n_receptors&quot;: 144720,
+  &quot;mean_response&quot;: 0.2509724199771881,
+  &quot;median_response&quot;: 0.039203912019729614,
+  &quot;min_response&quot;: 0.0,
+  &quot;max_response&quot;: 0.9397651553153992
+}</pre>
+    </div>
+    <div>
+      <p class="output-item-title">Retinal physiology scope</p>
+      <pre>{
+  &quot;species&quot;: &quot;dog&quot;,
+  &quot;model_scope&quot;: &quot;retinal_front_end_only&quot;,
+  &quot;scope_note&quot;: &quot;This simulation stops at the photoreceptor/retinal front end. It does not include post-receptoral, retinal-circuit, or cortical perception modeling.&quot;,
+  &quot;lambda_max_values_nm&quot;: {
+    &quot;S_cone&quot;: 429.0,
+    &quot;L_cone&quot;: 555.0,
+    &quot;rod&quot;: 506.0
+  },
+  &quot;lambda_max_provenance&quot;: {
+    &quot;source&quot;: &quot;Dog lambda-max anchors follow the project architecture/spec reference set and are used with the unchanged Govardovskii A1 nomogram.&quot;,
+    &quot;confidence&quot;: &quot;moderate&quot;,
+    &quot;notes&quot;: &quot;Fixed dichromat reference wavelengths; not a full in-vivo sensitivity validation.&quot;
+  },
+  &quot;density_function_model&quot;: &quot;radially_symmetric_gaussian&quot;,
+  &quot;density_function_provenance&quot;: {
+    &quot;source&quot;: &quot;Dog density falloff is a proof-of-concept Gaussian approximation referencing Mowat 2008-style area-centralis and rod-density trends.&quot;,
+    &quot;confidence&quot;: &quot;moderate&quot;,
+    &quot;notes&quot;: &quot;The current model is radially symmetric by default even though dogs may have a weak visual streak.&quot;
+  },
+  &quot;naka_rushton_configuration&quot;: {
+    &quot;S_cone&quot;: {
+      &quot;n&quot;: 0.7,
+      &quot;sigma&quot;: 0.5,
+      &quot;R_max&quot;: 1.0
+    },
+    &quot;L_cone&quot;: {
+      &quot;n&quot;: 0.7,
+      &quot;sigma&quot;: 0.5,
+      &quot;R_max&quot;: 1.0
+    },
+    &quot;rod&quot;: {
+      &quot;n&quot;: 1.0,
+      &quot;sigma&quot;: 0.1,
+      &quot;R_max&quot;: 1.0
+    }
+  },
+  &quot;naka_rushton_provenance&quot;: {
+    &quot;source&quot;: &quot;Dog Naka-Rushton parameters are configurable retinal-front-end model parameters stored in YAML.&quot;,
+    &quot;confidence&quot;: &quot;low&quot;,
+    &quot;notes&quot;: &quot;Defaults preserve prior proof-of-concept behavior and are not presented as externally fitted dog phototransduction parameters.&quot;
+  },
+  &quot;aperture_weighting&quot;: {
+    &quot;enabled&quot;: false,
+    &quot;gaussian_sigma_scale&quot;: 0.5,
+    &quot;sigma_bin_px&quot;: 0.1,
+    &quot;truncate_sigma&quot;: 3.0,
+    &quot;method&quot;: &quot;bilinear_only&quot;,
+    &quot;notes&quot;: &quot;Optional retinal-front-end refinement; receptor apertures are approximated on the current irradiance grid rather than integrated in continuous space.&quot;,
+    &quot;sigma_px_min&quot;: 0.0,
+    &quot;sigma_px_mean&quot;: 0.0,
+    &quot;sigma_px_max&quot;: 0.0,
+    &quot;approximation_note&quot;: &quot;Optional retinal-front-end refinement; receptor apertures are approximated on the current irradiance grid rather than integrated in continuous space.&quot;,
+    &quot;pixel_scale_mm&quot;: 0.005574671582942602
+  },
+  &quot;visual_streak&quot;: {
+    &quot;supported&quot;: true,
+    &quot;enabled&quot;: false,
+    &quot;axis&quot;: &quot;horizontal&quot;,
+    &quot;axis_ratio&quot;: 1.5,
+    &quot;status&quot;: &quot;deferred&quot;,
+    &quot;notes&quot;: &quot;Dog mosaic anisotropy remains disabled by default to preserve the current radially symmetric proof of concept, but the config hook is present for future visual-streak fits.&quot;
+  }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<h2>Retinal-information outputs</h2>
+<div class="panel">
+  <p>These human-readable outputs are retinal-information renderings of the modeled retinal front end. They are not direct perceptual, retinal-circuit, or cortical reconstructions, and they should not be read as what the animal consciously sees.</p>
+  <div class="gallery"><div class="gallery-item"><p class="output-item-title">Comparative rendering: receptor-coded activation map</p><img src="activation_map.png" alt="Comparative rendering: receptor-coded activation map"><p>Voronoi rendering of receptor activations. Hue encodes receptor class and brightness encodes modeled activation.</p></div><div class="gallery-item"><p class="output-item-title">Retinal-information rendering</p><img src="retinal_information_rendering.png" alt="Retinal-information rendering"><p>Regular-grid rendering of retained front-end activation information after retinal sampling.</p></div></div>
+</div>
+
+<div class="panel">
+  <p><a href="../../diagnostics/dog/summary.json">Diagnostics summary JSON</a></p>
+  <p><a href="../../diagnostics/manifest.json">Diagnostics manifest</a></p>
+</div>
+</body>
+</html>

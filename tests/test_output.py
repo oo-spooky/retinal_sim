@@ -11,6 +11,7 @@ from retinal_sim.retina.mosaic import PhotoreceptorMosaic
 from retinal_sim.retina.stage import MosaicActivation
 from retinal_sim.spectral.upsampler import SpectralImage
 from retinal_sim.output.diagnostics import (
+    assert_json_safe_roundtrip,
     build_comparative_renderings,
     build_photoreceptor_activation_diagnostics,
     build_retinal_irradiance_diagnostics,
@@ -379,8 +380,22 @@ class TestDiagnosticBuilders:
         assert "delivered_spectrum_summary" in diagnostics
         assert "selected_wavelength_slices" in diagnostics
         assert len(diagnostics["selected_wavelength_slices"]) == 3
+        slice_ids = [item["id"] for item in diagnostics["selected_wavelength_slices"]]
+        slice_labels = [item["label"] for item in diagnostics["selected_wavelength_slices"]]
+        assert slice_ids == [
+            "irradiance_slice_420nm",
+            "irradiance_slice_530nm",
+            "irradiance_slice_650nm",
+        ]
+        assert slice_labels == [
+            "Retinal irradiance slice (420 nm)",
+            "Retinal irradiance slice (530 nm)",
+            "Retinal irradiance slice (650 nm)",
+        ]
         assert diagnostics["band_composite"]["image_data"].shape == (6, 6, 3)
+        assert diagnostics["band_composite"]["id"] == "irradiance_band_composite"
         assert diagnostics["optical_stage_summary"]["media_transmission_source"] == "unit-test"
+        assert diagnostics["family_version"] == "r6_run_bundle_v1"
 
     def test_build_photoreceptor_activation_diagnostics_has_response_summary(self):
         activation = _make_activation(
@@ -411,6 +426,7 @@ class TestDiagnosticBuilders:
         assert diagnostics["sampling_footprint_summary"]["stimulated_receptor_count"] == 8
         assert diagnostics["sampling_footprint_summary"]["native_input_patch_px"] == [6, 6]
         assert diagnostics["sampling_footprint_summary"]["activation_render_px"] == [12, 12]
+        assert diagnostics["mosaic_footprint_overlay"]["id"] == "stimulated_receptor_footprint_overlay"
         assert diagnostics["mosaic_footprint_overlay"]["image_data"].shape == (12, 12, 3)
 
     def test_build_comparative_renderings_are_claim_calibrated(self):
@@ -425,9 +441,60 @@ class TestDiagnosticBuilders:
         assert "not direct perceptual" in diagnostics["scope_note"]
         assert diagnostics["native_input_patch_px"] == [24, 24]
         assert diagnostics["activation_render_px"] == [48, 48]
+        assert diagnostics["family_version"] == "r6_run_bundle_v1"
         labels = [item["label"] for item in diagnostics["items"]]
+        ids = [item["id"] for item in diagnostics["items"]]
+        assert ids == [
+            "comparative_activation_map",
+            "retinal_information_rendering",
+        ]
         assert "Retinal-information rendering" in labels
         assert any("Comparative rendering" in label for label in labels)
         for item in diagnostics["items"]:
             shape = np.asarray(item["image_data"]).shape[:2]
             assert shape == (48, 48)
+
+    def test_diagnostic_payloads_survive_json_safe_roundtrip(self):
+        activation = _make_activation(n=16, seed=7)
+        irradiance = build_retinal_irradiance_diagnostics(
+            SpectralImage(
+                data=np.ones((4, 4, N_WL), dtype=np.float32),
+                wavelengths=np.linspace(380.0, 720.0, N_WL, dtype=np.float64),
+            ),
+            RetinalIrradiance(
+                data=np.ones((4, 4, N_WL), dtype=np.float32),
+                wavelengths=np.linspace(380.0, 720.0, N_WL, dtype=np.float64),
+                metadata={"pupil_throughput_scale": 1.0},
+            ),
+            native_input_shape=(4, 4),
+        )
+        activation_payload = build_photoreceptor_activation_diagnostics(
+            scene=SimpleNamespace(
+                scene_covers_patch_fraction=1.0,
+                retinal_width_mm=1.0,
+                retinal_height_mm=1.0,
+            ),
+            mosaic=activation.mosaic,
+            activation=activation,
+            receptor_rows=np.arange(16, dtype=int) % 4,
+            receptor_cols=np.arange(16, dtype=int) % 4,
+            stimulated_mask=np.array([True] * 12 + [False] * 4),
+            input_shape=(4, 4),
+        )
+        renderings = build_comparative_renderings(
+            activation,
+            input_shape=(4, 4),
+            output_shape=(8, 8),
+        )
+
+        safe_payload = assert_json_safe_roundtrip(
+            {
+                "retinal_irradiance_diagnostics": irradiance,
+                "photoreceptor_activation_diagnostics": activation_payload,
+                "comparative_renderings": renderings,
+            }
+        )
+
+        assert safe_payload["retinal_irradiance_diagnostics"]["band_composite"]["id"] == "irradiance_band_composite"
+        assert safe_payload["photoreceptor_activation_diagnostics"]["mosaic_footprint_overlay"]["id"] == "stimulated_receptor_footprint_overlay"
+        assert safe_payload["comparative_renderings"]["items"][0]["id"] == "comparative_activation_map"

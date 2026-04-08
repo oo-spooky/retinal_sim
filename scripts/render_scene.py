@@ -30,12 +30,16 @@ Notes
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 import numpy as np
 
+from retinal_sim.output.run_bundle import (
+    save_diagnostics_bundle,
+    save_panel,
+    write_run_bundle,
+)
 from retinal_sim.output.perceptual import render_perceptual_image
 from retinal_sim.pipeline import RetinalSimulator
 from retinal_sim.spectral.upsampler import (
@@ -247,14 +251,6 @@ def _fit_input_preview_to_shape(
     return np.asarray(resized, dtype=np.float32) / 255.0
 
 
-def _save_panel(panel: np.ndarray, path: Path) -> None:
-    from PIL import Image
-
-    arr = np.clip(panel * 255.0, 0, 255).astype(np.uint8)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(arr).save(path)
-
-
 def _label(img: np.ndarray, text: str) -> np.ndarray:
     """Add a small text label across the top of an image (best-effort)."""
     try:
@@ -267,366 +263,6 @@ def _label(img: np.ndarray, text: str) -> np.ndarray:
     draw.rectangle([(0, 0), (pil.width, 18)], fill=(0, 0, 0))
     draw.text((4, 2), text, fill=(255, 255, 255))
     return np.asarray(pil, dtype=np.float32) / 255.0
-
-
-def _json_safe(value):
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    if isinstance(value, (np.floating, np.integer)):
-        return value.item()
-    if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    return value
-
-
-def _save_json(payload: dict, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(_json_safe(payload), indent=2), encoding="utf-8")
-
-
-def _save_image(image: np.ndarray, path: Path) -> None:
-    from PIL import Image
-
-    arr = np.asarray(image, dtype=np.float32)
-    arr = np.clip(arr, 0.0, 1.0)
-    if arr.ndim == 2:
-        img = Image.fromarray(np.clip(arr * 255.0, 0, 255).astype(np.uint8), mode="L")
-    else:
-        img = Image.fromarray(np.clip(arr * 255.0, 0, 255).astype(np.uint8))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path)
-
-
-def _save_diagnostics_bundle(
-    diagnostics_dir: Path,
-    *,
-    results: dict,
-    run_metadata: dict,
-) -> dict:
-    """Persist a lightweight irradiance/activation traceability bundle."""
-    diagnostics_dir.mkdir(parents=True, exist_ok=True)
-    manifest = {
-        "run_metadata": run_metadata,
-        "species": {},
-    }
-
-    for species_name, result in results.items():
-        species_dir = diagnostics_dir / species_name
-        species_dir.mkdir(parents=True, exist_ok=True)
-
-        irradiance = result.artifacts.get("retinal_irradiance_diagnostics", {})
-        activation = result.artifacts.get("photoreceptor_activation_diagnostics", {})
-        comparative = result.artifacts.get("comparative_renderings", {})
-        activation_render_px = result.artifacts.get("artifact_render_shape")
-        if activation_render_px is None:
-            activation_render_px = comparative.get("activation_render_px")
-        summary_payload = {
-            "species": species_name,
-            "scene_input_mode": result.metadata.get("scene_input_mode"),
-            "scene_input_assumptions": result.metadata.get("scene_input_assumptions", []),
-            "native_input_patch_px": result.artifacts.get("input_shape"),
-            "activation_render_px": activation_render_px,
-            "irradiance_native_px": list(
-                np.asarray(
-                    result.artifacts.get("retinal_irradiance_diagnostics", {}).get(
-                        "irradiance_native_px", []
-                    ),
-                    dtype=int,
-                ).tolist()
-            ),
-            "retinal_irradiance_summary": {
-                "traceability_note": irradiance.get("traceability_note"),
-                "delivered_spectrum_summary": irradiance.get("delivered_spectrum_summary", {}),
-                "optical_stage_summary": irradiance.get("optical_stage_summary", {}),
-            },
-            "photoreceptor_activation_summary": {
-                "traceability_note": activation.get("traceability_note"),
-                "overall_summary": activation.get("overall_summary", {}),
-                "sampling_footprint_summary": activation.get("sampling_footprint_summary", {}),
-                "retinal_physiology_summary": activation.get("retinal_physiology_summary", {}),
-            },
-        }
-
-        summary_path = species_dir / "summary.json"
-        _save_json(summary_payload, summary_path)
-
-        overlay_path = species_dir / "activation_overlay.png"
-        overlay_image = activation.get("mosaic_footprint_overlay", {}).get("image_data")
-        if overlay_image is not None:
-            _save_image(np.asarray(overlay_image, dtype=np.float32), overlay_path)
-
-        band_composite_path = species_dir / "irradiance_band_composite.png"
-        band_composite = irradiance.get("band_composite", {}).get("image_data")
-        if band_composite is not None:
-            _save_image(np.asarray(band_composite, dtype=np.float32), band_composite_path)
-
-        manifest["species"][species_name] = {
-            "summary_json": summary_path.relative_to(diagnostics_dir).as_posix(),
-            "activation_overlay_png": (
-                overlay_path.relative_to(diagnostics_dir).as_posix()
-                if overlay_image is not None else None
-            ),
-            "irradiance_band_composite_png": (
-                band_composite_path.relative_to(diagnostics_dir).as_posix()
-                if band_composite is not None else None
-            ),
-        }
-
-    _save_json(manifest, diagnostics_dir / "manifest.json")
-    return manifest
-
-
-def _prefix_relative_path(prefix: str, value: str | None) -> str | None:
-    if value is None:
-        return None
-    return (Path(prefix) / value).as_posix()
-
-
-def _species_run_summary(
-    species_name: str,
-    result,
-    diagnostics_entry: dict | None = None,
-) -> dict:
-    summary_metrics = dict(getattr(result, "summary_metrics", {}) or {})
-    activation_summary = (
-        result.artifacts
-        .get("photoreceptor_activation_diagnostics", {})
-        .get("overall_summary", {})
-    )
-    sampling_summary = (
-        result.artifacts
-        .get("photoreceptor_activation_diagnostics", {})
-        .get("sampling_footprint_summary", {})
-    )
-    physiology_summary = (
-        result.artifacts
-        .get("photoreceptor_activation_diagnostics", {})
-        .get("retinal_physiology_summary", {})
-    )
-    native_input_patch_px = result.artifacts.get("input_shape")
-    activation_render_px = result.artifacts.get("artifact_render_shape")
-    if activation_render_px is None:
-        activation_render_px = result.artifacts.get("comparative_renderings", {}).get(
-            "activation_render_px"
-        )
-    irradiance_native_px = result.artifacts.get("retinal_irradiance_diagnostics", {}).get(
-        "irradiance_native_px"
-    )
-
-    payload = {
-        "species": species_name,
-        "native_input_patch_px": native_input_patch_px,
-        "activation_render_px": activation_render_px,
-        "irradiance_native_px": irradiance_native_px,
-        "stimulated_receptor_count": summary_metrics.get(
-            "stimulated_receptor_count",
-            sampling_summary.get("stimulated_receptor_count"),
-        ),
-        "stimulated_receptor_fraction": summary_metrics.get(
-            "stimulated_receptor_fraction",
-            sampling_summary.get("stimulated_receptor_fraction"),
-        ),
-        "mean_response": summary_metrics.get(
-            "mean_response",
-            activation_summary.get("mean_response"),
-        ),
-        "left_right_cone_discriminability": summary_metrics.get(
-            "left_right_cone_discriminability"
-        ),
-        "center_contrast": summary_metrics.get("center_contrast"),
-        "periphery_contrast": summary_metrics.get("periphery_contrast"),
-        "retinal_model_scope": physiology_summary.get("model_scope"),
-    }
-
-    if diagnostics_entry:
-        payload["diagnostics"] = diagnostics_entry
-
-    return payload
-
-
-def _build_run_summary(
-    *,
-    input_path: Path,
-    species_list: list[str],
-    scene_meta: dict,
-    crop_info: dict,
-    comparison_image: str,
-    diagnostics_manifest: str,
-    diagnostics_manifest_payload: dict,
-    results: dict,
-    native_input_shape: tuple[int, int],
-    activation_render_shape: tuple[int, int],
-    extra_output_path: str | None = None,
-    extra_diagnostics_dir: str | None = None,
-) -> dict:
-    species_summaries = {}
-    diagnostics_species = diagnostics_manifest_payload.get("species", {})
-    for species_name in species_list:
-        diagnostics_entry = diagnostics_species.get(species_name, {})
-        diagnostics_entry = {
-            "summary_json": _prefix_relative_path("diagnostics", diagnostics_entry.get("summary_json")),
-            "activation_overlay_png": _prefix_relative_path(
-                "diagnostics", diagnostics_entry.get("activation_overlay_png")
-            ),
-            "irradiance_band_composite_png": _prefix_relative_path(
-                "diagnostics", diagnostics_entry.get("irradiance_band_composite_png")
-            ),
-        }
-        species_summaries[species_name] = _species_run_summary(
-            species_name,
-            results[species_name],
-            diagnostics_entry=diagnostics_entry,
-        )
-
-    summary = {
-        "bundle_label": "explorer_run_bundle",
-        "input_path": str(input_path),
-        "species": list(species_list),
-        "scene_input_mode": scene_meta["scene_input_mode"],
-        "scene_input_is_inferred": scene_meta["scene_input_is_inferred"],
-        "scene_input_assumptions": scene_meta["scene_input_assumptions"],
-        "patch_geometry": crop_info,
-        "native_input_patch_px": [int(native_input_shape[0]), int(native_input_shape[1])],
-        "activation_render_px": [int(activation_render_shape[0]), int(activation_render_shape[1])],
-        "irradiance_native_px": [int(native_input_shape[0]), int(native_input_shape[1])],
-        "scope_note": (
-            "This bundle summarizes a retinal-front-end comparison. The outputs expose "
-            "traceable retinal irradiance diagnostics, photoreceptor activation "
-            "diagnostics, and retinal-information renderings. They are not direct "
-            "conscious-perception, retinal-circuit, or cortical reconstructions."
-        ),
-        "paths": {
-            "comparison_png": comparison_image,
-            "summary_json": "summary.json",
-            "index_html": "index.html",
-            "diagnostics_manifest_json": diagnostics_manifest,
-            "extra_output_path": extra_output_path,
-            "extra_diagnostics_dir": extra_diagnostics_dir,
-        },
-        "species_summaries": species_summaries,
-    }
-    return summary
-
-
-def _format_metric_html(value: object) -> str:
-    if value is None:
-        return "n/a"
-    if isinstance(value, (int, np.integer)):
-        return str(int(value))
-    if isinstance(value, (float, np.floating)):
-        return f"{float(value):.4f}"
-    return str(value)
-
-
-def _render_index_html(summary: dict) -> str:
-    assumptions = "".join(
-        f"<li>{assumption}</li>" for assumption in summary.get("scene_input_assumptions", [])
-    )
-    if not assumptions:
-        assumptions = "<li>No additional assumptions recorded.</li>"
-
-    crop = summary["patch_geometry"]
-    species_rows = ""
-    for species_name, payload in summary["species_summaries"].items():
-        diagnostics = payload.get("diagnostics", {})
-        summary_link = diagnostics.get("summary_json")
-        overlay_link = diagnostics.get("activation_overlay_png")
-        irradiance_link = diagnostics.get("irradiance_band_composite_png")
-        link_parts = []
-        if summary_link:
-            link_parts.append(f'<a href="{summary_link}">summary</a>')
-        if overlay_link:
-            link_parts.append(f'<a href="{overlay_link}">overlay</a>')
-        if irradiance_link:
-            link_parts.append(f'<a href="{irradiance_link}">irradiance</a>')
-        links_html = " | ".join(link_parts) if link_parts else "n/a"
-        species_rows += (
-            "<tr>"
-            f"<td>{species_name}</td>"
-            f"<td>{_format_metric_html(payload.get('stimulated_receptor_count'))}</td>"
-            f"<td>{_format_metric_html(payload.get('stimulated_receptor_fraction'))}</td>"
-            f"<td>{_format_metric_html(payload.get('mean_response'))}</td>"
-            f"<td>{_format_metric_html(payload.get('left_right_cone_discriminability'))}</td>"
-            f"<td>{_format_metric_html(payload.get('center_contrast'))}</td>"
-            f"<td>{_format_metric_html(payload.get('periphery_contrast'))}</td>"
-            f"<td>{links_html}</td>"
-            "</tr>"
-        )
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>retinal_sim explorer run</title>
-  <style>
-body {{ font-family: system-ui, -apple-system, sans-serif; max-width: 1020px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }}
-h1, h2 {{ border-bottom: 1px solid #ddd; padding-bottom: 6px; }}
-.panel {{ background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin: 12px 0; }}
-.note {{ background: #eef6ff; border-color: #c7dbf4; }}
-table {{ border-collapse: collapse; width: 100%; margin-top: 12px; }}
-th, td {{ border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }}
-th {{ background: #f4f4f4; }}
-img {{ max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }}
-code {{ background: #f6f6f6; padding: 0 4px; border-radius: 3px; }}
-ul {{ margin-top: 8px; }}
-  </style>
-</head>
-<body>
-<h1>retinal_sim explorer run</h1>
-
-<div class="panel note">
-  <strong>Scope note:</strong> {summary["scope_note"]}
-</div>
-
-<h2>At a glance</h2>
-<div class="panel">
-  <p><strong>Scene input mode:</strong> <code>{summary["scene_input_mode"]}</code></p>
-  <p><strong>Species:</strong> {", ".join(summary["species"])}</p>
-  <p><strong>Patch geometry:</strong> full scene {crop["full_angular_width_deg"]:.2f} x {crop["full_angular_height_deg"]:.2f} deg, simulated patch {crop["cropped_angular_width_deg"]:.2f} x {crop["cropped_angular_height_deg"]:.2f} deg.</p>
-  <p><strong>Cropping applied:</strong> {"yes" if crop["cropped"] else "no"}</p>
-  <p><strong>Native input patch:</strong> {summary["native_input_patch_px"][1]} x {summary["native_input_patch_px"][0]} px</p>
-  <p><strong>Activation render grid:</strong> {summary["activation_render_px"][1]} x {summary["activation_render_px"][0]} px</p>
-  <p><strong>Irradiance images:</strong> native {summary["irradiance_native_px"][1]} x {summary["irradiance_native_px"][0]} px (not upscaled)</p>
-</div>
-
-<h2>Scene assumptions</h2>
-<div class="panel">
-  <ul>{assumptions}</ul>
-</div>
-
-<h2>Comparison panel</h2>
-<div class="panel">
-  <p><img src="{summary["paths"]["comparison_png"]}" alt="Retinal comparison panel"></p>
-</div>
-
-<h2>Species summaries</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Species</th>
-      <th>Stimulated receptors</th>
-      <th>Stimulated fraction</th>
-      <th>Mean response</th>
-      <th>Left/right discriminability</th>
-      <th>Center contrast</th>
-      <th>Periphery contrast</th>
-      <th>Diagnostics</th>
-    </tr>
-  </thead>
-  <tbody>{species_rows}</tbody>
-</table>
-
-<h2>Traceability bundle</h2>
-<div class="panel">
-  <p><a href="{summary["paths"]["diagnostics_manifest_json"]}">Diagnostics manifest</a></p>
-  <p>The diagnostics directory exposes retinal irradiance diagnostics, photoreceptor activation diagnostics, and claim-calibrated retinal-information renderings for each species.</p>
-  <p><strong>Resolution note:</strong> <code>--patch-deg</code> changes the simulated retinal field of view. <code>--render-longest-edge</code> changes only the activation/perceptual render density for the same simulated patch. Irradiance-family images remain at their native simulation raster.</p>
-</div>
-</body>
-</html>"""
-
 
 def main(argv: list[str] | None = None) -> int:
     argv_list = list(argv) if argv is not None else sys.argv[1:]
@@ -785,7 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if primary_output is not None:
-        _save_panel(panel, primary_output)
+        save_panel(panel, primary_output)
         print(f"Saved comparison to {primary_output}")
 
     run_metadata = {
@@ -797,9 +433,8 @@ def main(argv: list[str] | None = None) -> int:
         "patch_geometry": crop_info,
     }
 
-    diagnostics_manifest = None
     if args.diagnostics_dir is not None:
-        diagnostics_manifest = _save_diagnostics_bundle(
+        save_diagnostics_bundle(
             args.diagnostics_dir,
             results=results,
             run_metadata={
@@ -813,48 +448,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Saved diagnostics to {args.diagnostics_dir}")
 
     if args.run_dir is not None:
-        bundle_dir = args.run_dir
-        bundle_dir.mkdir(parents=True, exist_ok=True)
-
-        bundle_output = bundle_dir / "comparison.png"
-        _save_panel(panel, bundle_output)
-        print(f"Saved run bundle comparison to {bundle_output}")
-
-        bundle_diagnostics_dir = bundle_dir / "diagnostics"
-        bundle_manifest = _save_diagnostics_bundle(
-            bundle_diagnostics_dir,
+        write_run_bundle(
+            args.run_dir,
+            input_preview=preview,
+            comparison_panel=panel,
             results=results,
-            run_metadata={
-                **run_metadata,
-                "output_path": str(bundle_output),
-                "render_longest_edge_px": args.render_longest_edge,
-                "activation_render_px": list(render_shape),
-                "native_input_patch_px": [int(preview_h), int(preview_w)],
-            },
-        )
-        if diagnostics_manifest is None:
-            diagnostics_manifest = bundle_manifest
-
-        summary_payload = _build_run_summary(
             input_path=args.image,
             species_list=list(args.species),
             scene_meta=scene_meta,
             crop_info=crop_info,
-            comparison_image="comparison.png",
-            diagnostics_manifest="diagnostics/manifest.json",
-            diagnostics_manifest_payload=bundle_manifest,
-            results=results,
             native_input_shape=(preview_h, preview_w),
             activation_render_shape=render_shape,
-            extra_output_path=str(primary_output) if primary_output is not None else None,
+            primary_output_path=str(primary_output) if primary_output is not None else None,
             extra_diagnostics_dir=str(args.diagnostics_dir) if args.diagnostics_dir is not None else None,
         )
-        _save_json(summary_payload, bundle_dir / "summary.json")
-        (bundle_dir / "index.html").write_text(
-            _render_index_html(summary_payload),
-            encoding="utf-8",
-        )
-        print(f"Saved run bundle to {bundle_dir}")
+        print(f"Saved run bundle to {args.run_dir}")
 
     return 0
 

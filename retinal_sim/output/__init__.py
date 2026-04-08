@@ -7,9 +7,11 @@ from retinal_sim.output.perceptual import (
     render_perceptual_image,
 )
 from retinal_sim.output.diagnostics import (
+    assert_json_safe_roundtrip,
     build_comparative_renderings,
     build_photoreceptor_activation_diagnostics,
     build_retinal_irradiance_diagnostics,
+    json_safe_artifact_value,
 )
 
 __all__ = [
@@ -20,6 +22,8 @@ __all__ = [
     "render_perceptual_image",
     "reconstruct_cone_maps",
     "cone_maps_to_srgb",
+    "json_safe_artifact_value",
+    "assert_json_safe_roundtrip",
     "build_retinal_irradiance_diagnostics",
     "build_photoreceptor_activation_diagnostics",
     "build_comparative_renderings",

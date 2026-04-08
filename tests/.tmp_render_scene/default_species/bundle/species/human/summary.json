@@ -1,0 +1,152 @@
+{
+  "species": "human",
+  "title": "human retinal-front-end report",
+  "scope_note": "This page traces the modeled retinal front end from scene assumptions to retinally delivered irradiance, receptor sampling, and retinal-information renderings. It is not a direct perceptual, retinal-circuit, or cortical report.",
+  "scene_input_mode": "reflectance_under_d65",
+  "scene_input_is_inferred": true,
+  "scene_input_assumptions": [
+    "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+    "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+    "This mode models diffuse reflectance under D65 for comparative PoC work."
+  ],
+  "patch_geometry": {
+    "cropped": true,
+    "crop_fraction": 0.1403505551470255,
+    "full_angular_width_deg": 14.250032697803595,
+    "full_angular_height_deg": 14.250032697803595,
+    "cropped_angular_width_deg": 2.0,
+    "cropped_angular_height_deg": 2.0,
+    "full_scene_width_m": 0.5,
+    "full_scene_height_m": 0.5,
+    "cropped_scene_width_m": 0.07017527757351275,
+    "cropped_scene_height_m": 0.07017527757351275,
+    "input_width_px": 8,
+    "input_height_px": 8,
+    "cropped_width_px": 1,
+    "cropped_height_px": 1,
+    "patch_deg": 2.0,
+    "distance_m": 2.0
+  },
+  "native_input_patch_px": [
+    4,
+    4
+  ],
+  "activation_render_px": [
+    4,
+    4
+  ],
+  "irradiance_native_px": [
+    4,
+    4
+  ],
+  "paths": {
+    "overview_html": "../../index.html",
+    "summary_json": "summary.json",
+    "input_patch_png": "../../input_patch.png",
+    "diagnostics_summary_json": "../../diagnostics/human/summary.json",
+    "diagnostics_manifest_json": "../../diagnostics/manifest.json"
+  },
+  "scene_and_patch": {
+    "input_patch_png": "../../input_patch.png",
+    "crop_info": {
+      "cropped": true,
+      "crop_fraction": 0.1403505551470255,
+      "full_angular_width_deg": 14.250032697803595,
+      "full_angular_height_deg": 14.250032697803595,
+      "cropped_angular_width_deg": 2.0,
+      "cropped_angular_height_deg": 2.0,
+      "full_scene_width_m": 0.5,
+      "full_scene_height_m": 0.5,
+      "cropped_scene_width_m": 0.07017527757351275,
+      "cropped_scene_height_m": 0.07017527757351275,
+      "input_width_px": 8,
+      "input_height_px": 8,
+      "cropped_width_px": 1,
+      "cropped_height_px": 1,
+      "patch_deg": 2.0,
+      "distance_m": 2.0
+    },
+    "scene_input_mode": "reflectance_under_d65",
+    "scene_input_is_inferred": true,
+    "scene_input_assumptions": [
+      "RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.",
+      "The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.",
+      "This mode models diffuse reflectance under D65 for comparative PoC work."
+    ]
+  },
+  "retinal_irradiance": {
+    "traceability_note": "irradiance traceability",
+    "band_composite_png": "irradiance_band_composite.png",
+    "selected_wavelength_slices": [
+      {
+        "id": "irradiance_slice_420nm",
+        "label": "Retinal irradiance slice (420 nm)",
+        "target_wavelength_nm": 420.0,
+        "sampled_wavelength_nm": 420.0,
+        "mean": null,
+        "min": null,
+        "max": null,
+        "image_path": "irradiance_slice_420nm.png"
+      },
+      {
+        "id": "irradiance_slice_530nm",
+        "label": "Retinal irradiance slice (530 nm)",
+        "target_wavelength_nm": 530.0,
+        "sampled_wavelength_nm": 530.0,
+        "mean": null,
+        "min": null,
+        "max": null,
+        "image_path": "irradiance_slice_530nm.png"
+      },
+      {
+        "id": "irradiance_slice_650nm",
+        "label": "Retinal irradiance slice (650 nm)",
+        "target_wavelength_nm": 650.0,
+        "sampled_wavelength_nm": 650.0,
+        "mean": null,
+        "min": null,
+        "max": null,
+        "image_path": "irradiance_slice_650nm.png"
+      }
+    ],
+    "optical_stage_summary": {
+      "pupil_throughput_scale": 1.0
+    },
+    "delivered_spectrum_summary": {
+      "delivered_total_energy": 1.0
+    }
+  },
+  "sampling_and_activation": {
+    "traceability_note": "activation traceability",
+    "activation_overlay_png": "activation_overlay.png",
+    "overall_summary": {
+      "n_receptors": 4
+    },
+    "sampling_footprint_summary": {
+      "stimulated_receptor_count": 4
+    },
+    "response_summary_by_type": [],
+    "retinal_physiology_summary": {
+      "model_scope": "retinal_front_end_only"
+    }
+  },
+  "retinal_information_outputs": {
+    "scope_note": "These are not direct perceptual or cortical reconstructions.",
+    "activation_map_png": "activation_map.png",
+    "retinal_information_rendering_png": "retinal_information_rendering.png",
+    "items": [
+      {
+        "id": "comparative_activation_map",
+        "label": "Comparative rendering: receptor-coded activation map",
+        "description": "Unit-test activation map.",
+        "image_path": "activation_map.png"
+      },
+      {
+        "id": "retinal_information_rendering",
+        "label": "Retinal-information rendering",
+        "description": "Unit-test retinal-information rendering.",
+        "image_path": "retinal_information_rendering.png"
+      }
+    ]
+  }
+}

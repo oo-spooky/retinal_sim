@@ -43,9 +43,11 @@
   "scope_note": "This bundle summarizes a retinal-front-end comparison. The outputs expose traceable retinal irradiance diagnostics, photoreceptor activation diagnostics, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.",
   "paths": {
     "comparison_png": "comparison.png",
+    "input_patch_png": "input_patch.png",
     "summary_json": "summary.json",
     "index_html": "index.html",
     "diagnostics_manifest_json": "diagnostics/manifest.json",
+    "species_reports_dir": "species",
     "extra_output_path": null,
     "extra_diagnostics_dir": null
   },
@@ -75,6 +77,80 @@
         "summary_json": "diagnostics/human/summary.json",
         "activation_overlay_png": "diagnostics/human/activation_overlay.png",
         "irradiance_band_composite_png": "diagnostics/human/irradiance_band_composite.png"
+      },
+      "report_html": "species/human/index.html",
+      "report_summary_json": "species/human/summary.json",
+      "report_assets": {
+        "input_patch_png": "input_patch.png",
+        "irradiance_band_composite_png": "species/human/irradiance_band_composite.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "species/human/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "species/human/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "species/human/irradiance_slice_650nm.png"
+        },
+        "activation_overlay_png": "species/human/activation_overlay.png",
+        "activation_map_png": "species/human/activation_map.png",
+        "retinal_information_rendering_png": "species/human/retinal_information_rendering.png"
+      }
+    }
+  },
+  "diagnostics_manifest": {
+    "run_metadata": {
+      "input_path": "tests\\.tmp_render_scene\\measured_spectrum\\input.npz",
+      "species": [
+        "human"
+      ],
+      "scene_input_mode": "measured_spectrum",
+      "scene_input_is_inferred": false,
+      "scene_input_assumptions": [
+        "Caller provided a measured spectral image directly.",
+        "No RGB-to-spectrum inference is applied in this mode."
+      ],
+      "patch_geometry": {
+        "cropped": true,
+        "crop_fraction": 0.1403505551470255,
+        "full_angular_width_deg": 14.250032697803595,
+        "full_angular_height_deg": 14.250032697803595,
+        "cropped_angular_width_deg": 2.0,
+        "cropped_angular_height_deg": 2.0,
+        "full_scene_width_m": 0.5,
+        "full_scene_height_m": 0.5,
+        "cropped_scene_width_m": 0.07017527757351275,
+        "cropped_scene_height_m": 0.07017527757351275,
+        "input_width_px": 8,
+        "input_height_px": 8,
+        "cropped_width_px": 1,
+        "cropped_height_px": 1,
+        "patch_deg": 2.0,
+        "distance_m": 2.0
+      },
+      "output_path": "tests\\.tmp_render_scene\\measured_spectrum\\bundle\\comparison.png",
+      "activation_render_px": [
+        1,
+        1
+      ],
+      "native_input_patch_px": [
+        1,
+        1
+      ]
+    },
+    "species": {
+      "human": {
+        "summary_json": "human/summary.json",
+        "activation_overlay_png": "human/activation_overlay.png",
+        "irradiance_band_composite_png": "human/irradiance_band_composite.png",
+        "species_report_html": "../species/human/index.html",
+        "species_report_summary_json": "../species/human/summary.json",
+        "input_patch_png": "../input_patch.png",
+        "activation_map_png": "../species/human/activation_map.png",
+        "retinal_information_rendering_png": "../species/human/retinal_information_rendering.png",
+        "irradiance_slice_pngs": {
+          "irradiance_slice_420nm": "../species/human/irradiance_slice_420nm.png",
+          "irradiance_slice_530nm": "../species/human/irradiance_slice_530nm.png",
+          "irradiance_slice_650nm": "../species/human/irradiance_slice_650nm.png"
+        },
+        "species_irradiance_band_composite_png": "../species/human/irradiance_band_composite.png",
+        "species_activation_overlay_png": "../species/human/activation_overlay.png"
       }
     }
   }

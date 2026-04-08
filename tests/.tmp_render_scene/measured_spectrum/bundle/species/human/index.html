@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>human retinal-front-end report</title>
+  <style>
+body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }
+h1, h2, h3 { border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+.panel { background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
+.note { background: #eef6ff; border-color: #c7dbf4; }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+.species-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.species-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; }
+.cta { display: inline-block; padding: 8px 12px; border-radius: 999px; background: #173b67; color: #fff; text-decoration: none; font-weight: 600; }
+.secondary-links { font-size: 0.92em; color: #555; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 14px; }
+.gallery-item { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; }
+.output-item-title { font-weight: 600; margin-bottom: 8px; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }
+th { background: #f4f4f4; }
+img { max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }
+code { background: #f6f6f6; padding: 0 4px; border-radius: 3px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
+a { color: #173b67; }
+</style>
+</head>
+<body>
+<p><a href="../../index.html">Back to overview</a></p>
+<h1>human retinal-front-end report</h1>
+<div class="panel note"><strong>Scope note:</strong> This page traces the modeled retinal front end from scene assumptions to retinally delivered irradiance, receptor sampling, and retinal-information renderings. It is not a direct perceptual, retinal-circuit, or cortical report.</div>
+
+<h2>Scene and patch</h2>
+<div class="panel split">
+  <div>
+    <p><strong>Scene input mode:</strong> <code>measured_spectrum</code></p>
+    <p><strong>Spectrum source:</strong> measured spectrum</p>
+    <p><strong>Patch geometry:</strong> full scene 14.25 x 14.25 deg, simulated patch 2.00 x 2.00 deg.</p>
+    <ul><li>Caller provided a measured spectral image directly.</li><li>No RGB-to-spectrum inference is applied in this mode.</li></ul>
+  </div>
+  <div><img src="../../input_patch.png" alt="Input patch"></div>
+</div>
+
+<h2>Retinal irradiance</h2>
+<div class="panel">
+  <p>irradiance traceability</p>
+  <div class="split">
+    <div>
+      <p class="output-item-title">Retinal irradiance band composite</p>
+      <img src="irradiance_band_composite.png" alt="Retinal irradiance band composite">
+    </div>
+    <div>
+      <p class="output-item-title">Optical stage summary</p>
+      <pre>{
+  &quot;pupil_throughput_scale&quot;: 1.0
+}</pre>
+    </div>
+  </div>
+  <div class="gallery"><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (420 nm)</p><img src="irradiance_slice_420nm.png" alt="Retinal irradiance slice (420 nm)"><p>Target 420 nm, sampled 420 nm</p></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (530 nm)</p><img src="irradiance_slice_530nm.png" alt="Retinal irradiance slice (530 nm)"><p>Target 530 nm, sampled 530 nm</p></div><div class="gallery-item"><p class="output-item-title">Retinal irradiance slice (650 nm)</p><img src="irradiance_slice_650nm.png" alt="Retinal irradiance slice (650 nm)"><p>Target 650 nm, sampled 650 nm</p></div></div>
+</div>
+
+<h2>Sampling and activation</h2>
+<div class="panel">
+  <p>activation traceability</p>
+  <div class="split">
+    <div>
+      <p class="output-item-title">Stimulated receptor footprint overlay</p>
+      <img src="activation_overlay.png" alt="Stimulated receptor footprint overlay">
+    </div>
+    <div>
+      <p class="output-item-title">Sampling footprint summary</p>
+      <pre>{
+  &quot;stimulated_receptor_count&quot;: 4
+}</pre>
+    </div>
+  </div>
+  <div class="split">
+    <div>
+      <p class="output-item-title">Overall activation summary</p>
+      <pre>{
+  &quot;n_receptors&quot;: 4
+}</pre>
+    </div>
+    <div>
+      <p class="output-item-title">Retinal physiology scope</p>
+      <pre>{
+  &quot;model_scope&quot;: &quot;retinal_front_end_only&quot;
+}</pre>
+    </div>
+  </div>
+</div>
+
+<h2>Retinal-information outputs</h2>
+<div class="panel">
+  <p>These are not direct perceptual or cortical reconstructions.</p>
+  <div class="gallery"><div class="gallery-item"><p class="output-item-title">Comparative rendering: receptor-coded activation map</p><img src="activation_map.png" alt="Comparative rendering: receptor-coded activation map"><p>Unit-test activation map.</p></div><div class="gallery-item"><p class="output-item-title">Retinal-information rendering</p><img src="retinal_information_rendering.png" alt="Retinal-information rendering"><p>Unit-test retinal-information rendering.</p></div></div>
+</div>
+
+<div class="panel">
+  <p><a href="../../diagnostics/human/summary.json">Diagnostics summary JSON</a></p>
+  <p><a href="../../diagnostics/manifest.json">Diagnostics manifest</a></p>
+</div>
+</body>
+</html>

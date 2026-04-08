@@ -1,12 +1,12 @@
 # Retinal Sim - Status Snapshot
 
-_Last updated: 2026-04-07 (explorer workflow and milestone visibility)_
+_Last updated: 2026-04-07 (run bundle transparency refresh)_
 
 ## Current State
 
 - Phases 1-13 are complete.
 - Current work is code review, architecture audit follow-through, reporting transparency, and documentation discipline.
-- Latest notable shipped change: the 2026-04-07 perceptual rendering correction in `retinal_sim/output/perceptual.py` plus simulated-patch cropping in `scripts/render_scene.py`.
+- Latest notable shipped change: the 2026-04-07 run-bundle transparency refresh in `scripts/render_scene.py` and `retinal_sim/output/run_bundle.py`, which keeps the comparison strip as an overview while adding `input_patch.png`, separate human/dog/cat stage-story pages, and richer traceability paths in the bundle JSON/manifest.
 
 ## Implementation Phases
 

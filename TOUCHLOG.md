@@ -31,3 +31,9 @@ Scope: Added non-fake render-density controls for activation-derived outputs, ke
 Changed/Reviewed: TOUCHLOG.md, retinal_sim/output/diagnostics.py, retinal_sim/pipeline.py, scripts/render_scene.py, tests/test_output.py, tests/test_pipeline.py, tests/test_render_scene.py, tests/.tmp_render_scene/...
 Outcome: Added `artifact_render_longest_edge_px` to the pipeline, added `--render-longest-edge` to the render CLI, re-rendered activation/perceptual outputs on denser grids without upscaling irradiance images, and regenerated the tracked render-scene fixture bundle outputs to match the new deterministic summaries.
 Handoff: The new control only increases render density for activation-derived outputs; if you want more true optical detail in the same patch, the next lever is higher native input patch raster or scene sampling, not a bigger render grid.
+
+2026-04-07 18:57 MDT | Codex | run bundle transparency refresh
+Scope: Promoted `--run-dir` into a richer end-user bundle with standalone species reports, explicit stage-story assets, and explicit JSON-safe diagnostic schema guards.
+Changed/Reviewed: PROGRESS.md, TOUCHLOG.md, retinal_sim/output/__init__.py, retinal_sim/output/diagnostics.py, retinal_sim/output/run_bundle.py, scripts/render_scene.py, tests/test_output.py, tests/test_render_scene.py
+Outcome: Extracted bundle writing into `retinal_sim/output/run_bundle.py`, added `input_patch.png` plus per-species HTML/JSON/image outputs, expanded summary/manifest path metadata, stabilized diagnostic ids/labels, and verified the new contract with focused output/render plus pipeline/report tests.
+Handoff: The bundle now supports overview-first plus species-first exploration; the next useful step would be polishing the HTML storytelling further or feeding the same per-species assets into the status/report surfaces if you want the transparency UX unified across artifacts.

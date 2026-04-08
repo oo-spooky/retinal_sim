@@ -1,6 +1,7 @@
 """Structured diagnostic builders for Phase R6 traceable output families."""
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -9,6 +10,28 @@ from retinal_sim.output.reconstruction import render_reconstructed
 from retinal_sim.output.voronoi import _TYPE_BASE_COLOR, _FALLBACK_COLOR, render_voronoi
 
 _SELECTED_WAVELENGTHS_NM = (420.0, 530.0, 650.0)
+
+
+def json_safe_artifact_value(value: Any) -> Any:
+    """Recursively convert artifact payloads into JSON-safe values."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    if isinstance(value, dict):
+        return {str(key): json_safe_artifact_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe_artifact_value(item) for item in value]
+    return value
+
+
+def assert_json_safe_roundtrip(payload: Any) -> Any:
+    """Return a JSON-roundtripped copy of an artifact payload.
+
+    This makes the ndarray/list conversion contract explicit at the point where
+    diagnostic-family payloads are persisted or tested.
+    """
+    return json.loads(json.dumps(json_safe_artifact_value(payload)))
 
 
 def build_retinal_irradiance_diagnostics(
@@ -30,9 +53,10 @@ def build_retinal_irradiance_diagnostics(
         band = data[:, :, idx]
         selected_slices.append(
             {
-                "id": f"slice_{int(round(float(wavelengths[idx])))}nm",
-                "label": f"Retinal irradiance slice ({int(round(float(wavelengths[idx])))} nm)",
-                "wavelength_nm": float(wavelengths[idx]),
+                "id": f"irradiance_slice_{int(target_nm)}nm",
+                "label": f"Retinal irradiance slice ({int(target_nm)} nm)",
+                "target_wavelength_nm": float(target_nm),
+                "sampled_wavelength_nm": float(wavelengths[idx]),
                 "mean": float(np.mean(band)),
                 "min": float(np.min(band)),
                 "max": float(np.max(band)),
@@ -93,6 +117,7 @@ def build_retinal_irradiance_diagnostics(
 
     return {
         "family_label": "retinal irradiance diagnostics",
+        "family_version": "r6_run_bundle_v1",
         "traceability_note": (
             "This family records where scene-spectrum assumptions and anterior-eye "
             "optical effects altered the retinally delivered light before receptor sampling."
@@ -112,6 +137,7 @@ def build_retinal_irradiance_diagnostics(
         },
         "selected_wavelength_slices": selected_slices,
         "band_composite": {
+            "id": "irradiance_band_composite",
             "label": "Retinal irradiance RGB-style band composite",
             "channels_nm": {"red": 650.0, "green": 530.0, "blue": 420.0},
             "image_kind": "rgb",
@@ -178,6 +204,7 @@ def build_photoreceptor_activation_diagnostics(
 
     return {
         "family_label": "photoreceptor activation diagnostics",
+        "family_version": "r6_run_bundle_v1",
         "traceability_note": (
             "This family records where receptor sampling density, receptor classes, "
             "and front-end transduction changed the retained retinal information."
@@ -192,6 +219,7 @@ def build_photoreceptor_activation_diagnostics(
         "response_summary_by_type": per_type,
         "sampling_footprint_summary": footprint,
         "mosaic_footprint_overlay": {
+            "id": "stimulated_receptor_footprint_overlay",
             "label": "Stimulated receptor footprint overlay",
             "image_kind": "rgb",
             "image_data": _build_mosaic_overlay(
@@ -217,6 +245,7 @@ def build_comparative_renderings(
     reconstructed = render_reconstructed(activation, grid_shape=output_size)
     return {
         "family_label": "comparative renderings",
+        "family_version": "r6_run_bundle_v1",
         "scope_note": (
             "These human-readable outputs are retinal-information renderings of the "
             "modeled retinal front end. They are not direct perceptual, retinal-circuit, "

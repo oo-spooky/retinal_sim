@@ -38,6 +38,29 @@ def _fake_result(input_mode: str) -> SimpleNamespace:
                 "irradiance_native_px": [4, 4],
                 "delivered_spectrum_summary": {"delivered_total_energy": 1.0},
                 "optical_stage_summary": {"pupil_throughput_scale": 1.0},
+                "selected_wavelength_slices": [
+                    {
+                        "id": "irradiance_slice_420nm",
+                        "label": "Retinal irradiance slice (420 nm)",
+                        "target_wavelength_nm": 420.0,
+                        "sampled_wavelength_nm": 420.0,
+                        "image_data": np.ones((4, 4), dtype=np.float32) * 0.2,
+                    },
+                    {
+                        "id": "irradiance_slice_530nm",
+                        "label": "Retinal irradiance slice (530 nm)",
+                        "target_wavelength_nm": 530.0,
+                        "sampled_wavelength_nm": 530.0,
+                        "image_data": np.ones((4, 4), dtype=np.float32) * 0.3,
+                    },
+                    {
+                        "id": "irradiance_slice_650nm",
+                        "label": "Retinal irradiance slice (650 nm)",
+                        "target_wavelength_nm": 650.0,
+                        "sampled_wavelength_nm": 650.0,
+                        "image_data": np.ones((4, 4), dtype=np.float32) * 0.4,
+                    },
+                ],
                 "band_composite": {
                     "image_data": np.ones((4, 4, 3), dtype=np.float32) * 0.25,
                 },
@@ -50,6 +73,24 @@ def _fake_result(input_mode: str) -> SimpleNamespace:
                 "mosaic_footprint_overlay": {
                     "image_data": np.ones((4, 4, 3), dtype=np.float32) * 0.5,
                 },
+            },
+            "comparative_renderings": {
+                "scope_note": "These are not direct perceptual or cortical reconstructions.",
+                "activation_render_px": [4, 4],
+                "items": [
+                    {
+                        "id": "comparative_activation_map",
+                        "label": "Comparative rendering: receptor-coded activation map",
+                        "description": "Unit-test activation map.",
+                        "image_data": np.ones((4, 4, 3), dtype=np.float32) * 0.6,
+                    },
+                    {
+                        "id": "retinal_information_rendering",
+                        "label": "Retinal-information rendering",
+                        "description": "Unit-test retinal-information rendering.",
+                        "image_data": np.ones((4, 4), dtype=np.float32) * 0.7,
+                    },
+                ],
             },
             "input_shape": (4, 4),
             "artifact_render_shape": (4, 4),
@@ -232,9 +273,19 @@ def test_main_run_dir_writes_standard_bundle_and_compatibility_outputs(monkeypat
 
     assert rc == 0
     assert (run_dir / "comparison.png").exists()
+    assert (run_dir / "input_patch.png").exists()
     assert (run_dir / "summary.json").exists()
     assert (run_dir / "index.html").exists()
     assert (run_dir / "diagnostics" / "manifest.json").exists()
+    assert (run_dir / "species" / "human" / "index.html").exists()
+    assert (run_dir / "species" / "human" / "summary.json").exists()
+    assert (run_dir / "species" / "human" / "irradiance_band_composite.png").exists()
+    assert (run_dir / "species" / "human" / "irradiance_slice_420nm.png").exists()
+    assert (run_dir / "species" / "human" / "irradiance_slice_530nm.png").exists()
+    assert (run_dir / "species" / "human" / "irradiance_slice_650nm.png").exists()
+    assert (run_dir / "species" / "human" / "activation_overlay.png").exists()
+    assert (run_dir / "species" / "human" / "activation_map.png").exists()
+    assert (run_dir / "species" / "human" / "retinal_information_rendering.png").exists()
     assert output_path.exists()
     assert (diagnostics_dir / "manifest.json").exists()
 
@@ -242,17 +293,69 @@ def test_main_run_dir_writes_standard_bundle_and_compatibility_outputs(monkeypat
     assert summary["scene_input_mode"] == "reflectance_under_d65"
     assert summary["species"] == ["human"]
     assert summary["paths"]["comparison_png"] == "comparison.png"
+    assert summary["paths"]["input_patch_png"] == "input_patch.png"
     assert summary["paths"]["diagnostics_manifest_json"] == "diagnostics/manifest.json"
     assert summary["native_input_patch_px"] == [1, 1]
     assert summary["activation_render_px"] == [1, 1]
     assert summary["irradiance_native_px"] == [1, 1]
     assert summary["species_summaries"]["human"]["stimulated_receptor_count"] == 4.0
     assert summary["species_summaries"]["human"]["diagnostics"]["summary_json"] == "diagnostics/human/summary.json"
+    assert summary["species_summaries"]["human"]["report_html"] == "species/human/index.html"
+    assert summary["species_summaries"]["human"]["report_assets"]["activation_map_png"] == "species/human/activation_map.png"
 
     index_html = (run_dir / "index.html").read_text(encoding="utf-8")
-    assert "retinal-front-end comparison" in index_html
+    assert "retinal-front-end comparison" in summary["scope_note"]
+    assert "Open human report" in index_html
     assert "retinal-information renderings" in index_html
-    assert "not direct conscious-perception" in index_html
+    assert "comparison strip remains an overview" in index_html
+
+    species_html = (run_dir / "species" / "human" / "index.html").read_text(encoding="utf-8")
+    assert "Scene and patch" in species_html
+    assert "Retinal irradiance" in species_html
+    assert "Sampling and activation" in species_html
+    assert "Retinal-information outputs" in species_html
+
+
+def test_main_run_dir_writes_default_three_species_reports(monkeypatch):
+    class FakeSimulator:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def compare_species(
+            self,
+            input_image,
+            species_list,
+            scene_width_m,
+            viewing_distance_m,
+            input_mode,
+            artifact_render_longest_edge_px=None,
+        ):
+            return {species: _fake_result(input_mode) for species in species_list}
+
+    tmp_path = _workspace_tmp("default_species")
+    input_path = tmp_path / "input.png"
+    input_path.write_bytes(b"placeholder")
+    run_dir = tmp_path / "bundle"
+
+    monkeypatch.setattr(render_scene, "_load_input", lambda path, mode: np.zeros((8, 8, 3), dtype=np.float32))
+    monkeypatch.setattr(render_scene, "RetinalSimulator", FakeSimulator)
+    monkeypatch.setattr(
+        render_scene,
+        "render_perceptual_image",
+        lambda result, grid_shape: np.zeros((*grid_shape, 3), dtype=np.float32),
+    )
+
+    rc = render_scene.main(
+        [
+            str(input_path),
+            "--run-dir",
+            str(run_dir),
+        ]
+    )
+
+    assert rc == 0
+    for species in ("human", "dog", "cat"):
+        assert (run_dir / "species" / species / "index.html").exists()
 
 
 def test_main_run_dir_supports_measured_spectrum(monkeypatch):
@@ -307,6 +410,7 @@ def test_main_run_dir_supports_measured_spectrum(monkeypatch):
     assert summary["scene_input_mode"] == "measured_spectrum"
     assert summary["scene_input_is_inferred"] is False
     assert (run_dir / "comparison.png").exists()
+    assert (run_dir / "species" / "human" / "index.html").exists()
 
 
 def test_main_render_longest_edge_changes_output_size_and_summary(monkeypatch):
@@ -373,6 +477,11 @@ def test_main_render_longest_edge_changes_output_size_and_summary(monkeypatch):
     assert summary["activation_render_px"] == [32, 64]
     assert summary["irradiance_native_px"] == [1, 2]
     assert summary["patch_geometry"]["patch_deg"] == 2.0
+    assert summary["species_summaries"]["human"]["report_assets"]["retinal_information_rendering_png"] == "species/human/retinal_information_rendering.png"
+
+    manifest = json.loads((run_dir / "diagnostics" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["species"]["human"]["species_report_html"] == "../species/human/index.html"
+    assert manifest["species"]["human"]["irradiance_slice_pngs"]["irradiance_slice_420nm"] == "../species/human/irradiance_slice_420nm.png"
 
 
 def test_render_shape_from_longest_edge_preserves_aspect_ratio():
