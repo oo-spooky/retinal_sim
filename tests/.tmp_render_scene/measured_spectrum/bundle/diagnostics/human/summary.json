@@ -1,0 +1,28 @@
+{
+  "species": "human",
+  "scene_input_mode": "measured_spectrum",
+  "scene_input_assumptions": [
+    "unit-test assumption"
+  ],
+  "retinal_irradiance_summary": {
+    "traceability_note": "irradiance traceability",
+    "delivered_spectrum_summary": {
+      "delivered_total_energy": 1.0
+    },
+    "optical_stage_summary": {
+      "pupil_throughput_scale": 1.0
+    }
+  },
+  "photoreceptor_activation_summary": {
+    "traceability_note": "activation traceability",
+    "overall_summary": {
+      "n_receptors": 4
+    },
+    "sampling_footprint_summary": {
+      "stimulated_receptor_count": 4
+    },
+    "retinal_physiology_summary": {
+      "model_scope": "retinal_front_end_only"
+    }
+  }
+}

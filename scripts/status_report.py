@@ -30,7 +30,7 @@ if str(ROOT) not in sys.path:
 DOC_PHASE_PATTERNS = {
     "AGENTS.md": r"Phases?\s+1[\u2013\-]13\s+are\s+COMPLETE",
     "CLAUDE.md": r"Phase 13|Full validation report generator",
-    "PROGRESS.md": r"Phase 13\s+.+\*\*COMPLETE\*\*",
+    "PROGRESS.md": r"Phases?\s+1[\u2013\-]13\s+are\s+complete|^\|\s*13\s*\|.+\*\*COMPLETE\*\*",
 }
 
 
@@ -70,12 +70,12 @@ def parse_pytest_summary(summary: str) -> Dict[str, float]:
     return counts
 
 
-def parse_phase_table(text: str) -> List[List[str]]:
+def _parse_markdown_table(text: str, header_prefix: str) -> List[List[str]]:
     rows: List[List[str]] = []
     in_table = False
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("| Phase |"):
+        if stripped.startswith(header_prefix):
             in_table = True
             continue
         if not in_table:
@@ -84,12 +84,20 @@ def parse_phase_table(text: str) -> List[List[str]]:
             continue
         if stripped.startswith("|"):
             cells = [cell.strip() for cell in stripped.split("|")[1:-1]]
-            if cells and re.match(r"^\d+$", cells[0]):
-                cells = [re.sub(r"\*\*(.+?)\*\*", r"\1", cell) for cell in cells]
-                rows.append(cells)
+            if cells:
+                rows.append([re.sub(r"\*\*(.+?)\*\*", r"\1", cell) for cell in cells])
         else:
             in_table = False
     return rows
+
+
+def parse_phase_table(text: str) -> List[List[str]]:
+    rows = _parse_markdown_table(text, "| Phase |")
+    return [row for row in rows if row and re.match(r"^\d+$", row[0])]
+
+
+def parse_milestone_table(text: str) -> List[List[str]]:
+    return _parse_markdown_table(text, "| Milestone |")
 
 
 def parse_open_items(text: str) -> str:
@@ -106,6 +114,8 @@ def detect_documentation_drift(docs: Dict[str, str]) -> List[str]:
         text = docs.get(name, "")
         if not re.search(pattern, text, re.IGNORECASE):
             warnings.append(f"{name} does not clearly advertise the current Phase 13-complete state.")
+    if "## Remediation Milestones" not in docs.get("PROGRESS.md", ""):
+        warnings.append("PROGRESS.md does not include a remediation milestone snapshot.")
     if "Open code review items should be addressed before starting new phase work." in docs.get("AGENTS.md", ""):
         warnings.append("AGENTS.md still frames phase progression language even though the repo is now in audit/reporting mode.")
     return warnings
@@ -163,6 +173,7 @@ def make_nomogram_figure():
 def build_html(
     *,
     phase_rows: List[List[str]],
+    milestone_rows: List[List[str]],
     pytest_summary: str,
     pytest_counts: Dict[str, float],
     pytest_failures: str,
@@ -180,6 +191,12 @@ def build_html(
     phase_table_rows = "".join(
         "<tr>" + "".join(f"<td>{_escape(cell)}</td>" for cell in row) + "</tr>"
         for row in phase_rows
+    )
+    milestone_table_rows = "".join(
+        "<tr>" + "".join(f"<td>{_escape(cell)}</td>" for cell in row) + "</tr>"
+        for row in milestone_rows
+    ) or (
+        "<tr><td colspan=\"3\"><em>No remediation milestones recorded in PROGRESS.md.</em></td></tr>"
     )
 
     figure_html = "".join(
@@ -245,6 +262,15 @@ pre { background: #f6f6f6; border: 1px solid #ddd; padding: 12px 14px; border-ra
 <h3>Failure Excerpts</h3>
 {failures_html}
 
+<h2>Remediation Milestones</h2>
+<div class="panel">
+  This table is sourced from <code>PROGRESS.md</code>. It tracks roadmap closure and claim-calibrated project status, not just phase completion.
+</div>
+<table>
+  <thead><tr><th>Milestone</th><th>Status</th><th>Current evidence</th></tr></thead>
+  <tbody>{milestone_table_rows}</tbody>
+</table>
+
 <h2>Implementation Phase Status</h2>
 <div class="panel">
   This table is sourced from <code>PROGRESS.md</code>. It tracks implementation completion, not validation depth or audit completeness.
@@ -294,6 +320,7 @@ def main() -> None:
     }
 
     phase_rows = parse_phase_table(progress_text)
+    milestone_rows = parse_milestone_table(progress_text)
     open_items = parse_open_items(codereview_text)
     doc_warnings = detect_documentation_drift(docs)
 
@@ -309,6 +336,7 @@ def main() -> None:
 
     html = build_html(
         phase_rows=phase_rows,
+        milestone_rows=milestone_rows,
         pytest_summary=summary,
         pytest_counts=parse_pytest_summary(summary),
         pytest_failures=failures,

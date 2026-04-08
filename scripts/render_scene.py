@@ -206,6 +206,7 @@ def _save_panel(panel: np.ndarray, path: Path) -> None:
     from PIL import Image
 
     arr = np.clip(panel * 255.0, 0, 255).astype(np.uint8)
+    path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(arr).save(path)
 
 
@@ -258,7 +259,7 @@ def _save_diagnostics_bundle(
     *,
     results: dict,
     run_metadata: dict,
-) -> None:
+) -> dict:
     """Persist a lightweight irradiance/activation traceability bundle."""
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -303,21 +304,252 @@ def _save_diagnostics_bundle(
             _save_image(np.asarray(band_composite, dtype=np.float32), band_composite_path)
 
         manifest["species"][species_name] = {
-            "summary_json": str(summary_path.relative_to(diagnostics_dir)),
+            "summary_json": summary_path.relative_to(diagnostics_dir).as_posix(),
             "activation_overlay_png": (
-                str(overlay_path.relative_to(diagnostics_dir))
+                overlay_path.relative_to(diagnostics_dir).as_posix()
                 if overlay_image is not None else None
             ),
             "irradiance_band_composite_png": (
-                str(band_composite_path.relative_to(diagnostics_dir))
+                band_composite_path.relative_to(diagnostics_dir).as_posix()
                 if band_composite is not None else None
             ),
         }
 
     _save_json(manifest, diagnostics_dir / "manifest.json")
+    return manifest
+
+
+def _prefix_relative_path(prefix: str, value: str | None) -> str | None:
+    if value is None:
+        return None
+    return (Path(prefix) / value).as_posix()
+
+
+def _species_run_summary(
+    species_name: str,
+    result,
+    diagnostics_entry: dict | None = None,
+) -> dict:
+    summary_metrics = dict(getattr(result, "summary_metrics", {}) or {})
+    activation_summary = (
+        result.artifacts
+        .get("photoreceptor_activation_diagnostics", {})
+        .get("overall_summary", {})
+    )
+    sampling_summary = (
+        result.artifacts
+        .get("photoreceptor_activation_diagnostics", {})
+        .get("sampling_footprint_summary", {})
+    )
+    physiology_summary = (
+        result.artifacts
+        .get("photoreceptor_activation_diagnostics", {})
+        .get("retinal_physiology_summary", {})
+    )
+
+    payload = {
+        "species": species_name,
+        "stimulated_receptor_count": summary_metrics.get(
+            "stimulated_receptor_count",
+            sampling_summary.get("stimulated_receptor_count"),
+        ),
+        "stimulated_receptor_fraction": summary_metrics.get(
+            "stimulated_receptor_fraction",
+            sampling_summary.get("stimulated_receptor_fraction"),
+        ),
+        "mean_response": summary_metrics.get(
+            "mean_response",
+            activation_summary.get("mean_response"),
+        ),
+        "left_right_cone_discriminability": summary_metrics.get(
+            "left_right_cone_discriminability"
+        ),
+        "center_contrast": summary_metrics.get("center_contrast"),
+        "periphery_contrast": summary_metrics.get("periphery_contrast"),
+        "retinal_model_scope": physiology_summary.get("model_scope"),
+    }
+
+    if diagnostics_entry:
+        payload["diagnostics"] = diagnostics_entry
+
+    return payload
+
+
+def _build_run_summary(
+    *,
+    input_path: Path,
+    species_list: list[str],
+    scene_meta: dict,
+    crop_info: dict,
+    comparison_image: str,
+    diagnostics_manifest: str,
+    diagnostics_manifest_payload: dict,
+    results: dict,
+    extra_output_path: str | None = None,
+    extra_diagnostics_dir: str | None = None,
+) -> dict:
+    species_summaries = {}
+    diagnostics_species = diagnostics_manifest_payload.get("species", {})
+    for species_name in species_list:
+        diagnostics_entry = diagnostics_species.get(species_name, {})
+        diagnostics_entry = {
+            "summary_json": _prefix_relative_path("diagnostics", diagnostics_entry.get("summary_json")),
+            "activation_overlay_png": _prefix_relative_path(
+                "diagnostics", diagnostics_entry.get("activation_overlay_png")
+            ),
+            "irradiance_band_composite_png": _prefix_relative_path(
+                "diagnostics", diagnostics_entry.get("irradiance_band_composite_png")
+            ),
+        }
+        species_summaries[species_name] = _species_run_summary(
+            species_name,
+            results[species_name],
+            diagnostics_entry=diagnostics_entry,
+        )
+
+    summary = {
+        "bundle_label": "explorer_run_bundle",
+        "input_path": str(input_path),
+        "species": list(species_list),
+        "scene_input_mode": scene_meta["scene_input_mode"],
+        "scene_input_is_inferred": scene_meta["scene_input_is_inferred"],
+        "scene_input_assumptions": scene_meta["scene_input_assumptions"],
+        "patch_geometry": crop_info,
+        "scope_note": (
+            "This bundle summarizes a retinal-front-end comparison. The outputs expose "
+            "traceable retinal irradiance diagnostics, photoreceptor activation "
+            "diagnostics, and retinal-information renderings. They are not direct "
+            "conscious-perception, retinal-circuit, or cortical reconstructions."
+        ),
+        "paths": {
+            "comparison_png": comparison_image,
+            "summary_json": "summary.json",
+            "index_html": "index.html",
+            "diagnostics_manifest_json": diagnostics_manifest,
+            "extra_output_path": extra_output_path,
+            "extra_diagnostics_dir": extra_diagnostics_dir,
+        },
+        "species_summaries": species_summaries,
+    }
+    return summary
+
+
+def _format_metric_html(value: object) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if isinstance(value, (float, np.floating)):
+        return f"{float(value):.4f}"
+    return str(value)
+
+
+def _render_index_html(summary: dict) -> str:
+    assumptions = "".join(
+        f"<li>{assumption}</li>" for assumption in summary.get("scene_input_assumptions", [])
+    )
+    if not assumptions:
+        assumptions = "<li>No additional assumptions recorded.</li>"
+
+    crop = summary["patch_geometry"]
+    species_rows = ""
+    for species_name, payload in summary["species_summaries"].items():
+        diagnostics = payload.get("diagnostics", {})
+        summary_link = diagnostics.get("summary_json")
+        overlay_link = diagnostics.get("activation_overlay_png")
+        irradiance_link = diagnostics.get("irradiance_band_composite_png")
+        link_parts = []
+        if summary_link:
+            link_parts.append(f'<a href="{summary_link}">summary</a>')
+        if overlay_link:
+            link_parts.append(f'<a href="{overlay_link}">overlay</a>')
+        if irradiance_link:
+            link_parts.append(f'<a href="{irradiance_link}">irradiance</a>')
+        links_html = " | ".join(link_parts) if link_parts else "n/a"
+        species_rows += (
+            "<tr>"
+            f"<td>{species_name}</td>"
+            f"<td>{_format_metric_html(payload.get('stimulated_receptor_count'))}</td>"
+            f"<td>{_format_metric_html(payload.get('stimulated_receptor_fraction'))}</td>"
+            f"<td>{_format_metric_html(payload.get('mean_response'))}</td>"
+            f"<td>{_format_metric_html(payload.get('left_right_cone_discriminability'))}</td>"
+            f"<td>{_format_metric_html(payload.get('center_contrast'))}</td>"
+            f"<td>{_format_metric_html(payload.get('periphery_contrast'))}</td>"
+            f"<td>{links_html}</td>"
+            "</tr>"
+        )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>retinal_sim explorer run</title>
+  <style>
+body {{ font-family: system-ui, -apple-system, sans-serif; max-width: 1020px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }}
+h1, h2 {{ border-bottom: 1px solid #ddd; padding-bottom: 6px; }}
+.panel {{ background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin: 12px 0; }}
+.note {{ background: #eef6ff; border-color: #c7dbf4; }}
+table {{ border-collapse: collapse; width: 100%; margin-top: 12px; }}
+th, td {{ border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }}
+th {{ background: #f4f4f4; }}
+img {{ max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }}
+code {{ background: #f6f6f6; padding: 0 4px; border-radius: 3px; }}
+ul {{ margin-top: 8px; }}
+  </style>
+</head>
+<body>
+<h1>retinal_sim explorer run</h1>
+
+<div class="panel note">
+  <strong>Scope note:</strong> {summary["scope_note"]}
+</div>
+
+<h2>At a glance</h2>
+<div class="panel">
+  <p><strong>Scene input mode:</strong> <code>{summary["scene_input_mode"]}</code></p>
+  <p><strong>Species:</strong> {", ".join(summary["species"])}</p>
+  <p><strong>Patch geometry:</strong> full scene {crop["full_angular_width_deg"]:.2f} x {crop["full_angular_height_deg"]:.2f} deg, simulated patch {crop["cropped_angular_width_deg"]:.2f} x {crop["cropped_angular_height_deg"]:.2f} deg.</p>
+  <p><strong>Cropping applied:</strong> {"yes" if crop["cropped"] else "no"}</p>
+</div>
+
+<h2>Scene assumptions</h2>
+<div class="panel">
+  <ul>{assumptions}</ul>
+</div>
+
+<h2>Comparison panel</h2>
+<div class="panel">
+  <p><img src="{summary["paths"]["comparison_png"]}" alt="Retinal comparison panel"></p>
+</div>
+
+<h2>Species summaries</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Species</th>
+      <th>Stimulated receptors</th>
+      <th>Stimulated fraction</th>
+      <th>Mean response</th>
+      <th>Left/right discriminability</th>
+      <th>Center contrast</th>
+      <th>Periphery contrast</th>
+      <th>Diagnostics</th>
+    </tr>
+  </thead>
+  <tbody>{species_rows}</tbody>
+</table>
+
+<h2>Traceability bundle</h2>
+<div class="panel">
+  <p><a href="{summary["paths"]["diagnostics_manifest_json"]}">Diagnostics manifest</a></p>
+  <p>The diagnostics directory exposes retinal irradiance diagnostics, photoreceptor activation diagnostics, and claim-calibrated retinal-information renderings for each species.</p>
+</div>
+</body>
+</html>"""
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv_list = list(argv) if argv is not None else sys.argv[1:]
     parser = argparse.ArgumentParser(
         description="Render an image as human/dog/cat retinas would receive it.",
     )
@@ -367,8 +599,22 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional directory for per-species irradiance/activation artifacts.",
     )
-    parser.add_argument("--output", type=Path, default=Path("reports/render_scene.png"))
-    args = parser.parse_args(argv)
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional explorer bundle directory. When set, writes comparison.png, "
+            "summary.json, index.html, and diagnostics/ as a standardized run bundle."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional comparison image path. Defaults to reports/render_scene.png unless --run-dir is used.",
+    )
+    args = parser.parse_args(argv_list)
 
     if not args.image.exists():
         print(f"Input image not found: {args.image}", file=sys.stderr)
@@ -437,26 +683,74 @@ def main(argv: list[str] | None = None) -> int:
 
     panel = np.concatenate(panels, axis=1)
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    _save_panel(panel, args.output)
-    print(f"Saved comparison to {args.output}")
+    standard_output = Path("reports/render_scene.png")
+    primary_output = args.output if args.output is not None else (
+        None if args.run_dir is not None else standard_output
+    )
 
+    if primary_output is not None:
+        _save_panel(panel, primary_output)
+        print(f"Saved comparison to {primary_output}")
+
+    run_metadata = {
+        "input_path": str(args.image),
+        "species": list(args.species),
+        "scene_input_mode": scene_meta["scene_input_mode"],
+        "scene_input_is_inferred": scene_meta["scene_input_is_inferred"],
+        "scene_input_assumptions": scene_meta["scene_input_assumptions"],
+        "patch_geometry": crop_info,
+    }
+
+    diagnostics_manifest = None
     if args.diagnostics_dir is not None:
-        run_metadata = {
-            "input_path": str(args.image),
-            "output_path": str(args.output),
-            "species": list(args.species),
-            "scene_input_mode": scene_meta["scene_input_mode"],
-            "scene_input_is_inferred": scene_meta["scene_input_is_inferred"],
-            "scene_input_assumptions": scene_meta["scene_input_assumptions"],
-            "patch_geometry": crop_info,
-        }
-        _save_diagnostics_bundle(
+        diagnostics_manifest = _save_diagnostics_bundle(
             args.diagnostics_dir,
             results=results,
-            run_metadata=run_metadata,
+            run_metadata={
+                **run_metadata,
+                "output_path": str(primary_output) if primary_output is not None else None,
+            },
         )
         print(f"Saved diagnostics to {args.diagnostics_dir}")
+
+    if args.run_dir is not None:
+        bundle_dir = args.run_dir
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+
+        bundle_output = bundle_dir / "comparison.png"
+        _save_panel(panel, bundle_output)
+        print(f"Saved run bundle comparison to {bundle_output}")
+
+        bundle_diagnostics_dir = bundle_dir / "diagnostics"
+        bundle_manifest = _save_diagnostics_bundle(
+            bundle_diagnostics_dir,
+            results=results,
+            run_metadata={
+                **run_metadata,
+                "output_path": str(bundle_output),
+            },
+        )
+        if diagnostics_manifest is None:
+            diagnostics_manifest = bundle_manifest
+
+        summary_payload = _build_run_summary(
+            input_path=args.image,
+            species_list=list(args.species),
+            scene_meta=scene_meta,
+            crop_info=crop_info,
+            comparison_image="comparison.png",
+            diagnostics_manifest="diagnostics/manifest.json",
+            diagnostics_manifest_payload=bundle_manifest,
+            results=results,
+            extra_output_path=str(primary_output) if primary_output is not None else None,
+            extra_diagnostics_dir=str(args.diagnostics_dir) if args.diagnostics_dir is not None else None,
+        )
+        _save_json(summary_payload, bundle_dir / "summary.json")
+        (bundle_dir / "index.html").write_text(
+            _render_index_html(summary_payload),
+            encoding="utf-8",
+        )
+        print(f"Saved run bundle to {bundle_dir}")
 
     return 0
 

@@ -19,3 +19,9 @@ Scope: Implemented the shared LLM coordination scaffold, archived legacy markdow
 Changed/Reviewed: AGENTS.md, CLAUDE.md, TOUCHLOG.md, CODEREVIEW.md, PROGRESS.md, SCRATCHPAD.md, docs/llm_coordination.md, docs/archive/PROGRESS_legacy_2026-04.md, docs/archive/SCRATCHPAD_legacy_2026-04.md, docs/archive/CODEREVIEW_RESOLVED_2026-04.md
 Outcome: Added a shared coordination doc, seeded the touchlog, archived resolved and history-heavy docs, and rewrote the active root docs around the new contract.
 Handoff: Future sessions should read `docs/llm_coordination.md`, check this log first, keep `CODEREVIEW.md` open-items-only, and avoid new root markdown unless it has a durable repo-wide role.
+
+2026-04-07 17:47 MDT | Codex | explorer workflow and milestone visibility
+Scope: Implemented the explorer-facing run bundle workflow, surfaced remediation milestones in repo status, and extended tests around the new UX.
+Changed/Reviewed: PROGRESS.md, TOUCHLOG.md, scripts/render_scene.py, scripts/status_report.py, tests/test_render_scene.py, tests/test_status_report.py
+Outcome: Added `M1`-`M3` milestone tracking to `PROGRESS.md`, taught the status report to render milestone status, added `--run-dir` bundle generation with `comparison.png` / `summary.json` / `index.html` / `diagnostics/`, and verified the new behavior with focused tests.
+Handoff: The new beginner workflow is centered on `python scripts/render_scene.py ... --run-dir <dir>`; next useful work would be polishing the bundle HTML or extending the status page if you want milestone caveats and review items cross-linked more tightly.

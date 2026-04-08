@@ -17,6 +17,19 @@ def test_parse_phase_table_extracts_rows():
     assert rows[0][2] == "COMPLETE"
 
 
+def test_parse_milestone_table_extracts_rows():
+    text = """
+| Milestone | Status | Current evidence |
+|-----------|--------|------------------|
+| M1 | implemented with caveats | optics and diagnostics present |
+| M2 | in progress | claim-safe closure still pending |
+"""
+    rows = status_report.parse_milestone_table(text)
+    assert len(rows) == 2
+    assert rows[0][0] == "M1"
+    assert rows[0][1] == "implemented with caveats"
+
+
 def test_parse_open_items_none():
     text = "## Open Items\n\n*(none)*\n"
     assert status_report.parse_open_items(text) == ""
@@ -36,6 +49,7 @@ def test_detect_documentation_drift_flags_stale_docs():
 def test_build_html_separates_status_types():
     html = status_report.build_html(
         phase_rows=[["13", "Validation report generator", "COMPLETE", "41/41", "ok"]],
+        milestone_rows=[["M1", "implemented with caveats", "optical milestones visible"]],
         pytest_summary="10 passed in 1.2s",
         pytest_counts={"passed": 10.0, "failed": 0.0, "skipped": 0.0, "error": 0.0, "duration": 1.2},
         pytest_failures="",
@@ -47,6 +61,7 @@ def test_build_html_separates_status_types():
         git_commit="deadbeef",
     )
     assert "Test Status" in html
+    assert "Remediation Milestones" in html
     assert "Implementation Phase Status" in html
     assert "Validation and Architecture Audit Status" in html
     assert "Exact pytest command" in html
@@ -56,6 +71,7 @@ def test_build_html_separates_status_types():
 def test_build_html_includes_open_review_findings():
     html = status_report.build_html(
         phase_rows=[["13", "Validation report generator", "COMPLETE", "51/51", "ok"]],
+        milestone_rows=[["M1", "implemented with caveats", "optical milestones visible"]],
         pytest_summary="10 passed in 1.2s",
         pytest_counts={"passed": 10.0, "failed": 0.0, "skipped": 0.0, "error": 0.0, "duration": 1.2},
         pytest_failures="",

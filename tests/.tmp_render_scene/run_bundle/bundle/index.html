@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>retinal_sim explorer run</title>
+  <style>
+body { font-family: system-ui, -apple-system, sans-serif; max-width: 1020px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.5; }
+h1, h2 { border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+.panel { background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; margin: 12px 0; }
+.note { background: #eef6ff; border-color: #c7dbf4; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 0.94em; }
+th { background: #f4f4f4; }
+img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+code { background: #f6f6f6; padding: 0 4px; border-radius: 3px; }
+ul { margin-top: 8px; }
+  </style>
+</head>
+<body>
+<h1>retinal_sim explorer run</h1>
+
+<div class="panel note">
+  <strong>Scope note:</strong> This bundle summarizes a retinal-front-end comparison. The outputs expose traceable retinal irradiance diagnostics, photoreceptor activation diagnostics, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.
+</div>
+
+<h2>At a glance</h2>
+<div class="panel">
+  <p><strong>Scene input mode:</strong> <code>reflectance_under_d65</code></p>
+  <p><strong>Species:</strong> human</p>
+  <p><strong>Patch geometry:</strong> full scene 14.25 x 14.25 deg, simulated patch 2.00 x 2.00 deg.</p>
+  <p><strong>Cropping applied:</strong> yes</p>
+</div>
+
+<h2>Scene assumptions</h2>
+<div class="panel">
+  <ul><li>RGB is interpreted as a display-referred color that is reconstructed into a Smits-inspired D65-optimized reflectance spectrum.</li><li>The recovered spectrum is inferred from RGB and is not a unique physical scene spectrum.</li><li>This mode models diffuse reflectance under D65 for comparative PoC work.</li></ul>
+</div>
+
+<h2>Comparison panel</h2>
+<div class="panel">
+  <p><img src="comparison.png" alt="Retinal comparison panel"></p>
+</div>
+
+<h2>Species summaries</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Species</th>
+      <th>Stimulated receptors</th>
+      <th>Stimulated fraction</th>
+      <th>Mean response</th>
+      <th>Left/right discriminability</th>
+      <th>Center contrast</th>
+      <th>Periphery contrast</th>
+      <th>Diagnostics</th>
+    </tr>
+  </thead>
+  <tbody><tr><td>human</td><td>4.0000</td><td>1.0000</td><td>0.2500</td><td>0.1000</td><td>0.2000</td><td>0.0500</td><td><a href="diagnostics/human/summary.json">summary</a> | <a href="diagnostics/human/activation_overlay.png">overlay</a> | <a href="diagnostics/human/irradiance_band_composite.png">irradiance</a></td></tr></tbody>
+</table>
+
+<h2>Traceability bundle</h2>
+<div class="panel">
+  <p><a href="diagnostics/manifest.json">Diagnostics manifest</a></p>
+  <p>The diagnostics directory exposes retinal irradiance diagnostics, photoreceptor activation diagnostics, and claim-calibrated retinal-information renderings for each species.</p>
+</div>
+</body>
+</html>

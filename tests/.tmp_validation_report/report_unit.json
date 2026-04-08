@@ -2,7 +2,7 @@
   "metadata": {
     "report_type": "unit"
   },
-  "summary": "PASSED: 1/1 implemented validation checks passed",
+  "summary": "PASSED: 1/1 implemented validation checks passed for their stated scopes and assumptions",
   "results": [
     {
       "test_name": "Sample Test",
@@ -18,6 +18,12 @@
       "assumptions": [],
       "method": "",
       "pass_criterion": "",
+      "validation_category": "",
+      "claim_support_level": "",
+      "external_reference_summary": "",
+      "external_reference_table": [],
+      "evidence_basis": "",
+      "claim_scope_note": "",
       "limitations": [],
       "artifacts": [],
       "has_figure": false

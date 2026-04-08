@@ -1,0 +1,40 @@
+{
+  "run_metadata": {
+    "input_path": "tests\\.tmp_render_scene\\measured_spectrum\\input.npz",
+    "species": [
+      "human"
+    ],
+    "scene_input_mode": "measured_spectrum",
+    "scene_input_is_inferred": false,
+    "scene_input_assumptions": [
+      "Caller provided a measured spectral image directly.",
+      "No RGB-to-spectrum inference is applied in this mode."
+    ],
+    "patch_geometry": {
+      "cropped": true,
+      "crop_fraction": 0.1403505551470255,
+      "full_angular_width_deg": 14.250032697803595,
+      "full_angular_height_deg": 14.250032697803595,
+      "cropped_angular_width_deg": 2.0,
+      "cropped_angular_height_deg": 2.0,
+      "full_scene_width_m": 0.5,
+      "full_scene_height_m": 0.5,
+      "cropped_scene_width_m": 0.07017527757351275,
+      "cropped_scene_height_m": 0.07017527757351275,
+      "input_width_px": 8,
+      "input_height_px": 8,
+      "cropped_width_px": 1,
+      "cropped_height_px": 1,
+      "patch_deg": 2.0,
+      "distance_m": 2.0
+    },
+    "output_path": "tests\\.tmp_render_scene\\measured_spectrum\\bundle\\comparison.png"
+  },
+  "species": {
+    "human": {
+      "summary_json": "human/summary.json",
+      "activation_overlay_png": "human/activation_overlay.png",
+      "irradiance_band_composite_png": "human/irradiance_band_composite.png"
+    }
+  }
+}
