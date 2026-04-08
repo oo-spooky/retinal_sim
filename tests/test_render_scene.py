@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+from PIL import Image
 
 from scripts import render_scene
 from retinal_sim.spectral.upsampler import SpectralImage
@@ -34,6 +35,7 @@ def _fake_result(input_mode: str) -> SimpleNamespace:
         artifacts={
             "retinal_irradiance_diagnostics": {
                 "traceability_note": "irradiance traceability",
+                "irradiance_native_px": [4, 4],
                 "delivered_spectrum_summary": {"delivered_total_energy": 1.0},
                 "optical_stage_summary": {"pupil_throughput_scale": 1.0},
                 "band_composite": {
@@ -49,6 +51,8 @@ def _fake_result(input_mode: str) -> SimpleNamespace:
                     "image_data": np.ones((4, 4, 3), dtype=np.float32) * 0.5,
                 },
             },
+            "input_shape": (4, 4),
+            "artifact_render_shape": (4, 4),
         },
     )
 
@@ -97,6 +101,7 @@ def test_main_propagates_explicit_input_mode(monkeypatch):
             scene_width_m,
             viewing_distance_m,
             input_mode,
+            artifact_render_longest_edge_px=None,
         ):
             captured["input_mode"] = input_mode
             captured["scene_width_m"] = scene_width_m
@@ -142,6 +147,7 @@ def test_main_can_write_diagnostics_bundle(monkeypatch):
             scene_width_m,
             viewing_distance_m,
             input_mode,
+            artifact_render_longest_edge_px=None,
         ):
             return {species: _fake_result(input_mode) for species in species_list}
 
@@ -191,6 +197,7 @@ def test_main_run_dir_writes_standard_bundle_and_compatibility_outputs(monkeypat
             scene_width_m,
             viewing_distance_m,
             input_mode,
+            artifact_render_longest_edge_px=None,
         ):
             return {species: _fake_result(input_mode) for species in species_list}
 
@@ -236,6 +243,9 @@ def test_main_run_dir_writes_standard_bundle_and_compatibility_outputs(monkeypat
     assert summary["species"] == ["human"]
     assert summary["paths"]["comparison_png"] == "comparison.png"
     assert summary["paths"]["diagnostics_manifest_json"] == "diagnostics/manifest.json"
+    assert summary["native_input_patch_px"] == [1, 1]
+    assert summary["activation_render_px"] == [1, 1]
+    assert summary["irradiance_native_px"] == [1, 1]
     assert summary["species_summaries"]["human"]["stimulated_receptor_count"] == 4.0
     assert summary["species_summaries"]["human"]["diagnostics"]["summary_json"] == "diagnostics/human/summary.json"
 
@@ -257,6 +267,7 @@ def test_main_run_dir_supports_measured_spectrum(monkeypatch):
             scene_width_m,
             viewing_distance_m,
             input_mode,
+            artifact_render_longest_edge_px=None,
         ):
             assert isinstance(input_image, SpectralImage)
             return {species: _fake_result(input_mode) for species in species_list}
@@ -296,3 +307,74 @@ def test_main_run_dir_supports_measured_spectrum(monkeypatch):
     assert summary["scene_input_mode"] == "measured_spectrum"
     assert summary["scene_input_is_inferred"] is False
     assert (run_dir / "comparison.png").exists()
+
+
+def test_main_render_longest_edge_changes_output_size_and_summary(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeSimulator:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def compare_species(
+            self,
+            input_image,
+            species_list,
+            scene_width_m,
+            viewing_distance_m,
+            input_mode,
+            artifact_render_longest_edge_px=None,
+        ):
+            captured["artifact_render_longest_edge_px"] = artifact_render_longest_edge_px
+            return {species: _fake_result(input_mode) for species in species_list}
+
+    tmp_path = _workspace_tmp("render_longest_edge")
+    input_path = tmp_path / "input.png"
+    input_path.write_bytes(b"placeholder")
+    run_dir = tmp_path / "bundle"
+    output_path = tmp_path / "render.png"
+
+    monkeypatch.setattr(
+        render_scene,
+        "_load_input",
+        lambda path, mode: np.zeros((8, 16, 3), dtype=np.float32),
+    )
+    monkeypatch.setattr(render_scene, "RetinalSimulator", FakeSimulator)
+    monkeypatch.setattr(
+        render_scene,
+        "render_perceptual_image",
+        lambda result, grid_shape: np.zeros((*grid_shape, 3), dtype=np.float32),
+    )
+
+    rc = render_scene.main(
+        [
+            str(input_path),
+            "--species",
+            "human",
+            "--output",
+            str(output_path),
+            "--run-dir",
+            str(run_dir),
+            "--render-longest-edge",
+            "64",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["artifact_render_longest_edge_px"] == 64
+
+    output_size = Image.open(output_path).size
+    bundle_size = Image.open(run_dir / "comparison.png").size
+    assert output_size[1] == 32
+    assert bundle_size[1] == 32
+
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["native_input_patch_px"] == [1, 2]
+    assert summary["activation_render_px"] == [32, 64]
+    assert summary["irradiance_native_px"] == [1, 2]
+    assert summary["patch_geometry"]["patch_deg"] == 2.0
+
+
+def test_render_shape_from_longest_edge_preserves_aspect_ratio():
+    assert render_scene._render_shape_from_longest_edge((8, 16), 64) == (32, 64)
+    assert render_scene._render_shape_from_longest_edge((16, 8), 64) == (64, 32)

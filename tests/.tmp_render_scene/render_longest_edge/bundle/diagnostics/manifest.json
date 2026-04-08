@@ -1,6 +1,6 @@
 {
   "run_metadata": {
-    "input_path": "tests\\.tmp_render_scene\\diagnostics\\input.png",
+    "input_path": "tests\\.tmp_render_scene\\render_longest_edge\\input.png",
     "species": [
       "human"
     ],
@@ -15,29 +15,29 @@
       "cropped": true,
       "crop_fraction": 0.1403505551470255,
       "full_angular_width_deg": 14.250032697803595,
-      "full_angular_height_deg": 14.250032697803595,
+      "full_angular_height_deg": 7.152668749994702,
       "cropped_angular_width_deg": 2.0,
-      "cropped_angular_height_deg": 2.0,
+      "cropped_angular_height_deg": 1.0038810298445373,
       "full_scene_width_m": 0.5,
-      "full_scene_height_m": 0.5,
+      "full_scene_height_m": 0.25,
       "cropped_scene_width_m": 0.07017527757351275,
-      "cropped_scene_height_m": 0.07017527757351275,
-      "input_width_px": 8,
+      "cropped_scene_height_m": 0.03508763878675637,
+      "input_width_px": 16,
       "input_height_px": 8,
-      "cropped_width_px": 1,
+      "cropped_width_px": 2,
       "cropped_height_px": 1,
       "patch_deg": 2.0,
       "distance_m": 2.0
     },
-    "output_path": "tests\\.tmp_render_scene\\diagnostics\\render.png",
-    "render_longest_edge_px": null,
+    "output_path": "tests\\.tmp_render_scene\\render_longest_edge\\bundle\\comparison.png",
+    "render_longest_edge_px": 64,
     "activation_render_px": [
-      1,
-      1
+      32,
+      64
     ],
     "native_input_patch_px": [
       1,
-      1
+      2
     ]
   },
   "species": {

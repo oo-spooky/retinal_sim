@@ -1,7 +1,7 @@
 """Structured diagnostic builders for Phase R6 traceable output families."""
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -14,6 +14,7 @@ _SELECTED_WAVELENGTHS_NM = (420.0, 530.0, 650.0)
 def build_retinal_irradiance_diagnostics(
     spectral_image: Any,
     retinal_irradiance: Any,
+    native_input_shape: Optional[tuple[int, int]] = None,
 ) -> Dict[str, Any]:
     """Build deterministic retinal-irradiance summaries from pipeline state."""
     data = np.asarray(retinal_irradiance.data, dtype=np.float32)
@@ -96,6 +97,11 @@ def build_retinal_irradiance_diagnostics(
             "This family records where scene-spectrum assumptions and anterior-eye "
             "optical effects altered the retinally delivered light before receptor sampling."
         ),
+        "native_input_patch_px": (
+            [int(native_input_shape[0]), int(native_input_shape[1])]
+            if native_input_shape is not None else None
+        ),
+        "irradiance_native_px": [int(data.shape[0]), int(data.shape[1])],
         "delivered_spectrum_summary": {
             "wavelengths_nm": wavelengths.astype(float).tolist(),
             "source_mean_by_wavelength": source_mean.astype(float).tolist(),
@@ -123,6 +129,9 @@ def build_photoreceptor_activation_diagnostics(
     receptor_cols: np.ndarray,
     stimulated_mask: np.ndarray,
     input_shape: tuple[int, int],
+    overlay_rows: Optional[np.ndarray] = None,
+    overlay_cols: Optional[np.ndarray] = None,
+    overlay_shape: Optional[tuple[int, int]] = None,
 ) -> Dict[str, Any]:
     """Build deterministic receptor-sampling and activation summaries."""
     responses = np.asarray(activation.responses, dtype=np.float32)
@@ -148,8 +157,14 @@ def build_photoreceptor_activation_diagnostics(
             }
         )
 
+    overlay_rows = receptor_rows if overlay_rows is None else overlay_rows
+    overlay_cols = receptor_cols if overlay_cols is None else overlay_cols
+    overlay_shape = input_shape if overlay_shape is None else overlay_shape
+
     footprint = {
         "input_shape": [int(input_shape[0]), int(input_shape[1])],
+        "native_input_patch_px": [int(input_shape[0]), int(input_shape[1])],
+        "activation_render_px": [int(overlay_shape[0]), int(overlay_shape[1])],
         "stimulated_receptor_count": int(np.sum(stimulated_mask)),
         "stimulated_receptor_fraction": float(np.mean(stimulated_mask)) if stimulated_mask.size else 0.0,
         "scene_covers_patch_fraction": float(getattr(scene, "scene_covers_patch_fraction", 0.0)),
@@ -180,11 +195,11 @@ def build_photoreceptor_activation_diagnostics(
             "label": "Stimulated receptor footprint overlay",
             "image_kind": "rgb",
             "image_data": _build_mosaic_overlay(
-                receptor_rows=receptor_rows,
-                receptor_cols=receptor_cols,
+                receptor_rows=overlay_rows,
+                receptor_cols=overlay_cols,
                 types=types,
                 stimulated_mask=stimulated_mask,
-                image_shape=input_shape,
+                image_shape=overlay_shape,
             ),
         },
         "retinal_physiology_summary": activation.metadata.get("retinal_physiology", {}),
@@ -194,9 +209,10 @@ def build_photoreceptor_activation_diagnostics(
 def build_comparative_renderings(
     activation: Any,
     input_shape: tuple[int, int],
+    output_shape: Optional[tuple[int, int]] = None,
 ) -> Dict[str, Any]:
     """Build claim-calibrated human-readable rendering artifacts."""
-    output_size = _render_output_size(input_shape)
+    output_size = output_shape if output_shape is not None else _render_output_size(input_shape)
     voronoi = render_voronoi(activation, output_size=output_size)
     reconstructed = render_reconstructed(activation, grid_shape=output_size)
     return {
@@ -207,6 +223,8 @@ def build_comparative_renderings(
             "or cortical reconstructions, and they should not be read as what the animal "
             "consciously sees."
         ),
+        "native_input_patch_px": [int(input_shape[0]), int(input_shape[1])],
+        "activation_render_px": [int(output_size[0]), int(output_size[1])],
         "items": [
             {
                 "id": "comparative_activation_map",

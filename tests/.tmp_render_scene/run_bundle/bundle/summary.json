@@ -29,6 +29,18 @@
     "patch_deg": 2.0,
     "distance_m": 2.0
   },
+  "native_input_patch_px": [
+    1,
+    1
+  ],
+  "activation_render_px": [
+    1,
+    1
+  ],
+  "irradiance_native_px": [
+    1,
+    1
+  ],
   "scope_note": "This bundle summarizes a retinal-front-end comparison. The outputs expose traceable retinal irradiance diagnostics, photoreceptor activation diagnostics, and retinal-information renderings. They are not direct conscious-perception, retinal-circuit, or cortical reconstructions.",
   "paths": {
     "comparison_png": "comparison.png",
@@ -41,6 +53,18 @@
   "species_summaries": {
     "human": {
       "species": "human",
+      "native_input_patch_px": [
+        4,
+        4
+      ],
+      "activation_render_px": [
+        4,
+        4
+      ],
+      "irradiance_native_px": [
+        4,
+        4
+      ],
       "stimulated_receptor_count": 4.0,
       "stimulated_receptor_fraction": 1.0,
       "mean_response": 0.25,

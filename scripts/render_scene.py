@@ -202,6 +202,51 @@ def _input_preview_image(input_data: np.ndarray | SpectralImage) -> np.ndarray:
     return np.asarray(input_data, dtype=np.float32)
 
 
+def _render_shape_from_longest_edge(
+    image_shape: tuple[int, int],
+    longest_edge_px: int | None,
+) -> tuple[int, int]:
+    height, width = int(image_shape[0]), int(image_shape[1])
+    if longest_edge_px is None:
+        return (height, width)
+    longest_edge_px = max(int(longest_edge_px), 1)
+    longest = max(height, width, 1)
+    scale = float(longest_edge_px) / float(longest)
+    return (
+        max(1, int(round(height * scale))),
+        max(1, int(round(width * scale))),
+    )
+
+
+def _fit_input_preview_to_shape(
+    preview: np.ndarray,
+    target_shape: tuple[int, int],
+) -> np.ndarray:
+    """Match the comparison-panel render shape without fake preview upscaling."""
+    arr = np.asarray(preview, dtype=np.float32)
+    target_h, target_w = int(target_shape[0]), int(target_shape[1])
+    height, width = arr.shape[:2]
+
+    if (height, width) == (target_h, target_w):
+        return arr
+
+    if target_h >= height and target_w >= width:
+        canvas = np.zeros((target_h, target_w, arr.shape[2]), dtype=np.float32)
+        y0 = (target_h - height) // 2
+        x0 = (target_w - width) // 2
+        canvas[y0 : y0 + height, x0 : x0 + width, :] = arr
+        return canvas
+
+    try:
+        from PIL import Image
+    except ImportError:
+        return arr
+
+    pil = Image.fromarray(np.clip(arr * 255.0, 0, 255).astype(np.uint8))
+    resized = pil.resize((target_w, target_h), resample=Image.Resampling.NEAREST)
+    return np.asarray(resized, dtype=np.float32) / 255.0
+
+
 def _save_panel(panel: np.ndarray, path: Path) -> None:
     from PIL import Image
 
@@ -273,10 +318,24 @@ def _save_diagnostics_bundle(
 
         irradiance = result.artifacts.get("retinal_irradiance_diagnostics", {})
         activation = result.artifacts.get("photoreceptor_activation_diagnostics", {})
+        comparative = result.artifacts.get("comparative_renderings", {})
+        activation_render_px = result.artifacts.get("artifact_render_shape")
+        if activation_render_px is None:
+            activation_render_px = comparative.get("activation_render_px")
         summary_payload = {
             "species": species_name,
             "scene_input_mode": result.metadata.get("scene_input_mode"),
             "scene_input_assumptions": result.metadata.get("scene_input_assumptions", []),
+            "native_input_patch_px": result.artifacts.get("input_shape"),
+            "activation_render_px": activation_render_px,
+            "irradiance_native_px": list(
+                np.asarray(
+                    result.artifacts.get("retinal_irradiance_diagnostics", {}).get(
+                        "irradiance_native_px", []
+                    ),
+                    dtype=int,
+                ).tolist()
+            ),
             "retinal_irradiance_summary": {
                 "traceability_note": irradiance.get("traceability_note"),
                 "delivered_spectrum_summary": irradiance.get("delivered_spectrum_summary", {}),
@@ -346,9 +405,21 @@ def _species_run_summary(
         .get("photoreceptor_activation_diagnostics", {})
         .get("retinal_physiology_summary", {})
     )
+    native_input_patch_px = result.artifacts.get("input_shape")
+    activation_render_px = result.artifacts.get("artifact_render_shape")
+    if activation_render_px is None:
+        activation_render_px = result.artifacts.get("comparative_renderings", {}).get(
+            "activation_render_px"
+        )
+    irradiance_native_px = result.artifacts.get("retinal_irradiance_diagnostics", {}).get(
+        "irradiance_native_px"
+    )
 
     payload = {
         "species": species_name,
+        "native_input_patch_px": native_input_patch_px,
+        "activation_render_px": activation_render_px,
+        "irradiance_native_px": irradiance_native_px,
         "stimulated_receptor_count": summary_metrics.get(
             "stimulated_receptor_count",
             sampling_summary.get("stimulated_receptor_count"),
@@ -385,6 +456,8 @@ def _build_run_summary(
     diagnostics_manifest: str,
     diagnostics_manifest_payload: dict,
     results: dict,
+    native_input_shape: tuple[int, int],
+    activation_render_shape: tuple[int, int],
     extra_output_path: str | None = None,
     extra_diagnostics_dir: str | None = None,
 ) -> dict:
@@ -415,6 +488,9 @@ def _build_run_summary(
         "scene_input_is_inferred": scene_meta["scene_input_is_inferred"],
         "scene_input_assumptions": scene_meta["scene_input_assumptions"],
         "patch_geometry": crop_info,
+        "native_input_patch_px": [int(native_input_shape[0]), int(native_input_shape[1])],
+        "activation_render_px": [int(activation_render_shape[0]), int(activation_render_shape[1])],
+        "irradiance_native_px": [int(native_input_shape[0]), int(native_input_shape[1])],
         "scope_note": (
             "This bundle summarizes a retinal-front-end comparison. The outputs expose "
             "traceable retinal irradiance diagnostics, photoreceptor activation "
@@ -510,6 +586,9 @@ ul {{ margin-top: 8px; }}
   <p><strong>Species:</strong> {", ".join(summary["species"])}</p>
   <p><strong>Patch geometry:</strong> full scene {crop["full_angular_width_deg"]:.2f} x {crop["full_angular_height_deg"]:.2f} deg, simulated patch {crop["cropped_angular_width_deg"]:.2f} x {crop["cropped_angular_height_deg"]:.2f} deg.</p>
   <p><strong>Cropping applied:</strong> {"yes" if crop["cropped"] else "no"}</p>
+  <p><strong>Native input patch:</strong> {summary["native_input_patch_px"][1]} x {summary["native_input_patch_px"][0]} px</p>
+  <p><strong>Activation render grid:</strong> {summary["activation_render_px"][1]} x {summary["activation_render_px"][0]} px</p>
+  <p><strong>Irradiance images:</strong> native {summary["irradiance_native_px"][1]} x {summary["irradiance_native_px"][0]} px (not upscaled)</p>
 </div>
 
 <h2>Scene assumptions</h2>
@@ -543,6 +622,7 @@ ul {{ margin-top: 8px; }}
 <div class="panel">
   <p><a href="{summary["paths"]["diagnostics_manifest_json"]}">Diagnostics manifest</a></p>
   <p>The diagnostics directory exposes retinal irradiance diagnostics, photoreceptor activation diagnostics, and claim-calibrated retinal-information renderings for each species.</p>
+  <p><strong>Resolution note:</strong> <code>--patch-deg</code> changes the simulated retinal field of view. <code>--render-longest-edge</code> changes only the activation/perceptual render density for the same simulated patch. Irradiance-family images remain at their native simulation raster.</p>
 </div>
 </body>
 </html>"""
@@ -583,7 +663,7 @@ def main(argv: list[str] | None = None) -> int:
         "--patch-deg",
         type=float,
         default=2.0,
-        help="Simulated retinal patch extent in degrees.",
+        help="Simulated retinal patch extent in degrees (field of view, not output pixel density).",
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--stimulus-scale", type=float, default=0.01)
@@ -614,6 +694,16 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional comparison image path. Defaults to reports/render_scene.png unless --run-dir is used.",
     )
+    parser.add_argument(
+        "--render-longest-edge",
+        type=int,
+        default=None,
+        help=(
+            "Optional longest edge in pixels for activation-derived renderings of the "
+            "same simulated patch. This does not change patch field of view or upscale "
+            "irradiance-family images."
+        ),
+    )
     args = parser.parse_args(argv_list)
 
     if not args.image.exists():
@@ -634,6 +724,10 @@ def main(argv: list[str] | None = None) -> int:
     sim_scene_width_m = crop_info["cropped_scene_width_m"]
     preview = _input_preview_image(cropped_input)
     preview_h, preview_w = preview.shape[:2]
+    render_shape = _render_shape_from_longest_edge(
+        (preview_h, preview_w),
+        args.render_longest_edge,
+    )
 
     print(
         "Scene semantics: "
@@ -671,14 +765,16 @@ def main(argv: list[str] | None = None) -> int:
         scene_width_m=sim_scene_width_m,
         viewing_distance_m=args.distance_m,
         input_mode=args.input_mode,
+        artifact_render_longest_edge_px=args.render_longest_edge,
     )
 
     input_label = "input (patch)"
     if args.input_mode == "measured_spectrum":
         input_label = "input spectrum (patch)"
-    panels = [_label(preview, input_label)]
+    preview_panel = _fit_input_preview_to_shape(preview, render_shape)
+    panels = [_label(preview_panel, input_label)]
     for species_name in args.species:
-        rendered = render_perceptual_image(results[species_name], grid_shape=(preview_h, preview_w))
+        rendered = render_perceptual_image(results[species_name], grid_shape=render_shape)
         panels.append(_label(rendered, species_name))
 
     panel = np.concatenate(panels, axis=1)
@@ -709,6 +805,9 @@ def main(argv: list[str] | None = None) -> int:
             run_metadata={
                 **run_metadata,
                 "output_path": str(primary_output) if primary_output is not None else None,
+                "render_longest_edge_px": args.render_longest_edge,
+                "activation_render_px": list(render_shape),
+                "native_input_patch_px": [int(preview_h), int(preview_w)],
             },
         )
         print(f"Saved diagnostics to {args.diagnostics_dir}")
@@ -728,6 +827,9 @@ def main(argv: list[str] | None = None) -> int:
             run_metadata={
                 **run_metadata,
                 "output_path": str(bundle_output),
+                "render_longest_edge_px": args.render_longest_edge,
+                "activation_render_px": list(render_shape),
+                "native_input_patch_px": [int(preview_h), int(preview_w)],
             },
         )
         if diagnostics_manifest is None:
@@ -742,6 +844,8 @@ def main(argv: list[str] | None = None) -> int:
             diagnostics_manifest="diagnostics/manifest.json",
             diagnostics_manifest_payload=bundle_manifest,
             results=results,
+            native_input_shape=(preview_h, preview_w),
+            activation_render_shape=render_shape,
             extra_output_path=str(primary_output) if primary_output is not None else None,
             extra_diagnostics_dir=str(args.diagnostics_dir) if args.diagnostics_dir is not None else None,
         )

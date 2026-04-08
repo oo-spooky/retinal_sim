@@ -29,7 +29,16 @@
       "patch_deg": 2.0,
       "distance_m": 2.0
     },
-    "output_path": "tests\\.tmp_render_scene\\run_bundle\\bundle\\comparison.png"
+    "output_path": "tests\\.tmp_render_scene\\run_bundle\\bundle\\comparison.png",
+    "render_longest_edge_px": null,
+    "activation_render_px": [
+      1,
+      1
+    ],
+    "native_input_patch_px": [
+      1,
+      1
+    ]
   },
   "species": {
     "human": {

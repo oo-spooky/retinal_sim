@@ -541,6 +541,31 @@ class TestSimulateSingleSpecies:
     def test_simulate_marks_media_transmission_applied(self, human_result: SimulationResult):
         assert human_result.retinal_irradiance.metadata["media_transmission_applied"] is True
 
+    def test_simulate_artifact_render_longest_edge_changes_activation_artifacts_only(
+        self,
+        human_sim: RetinalSimulator,
+    ):
+        image = _random_image(height=16, width=32, seed=24)
+        result = human_sim.simulate(
+            image,
+            seed=SEED,
+            input_mode=INPUT_MODE,
+            artifact_render_longest_edge_px=128,
+        )
+
+        assert result.artifacts["input_shape"] == (16, 32)
+        assert result.artifacts["artifact_render_shape"] == (64, 128)
+        overlay = result.artifacts["photoreceptor_activation_diagnostics"]["mosaic_footprint_overlay"]["image_data"]
+        assert overlay.shape == (64, 128, 3)
+        renderings = result.artifacts["comparative_renderings"]
+        assert renderings["activation_render_px"] == [64, 128]
+        for item in renderings["items"]:
+            assert np.asarray(item["image_data"]).shape[:2] == (64, 128)
+        irradiance = result.artifacts["retinal_irradiance_diagnostics"]
+        assert irradiance["native_input_patch_px"] == [16, 32]
+        assert irradiance["irradiance_native_px"] == [16, 32]
+        assert np.asarray(irradiance["band_composite"]["image_data"]).shape[:2] == (16, 32)
+
 
 class TestCompareSpecies:
     def test_compare_returns_dict_with_all_species(self, comparison_results: dict[str, SimulationResult]):
@@ -658,6 +683,26 @@ class TestCompareSpecies:
     def test_phase_r1_anisotropy_metadata_preserved(self, comparison_results: dict[str, SimulationResult]):
         assert comparison_results["human"].retinal_irradiance.metadata["anisotropy_active"] is False
         assert comparison_results["cat"].retinal_irradiance.metadata["anisotropy_active"] is True
+
+    def test_compare_species_propagates_artifact_render_longest_edge(
+        self,
+        human_sim: RetinalSimulator,
+        base_image: np.ndarray,
+    ):
+        results = human_sim.compare_species(
+            base_image,
+            ["human", "dog"],
+            seed=SEED,
+            input_mode=INPUT_MODE,
+            artifact_render_longest_edge_px=96,
+        )
+        for result in results.values():
+            assert result.artifacts["artifact_render_shape"] == (96, 96)
+            overlay = result.artifacts["photoreceptor_activation_diagnostics"]["mosaic_footprint_overlay"]["image_data"]
+            assert overlay.shape == (96, 96, 3)
+            assert np.asarray(
+                result.artifacts["retinal_irradiance_diagnostics"]["band_composite"]["image_data"]
+            ).shape[:2] == result.artifacts["input_shape"]
 
 
 class TestEndToEndColorDeficit:

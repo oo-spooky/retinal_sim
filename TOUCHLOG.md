@@ -25,3 +25,9 @@ Scope: Implemented the explorer-facing run bundle workflow, surfaced remediation
 Changed/Reviewed: PROGRESS.md, TOUCHLOG.md, scripts/render_scene.py, scripts/status_report.py, tests/test_render_scene.py, tests/test_status_report.py
 Outcome: Added `M1`-`M3` milestone tracking to `PROGRESS.md`, taught the status report to render milestone status, added `--run-dir` bundle generation with `comparison.png` / `summary.json` / `index.html` / `diagnostics/`, and verified the new behavior with focused tests.
 Handoff: The new beginner workflow is centered on `python scripts/render_scene.py ... --run-dir <dir>`; next useful work would be polishing the bundle HTML or extending the status page if you want milestone caveats and review items cross-linked more tightly.
+
+2026-04-07 18:23 MDT | Codex | true render-resolution control
+Scope: Added non-fake render-density controls for activation-derived outputs, kept irradiance-family images native, and extended pipeline/CLI tests to cover the new shape metadata.
+Changed/Reviewed: TOUCHLOG.md, retinal_sim/output/diagnostics.py, retinal_sim/pipeline.py, scripts/render_scene.py, tests/test_output.py, tests/test_pipeline.py, tests/test_render_scene.py, tests/.tmp_render_scene/...
+Outcome: Added `artifact_render_longest_edge_px` to the pipeline, added `--render-longest-edge` to the render CLI, re-rendered activation/perceptual outputs on denser grids without upscaling irradiance images, and regenerated the tracked render-scene fixture bundle outputs to match the new deterministic summaries.
+Handoff: The new control only increases render density for activation-derived outputs; if you want more true optical detail in the same patch, the next lever is higher native input patch raster or scene sampling, not a bigger render grid.

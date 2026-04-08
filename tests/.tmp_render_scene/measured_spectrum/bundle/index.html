@@ -29,6 +29,9 @@ ul { margin-top: 8px; }
   <p><strong>Species:</strong> human</p>
   <p><strong>Patch geometry:</strong> full scene 14.25 x 14.25 deg, simulated patch 2.00 x 2.00 deg.</p>
   <p><strong>Cropping applied:</strong> yes</p>
+  <p><strong>Native input patch:</strong> 1 x 1 px</p>
+  <p><strong>Activation render grid:</strong> 1 x 1 px</p>
+  <p><strong>Irradiance images:</strong> native 1 x 1 px (not upscaled)</p>
 </div>
 
 <h2>Scene assumptions</h2>
@@ -62,6 +65,7 @@ ul { margin-top: 8px; }
 <div class="panel">
   <p><a href="diagnostics/manifest.json">Diagnostics manifest</a></p>
   <p>The diagnostics directory exposes retinal irradiance diagnostics, photoreceptor activation diagnostics, and claim-calibrated retinal-information renderings for each species.</p>
+  <p><strong>Resolution note:</strong> <code>--patch-deg</code> changes the simulated retinal field of view. <code>--render-longest-edge</code> changes only the activation/perceptual render density for the same simulated patch. Irradiance-family images remain at their native simulation raster.</p>
 </div>
 </body>
 </html>

@@ -367,9 +367,15 @@ class TestDiagnosticBuilders:
                 "psf_sigma_px_y": [1.0] * N_WL,
             },
         )
-        diagnostics = build_retinal_irradiance_diagnostics(spectral, irradiance)
+        diagnostics = build_retinal_irradiance_diagnostics(
+            spectral,
+            irradiance,
+            native_input_shape=(6, 6),
+        )
 
         assert diagnostics["family_label"] == "retinal irradiance diagnostics"
+        assert diagnostics["native_input_patch_px"] == [6, 6]
+        assert diagnostics["irradiance_native_px"] == [6, 6]
         assert "delivered_spectrum_summary" in diagnostics
         assert "selected_wavelength_slices" in diagnostics
         assert len(diagnostics["selected_wavelength_slices"]) == 3
@@ -394,20 +400,34 @@ class TestDiagnosticBuilders:
             receptor_cols=np.arange(12, dtype=int) % 6,
             stimulated_mask=np.array([True] * 8 + [False] * 4),
             input_shape=(6, 6),
+            overlay_rows=np.arange(12, dtype=int) % 12,
+            overlay_cols=np.arange(12, dtype=int) % 12,
+            overlay_shape=(12, 12),
         )
 
         assert diagnostics["family_label"] == "photoreceptor activation diagnostics"
         assert diagnostics["overall_summary"]["n_receptors"] == 12
         assert len(diagnostics["response_summary_by_type"]) == 4
         assert diagnostics["sampling_footprint_summary"]["stimulated_receptor_count"] == 8
-        assert diagnostics["mosaic_footprint_overlay"]["image_data"].shape == (6, 6, 3)
+        assert diagnostics["sampling_footprint_summary"]["native_input_patch_px"] == [6, 6]
+        assert diagnostics["sampling_footprint_summary"]["activation_render_px"] == [12, 12]
+        assert diagnostics["mosaic_footprint_overlay"]["image_data"].shape == (12, 12, 3)
 
     def test_build_comparative_renderings_are_claim_calibrated(self):
         activation = _make_activation(n=20, seed=3)
-        diagnostics = build_comparative_renderings(activation, input_shape=(24, 24))
+        diagnostics = build_comparative_renderings(
+            activation,
+            input_shape=(24, 24),
+            output_shape=(48, 48),
+        )
 
         assert diagnostics["family_label"] == "comparative renderings"
         assert "not direct perceptual" in diagnostics["scope_note"]
+        assert diagnostics["native_input_patch_px"] == [24, 24]
+        assert diagnostics["activation_render_px"] == [48, 48]
         labels = [item["label"] for item in diagnostics["items"]]
         assert "Retinal-information rendering" in labels
         assert any("Comparative rendering" in label for label in labels)
+        for item in diagnostics["items"]:
+            shape = np.asarray(item["image_data"]).shape[:2]
+            assert shape == (48, 48)

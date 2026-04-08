@@ -112,6 +112,7 @@ class RetinalSimulator:
         viewing_distance_m: float = float("inf"),
         seed: Optional[int] = None,
         input_mode: Optional[str] = None,
+        artifact_render_longest_edge_px: Optional[int] = None,
     ) -> SimulationResult:
         """Run the full pipeline on a single image for this simulator's species.
 
@@ -125,6 +126,9 @@ class RetinalSimulator:
             input_mode: One of ``reflectance_under_d65``, ``display_rgb``, or
                 ``measured_spectrum``. If omitted for RGB input, defaults to
                 ``reflectance_under_d65`` with a compatibility warning.
+            artifact_render_longest_edge_px: Optional longest edge in pixels for
+                activation-derived artifact families. This changes render density
+                only; irradiance artifacts remain at native input resolution.
 
         Returns:
             SimulationResult with all intermediate outputs.
@@ -180,6 +184,7 @@ class RetinalSimulator:
             mosaic=mosaic,
             activation=activation,
             input_image=input_image,
+            artifact_render_longest_edge_px=artifact_render_longest_edge_px,
         )
         temp_result = SimulationResult(
             scene=scene,
@@ -216,6 +221,7 @@ class RetinalSimulator:
         viewing_distance_m: float = float("inf"),
         seed: Optional[int] = None,
         input_mode: Optional[str] = None,
+        artifact_render_longest_edge_px: Optional[int] = None,
     ) -> Dict[str, SimulationResult]:
         """Run the same image through multiple species pipelines.
 
@@ -229,6 +235,8 @@ class RetinalSimulator:
             viewing_distance_m: Eye-to-scene distance (metres).
             seed: Mosaic random seed override.
             input_mode: Explicit scene-spectrum semantics.
+            artifact_render_longest_edge_px: Optional longest edge in pixels for
+                activation-derived artifact families.
 
         Returns:
             Dict mapping species name → SimulationResult.
@@ -246,6 +254,7 @@ class RetinalSimulator:
                 input_image, scene_width_m, viewing_distance_m,
                 seed=seed,
                 input_mode=input_mode,
+                artifact_render_longest_edge_px=artifact_render_longest_edge_px,
             )
         return results
 
@@ -293,6 +302,7 @@ class RetinalSimulator:
         mosaic: PhotoreceptorMosaic,
         activation: MosaicActivation,
         input_image: Union[np.ndarray, SpectralImage],
+        artifact_render_longest_edge_px: Optional[int] = None,
     ) -> dict:
         """Build lightweight derived artifacts used by validation and demos."""
         class _ResultLike:
@@ -302,16 +312,35 @@ class RetinalSimulator:
 
         result_like = _ResultLike(scene, mosaic)
         image_shape = self._input_shape(input_image)
+        artifact_render_shape = (
+            self._artifact_render_shape(image_shape, artifact_render_longest_edge_px)
+            if artifact_render_longest_edge_px is not None
+            else None
+        )
         rows, cols = receptor_pixel_coordinates(result_like, image_shape)
         stimulated_mask = stimulated_receptor_mask(result_like, image_shape)
+        render_rows = render_cols = None
+        if artifact_render_shape is not None:
+            render_rows, render_cols = self._scene_pixel_coordinates(
+                scene,
+                mosaic.positions,
+                artifact_render_shape,
+            )
         return {
             "input_shape": tuple(int(v) for v in image_shape),
+            "artifact_render_shape": (
+                tuple(int(v) for v in artifact_render_shape)
+                if artifact_render_shape is not None else None
+            ),
             "receptor_rows": rows,
             "receptor_cols": cols,
+            "render_receptor_rows": render_rows,
+            "render_receptor_cols": render_cols,
             "stimulated_receptor_mask": stimulated_mask,
             "retinal_irradiance_diagnostics": build_retinal_irradiance_diagnostics(
                 spectral_image=spectral_image,
                 retinal_irradiance=retinal_irradiance,
+                native_input_shape=image_shape,
             ),
             "photoreceptor_activation_diagnostics": build_photoreceptor_activation_diagnostics(
                 scene=scene,
@@ -321,12 +350,63 @@ class RetinalSimulator:
                 receptor_cols=cols,
                 stimulated_mask=stimulated_mask,
                 input_shape=image_shape,
+                overlay_rows=render_rows,
+                overlay_cols=render_cols,
+                overlay_shape=artifact_render_shape,
             ),
             "comparative_renderings": build_comparative_renderings(
                 activation=activation,
                 input_shape=image_shape,
+                output_shape=artifact_render_shape,
             ),
         }
+
+    def _artifact_render_shape(
+        self,
+        input_shape: tuple[int, int],
+        longest_edge_px: Optional[int],
+    ) -> tuple[int, int]:
+        """Return the activation-artifact render grid for a native input shape."""
+        height, width = int(input_shape[0]), int(input_shape[1])
+        if longest_edge_px is None:
+            return (height, width)
+        longest_edge_px = max(int(longest_edge_px), 1)
+        longest = max(height, width, 1)
+        scale = float(longest_edge_px) / float(longest)
+        return (
+            max(1, int(round(height * scale))),
+            max(1, int(round(width * scale))),
+        )
+
+    def _scene_pixel_coordinates(
+        self,
+        scene: SceneDescription,
+        positions: np.ndarray,
+        image_shape: tuple[int, int],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Map receptor positions onto an arbitrary scene-aligned output grid."""
+        height, width = int(image_shape[0]), int(image_shape[1])
+        width_mm = float(getattr(scene, "retinal_width_mm", 0.0))
+        height_mm = float(getattr(scene, "retinal_height_mm", 0.0))
+
+        if width_mm <= 0.0 or height_mm <= 0.0:
+            mm_per_pixel = float(np.asarray(scene.mm_per_pixel).flat[0])
+            mm_per_pixel_x = mm_per_pixel_y = mm_per_pixel
+        else:
+            mm_per_pixel_x = width_mm / max(width, 1)
+            mm_per_pixel_y = height_mm / max(height, 1)
+
+        cols = np.clip(
+            np.round(positions[:, 0] / mm_per_pixel_x + (width - 1) / 2.0).astype(int),
+            0,
+            width - 1,
+        )
+        rows = np.clip(
+            np.round(positions[:, 1] / mm_per_pixel_y + (height - 1) / 2.0).astype(int),
+            0,
+            height - 1,
+        )
+        return rows, cols
 
     def _resolve_input_mode(
         self,
